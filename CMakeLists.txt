@@ -30,6 +30,8 @@ set(source_files
     source/graphics/shader.h
     source/graphics/vertex_array.cpp
     source/graphics/vertex_array.h
+    source/camera.cpp
+    source/camera.h
 )
 
 set(source_files_external
@@ -43,6 +45,7 @@ add_executable(emce ${source_files} ${source_files_external})
 
 target_include_directories(emce
     PUBLIC source
+    PUBLIC external
     PUBLIC source/graphics
     PUBLIC external/SDL2/include
     PUBLIC external/glew/include/GL

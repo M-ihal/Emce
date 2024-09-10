@@ -11,6 +11,7 @@
 #include "shader.h"
 #include "vertex_array.h"
 #include "math_types.h"
+#include "camera.h"
 
 int SDL_main(int argc, char *argv[]) {
     const bool sdl_success = SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) == 0;
@@ -40,12 +41,14 @@ int SDL_main(int argc, char *argv[]) {
         layout (location = 1) in vec3 a_color;
 
         uniform mat4 u_proj;
+        uniform mat4 u_view;
+        uniform mat4 u_model;
 
         out vec3 v_color;
 
         void main() {
             v_color = a_color;
-            gl_Position = u_proj * vec4(a_position, 1.0);
+            gl_Position = u_proj * u_view * u_model * vec4(a_position, 1.0);
         }
     )";
 
@@ -59,6 +62,10 @@ int SDL_main(int argc, char *argv[]) {
             f_color = vec4(v_color, 1);
         }
     )";
+
+    Camera camera;
+    camera.set_position({ 0.0f, 0.0f, -5.0f });
+    camera.set_rotation({ DEG_TO_RAD(90.0f), 0.0f });
 
     Shader shader;
     if(!shader.load_from_memory(vs, strlen(vs), fs, strlen(fs))) {
@@ -91,8 +98,6 @@ int SDL_main(int argc, char *argv[]) {
     vao.add_index_buffer(inds, ARRAY_COUNT(inds), ArrayBufferUsage::STATIC);
     vao.apply_vertex_attributes();
 
-    mat4 projection = mat4::orthographic(0.0f, 0.0f, 1.0f, 1.0f, -1.0f, 1.0f);
-
     while(window.is_running()) {
         window.process_events(input);
 
@@ -100,16 +105,54 @@ int SDL_main(int argc, char *argv[]) {
             window.should_quit();
         }
 
+
+        vec3 pos = camera.get_position();
+
+        if(input.key_is_down(Key::W)) {
+            pos.z += 0.05f;
+        }
+
+        if(input.key_is_down(Key::S)) {
+            pos.z -= 0.05f;
+        }
+
+        if(input.key_is_down(Key::A)) {
+            pos.x -= 0.05f;
+        }
+
+        if(input.key_is_down(Key::D)) {
+            pos.x += 0.05f;
+        }
+
+        vec2 rot = camera.get_rotation();
+
+        if(input.key_is_down(Key::LEFT)) {
+            rot.x -= 0.05f;
+        }
+
+        if(input.key_is_down(Key::RIGHT)) {
+            rot.x += 0.05f;
+        }
+
+        camera.set_rotation(rot);
+        camera.set_position(pos);
+
+        mat4 proj_m = camera.calc_proj((float)window.width() / (float)window.height());
+        mat4 view_m = camera.calc_view();
+
+    //        PRINT_FLOAT(camera.rotation_x());
+
+    //PRINT_FLOAT(camera.m_position.x);
+    //PRINT_FLOAT(camera.m_position.z);
         glViewport(0, 0, window.width(), window.height());
 
         GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
-        PRINT_INT(window.width());
-        PRINT_INT(window.height());
-
         shader.use_program();
-        shader.upload_mat4("u_proj", projection.e);
+        shader.upload_mat4("u_proj", proj_m.e);
+        shader.upload_mat4("u_view", view_m.e);
+        shader.upload_mat4("u_model", mat4::identity().e);
 
         vao.bind_vao();
 

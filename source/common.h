@@ -32,4 +32,5 @@
 #endif
 
 /* requires: stdio.h */
-#define PRINT_INT(v) printf("\"%s\" = %d\n", #v, v);
+#define PRINT_INT(v) printf("\"%s\" = %d\n", #v, v)
+#define PRINT_FLOAT(v) printf("\"%s\" = %f\n", #v, v)

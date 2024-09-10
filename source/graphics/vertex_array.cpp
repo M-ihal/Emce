@@ -57,6 +57,8 @@ VertexArray::VertexArray(void) {
         return;
     }
 
+    VertexArray::bind_no_vao();
+
     fprintf(stdout, "[info] VAO: Created vertex array, ID: %d (%p)\n", m_vao_id, this);
 }
 
@@ -114,6 +116,8 @@ void VertexArray::apply_vertex_attributes(void) {
             GL_CHECK(glVertexAttribPointer(location, att->count, att->data_type, GL_FALSE, layout->m_stride, (void *)((uint64_t)att->offset)));
         }
     }
+
+    VertexArray::bind_no_vao();
 }
 
 void VertexArray::add_vertex_buffer(const void *data, size_t data_size, ArrayBufferUsage usage, const BufferLayout &layout) {
@@ -142,6 +146,7 @@ void VertexArray::add_vertex_buffer(const void *data, size_t data_size, ArrayBuf
     m_vbo_layout[vbo_idx] = layout;
 
     fprintf(stdout, "[info] VAO: VBO ID: %d attached to VAO ID: %d (%p)\n", vbo_id, m_vao_id, this);
+    VertexArray::bind_no_vao();
 }
 
 void VertexArray::add_index_buffer(uint32_t *index_data, size_t index_count, ArrayBufferUsage usage) {
@@ -170,6 +175,7 @@ void VertexArray::add_index_buffer(uint32_t *index_data, size_t index_count, Arr
     m_ibo_index_count = index_count;
 
     fprintf(stdout, "[info] VAO: IBO ID: %d attached to VAO ID: %d (%p)\n", ibo_id, m_vao_id, this);
+    VertexArray::bind_no_vao();
 }
 
 /*
