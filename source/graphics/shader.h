@@ -30,6 +30,8 @@ public:
 
 	void upload_vec4(const char *name, float values[2]);
 
+    void upload_mat4(const char *name, float values[4][4]);
+
 	bool is_valid_program(void) const;
 
 	// @temp

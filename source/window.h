@@ -8,7 +8,7 @@ typedef void *SDL_GLContext;
 
 class Window {
 public:
-	DISABLE_CLASS_COPY(Window);
+	CLASS_COPY_DISABLE(Window);
 
 	explicit Window(void);
 

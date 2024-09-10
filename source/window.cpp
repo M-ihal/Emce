@@ -1,6 +1,7 @@
 #include "window.h"
 #include "input.h"
 
+#include <stdio.h>
 #include <SDL.h>
 
 namespace {

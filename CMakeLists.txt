@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.27.5)
 
 project(emce)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -23,6 +24,8 @@ set(source_files
     source/window.h
     source/input.cpp
     source/input.h
+    source/math_types.cpp
+    source/math_types.h
     source/graphics/shader.cpp
     source/graphics/shader.h
     source/graphics/vertex_array.cpp
@@ -41,6 +44,7 @@ add_executable(emce ${source_files} ${source_files_external})
 target_include_directories(emce
     PUBLIC source
     PUBLIC source/graphics
+    PUBLIC external/SDL2/include
     PUBLIC external/glew/include/GL
 )
 
