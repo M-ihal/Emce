@@ -7,9 +7,11 @@ class Camera {
 public:
     Camera(void);
 
-    void update_free(int32_t fw_move, int32_t strife, int32_t v_rotate, int32_t h_rotate, float delta_time, bool speed_up);
+    void update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, int32_t rotate_h, float delta_time, bool speed_up);
 
     vec3 calc_direction(void);
+
+    vec3 calc_direction_side(void);
 
     mat4 calc_proj(float aspect_ratio);
 

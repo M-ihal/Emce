@@ -1,9 +1,14 @@
 #pragma once
 
+#if !defined(M_PI)
 #define M_PI 3.14159265f
+#endif
 
 #define DEG_TO_RAD(deg) ((deg) * (M_PI / 180.0f))
 #define RAD_TO_DEG(rad) ((rad) * (180.0f / M_PI))
+
+float clamp(float value, float min, float max);
+float wrap(float value, float left, float right);
 
 struct vec2 {
     union {

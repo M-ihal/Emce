@@ -1,6 +1,37 @@
 #include "math_types.h"
+#include "common.h"
 
 #include <math.h>
+
+/*
+    --- Utils ---
+*/
+
+float clamp(float value, float min, float max) {
+    ASSERT(min <= max);
+
+    if(value <= min) {
+        return min;
+    } else if(value >= max) {
+        return max;
+    } else {
+        return value;
+    }
+}
+
+// NOTE: Value must be between <left-range, max+range>, -range = right-left, to work fine
+// TODO: Make better version of this
+float wrap(float value, float left, float right) {
+    ASSERT(left < right);
+    
+    if(value < left) {
+        return right - (left - value);
+    } else if(value > right) {
+        return left + (value - right);
+    } else {
+        return value;
+    }
+}
 
 /*
     --- vec2 ---
