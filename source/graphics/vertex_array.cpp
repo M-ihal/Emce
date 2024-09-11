@@ -149,7 +149,7 @@ void VertexArray::add_vertex_buffer(const void *data, size_t data_size, ArrayBuf
     VertexArray::bind_no_vao();
 }
 
-void VertexArray::add_index_buffer(uint32_t *index_data, size_t index_count, ArrayBufferUsage usage) {
+void VertexArray::add_index_buffer(const uint32_t *index_data, size_t index_count, ArrayBufferUsage usage) {
     ASSERT(m_vao_id);
     ASSERT(m_ibo_id == 0);
     ASSERT(index_data && index_count);
@@ -176,6 +176,10 @@ void VertexArray::add_index_buffer(uint32_t *index_data, size_t index_count, Arr
 
     fprintf(stdout, "[info] VAO: IBO ID: %d attached to VAO ID: %d (%p)\n", ibo_id, m_vao_id, this);
     VertexArray::bind_no_vao();
+}
+
+uint32_t VertexArray::index_count(void) const {
+    return m_ibo_index_count;
 }
 
 /*

@@ -13,6 +13,101 @@
 #include "math_types.h"
 #include "camera.h"
 
+VertexArray gen_cube_vao(void) {
+    struct CubeVertex {
+        vec3 position;
+        vec3 normal;
+        vec2 tex_coord;
+    };
+
+    const CubeVertex vertices[] = {
+        { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f }, // Bottom-left
+        {  0.5f,  0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f }, // top-right
+        {  0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f }, // bottom-right         
+        {  0.5f,  0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f }, // top-right
+        { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f }, // bottom-left
+        { -0.5f,  0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f }, // top-left
+                                                                // Front face
+        { -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f }, // bottom-left
+        {  0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f }, // bottom-right
+        {  0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f }, // top-right
+        {  0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f }, // top-right
+        { -0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f }, // top-left
+        { -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f }, // bottom-left
+                                                               // Left face
+        { -0.5f,  0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f }, // top-right
+        { -0.5f,  0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f }, // top-left
+        { -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f }, // bottom-left
+        { -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f }, // bottom-left
+        { -0.5f, -0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f }, // bottom-right
+        { -0.5f,  0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f }, // top-right
+                                                                // Right face
+        { 0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f },   // top-left
+        { 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f },   // bottom-right
+        { 0.5f,  0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f },   // top-right         
+        { 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f },   // bottom-right
+        { 0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f },   // top-left
+        { 0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f },   // bottom-left     
+                                                                // Bottom face
+        { -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f }, // top-right
+        {  0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f }, // top-left
+        {  0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f }, // bottom-left
+        {  0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f }, // bottom-left
+        { -0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f }, // bottom-right
+        { -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f }, // top-right
+                                                                // Top face
+        { -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },  // top-left
+        {  0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f },  // bottom-right
+        {  0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f },  // top-right     
+        {  0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f },  // bottom-right
+        { -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },  // top-left
+        { -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f }   // bottom-left 
+    };
+
+    const uint32_t indices[] = {
+         0,  1,  2,
+         3,  4,  5,
+         6,  7,  8,
+         9, 10, 11,
+        12, 13, 14,
+        15, 16, 17,
+        18, 19, 20,
+        21, 22, 23,
+        24, 25, 26,
+        27, 28, 29,
+        30, 31, 32,
+        33, 34, 35
+    };
+
+    BufferLayout layout;
+    layout.push_attribute("a_position", 3, GL_FLOAT, 4);
+    layout.push_attribute("a_normal", 3, GL_FLOAT, 4);
+    layout.push_attribute("a_tex_coord", 2, GL_FLOAT, 4);
+
+    VertexArray vao;
+    vao.add_vertex_buffer(vertices, ARRAY_COUNT(vertices) * sizeof(CubeVertex), ArrayBufferUsage::STATIC, layout);
+    vao.add_index_buffer(indices, ARRAY_COUNT(indices), ArrayBufferUsage::STATIC);
+    vao.apply_vertex_attributes();
+    return vao;
+}
+
+void draw_cube(const Shader &shader, float delta_time) {
+    static VertexArray s_cube_vao = gen_cube_vao();
+    static float       s_elapsed = 0.0f;
+
+    s_elapsed += delta_time;
+
+    mat4 rotate_m = mat4::identity();
+//    rotate_m *= mat4::rotate(rotate_m, s_elapsed, s_elapsed, s_elapsed);
+
+    shader.use_program();
+    shader.upload_mat4("u_model", rotate_m.e);
+
+    s_cube_vao.bind_vao();
+
+    glDrawElements(GL_TRIANGLES, s_cube_vao.index_count(), GL_UNSIGNED_INT, 0);
+}
+
 int SDL_main(int argc, char *argv[]) {
     const bool sdl_success = SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) == 0;
     if(!sdl_success) {
@@ -34,45 +129,18 @@ int SDL_main(int argc, char *argv[]) {
         return -1;
     }
 
-    const char vs[] = R"(
-        #version 330 core
-
-        layout (location = 0) in vec3 a_position;
-        layout (location = 1) in vec3 a_color;
-
-        uniform mat4 u_proj;
-        uniform mat4 u_view;
-        uniform mat4 u_model;
-
-        out vec3 v_color;
-
-        void main() {
-            v_color = a_color;
-            gl_Position = u_proj * u_view * u_model * vec4(a_position, 1.0);
-        }
-    )";
-
-    const char fs[] = R"(
-        #version 330 core
-
-        in vec3 v_color;
-        out vec4 f_color;
-
-        void main() {
-            f_color = vec4(v_color, 1);
-        }
-    )";
+    /* Initialize OpenGL state */ {
+        GL_CHECK(glEnable(GL_DEPTH_TEST));
+        GL_CHECK(glDepthFunc(GL_LESS));
+    }
 
     Camera camera;
     camera.set_position({ 0.0f, 0.0f, -5.0f });
     camera.set_rotation({ DEG_TO_RAD(90.0f), 0.0f });
 
-    Shader shader;
-    if(!shader.load_from_memory(vs, strlen(vs), fs, strlen(fs))) {
-        return -1;
-    }
-
-    shader.use_program();
+    ShaderFile shader;
+    shader.set_filepath("C://dev//emce//source//shaders//test.glsl");
+    shader.hotload();
 
     BufferLayout layout;
     layout.push_attribute("a_position", 3, GL_FLOAT, 4);
@@ -103,6 +171,8 @@ int SDL_main(int argc, char *argv[]) {
 
     while(window.is_running()) {
         window.process_events(input);
+
+        shader.hotload();
 
         if(input.key_pressed(Key::ESCAPE)) {
             window.should_quit();
@@ -148,7 +218,7 @@ int SDL_main(int argc, char *argv[]) {
         glViewport(0, 0, window.width(), window.height());
 
         GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
-        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
         shader.use_program();
         shader.upload_mat4("u_proj", proj_m.e);
@@ -158,6 +228,8 @@ int SDL_main(int argc, char *argv[]) {
         vao.bind_vao();
 
         glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+
+        draw_cube(shader, delta_time);
 
         window.swap_buffers();
     }

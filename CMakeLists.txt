@@ -32,6 +32,8 @@ set(source_files
     source/graphics/vertex_array.h
     source/camera.cpp
     source/camera.h
+    source/utils.cpp
+    source/utils.h
 )
 
 set(source_files_external

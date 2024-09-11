@@ -1,7 +1,21 @@
 #include "shader.h"
 
 #include <stdio.h>
+#include <string.h>
 #include <glew.h>
+
+// TEMP  TODO: Rewrite the thing, or use something else
+#define STRING_VIEW_IMPLEMENTATION
+#include <string_view/string_view.h>
+
+#include "utils.h"
+
+static bool find_shader_sources(const void  *file_data, 
+                                const size_t file_size, 
+                                string_view_t &out_vert_view, 
+                                string_view_t &out_frag_view, 
+                                string_view_t &out_geom_view);
+
 
 Shader::Shader(void) {
     m_program_id = 0;
@@ -15,9 +29,12 @@ void Shader::use_no_program(void) {
     GL_CHECK(glUseProgram(0));
 }
 
-void Shader::use_program(void) {
-    ASSERT(m_program_id);
-    ASSERT(this->is_valid_program());
+void Shader::use_program(void) const {
+    /* What TODO */
+    if(!this->is_valid_program()) {
+        Shader::use_no_program();
+    }
+
     GL_CHECK(glUseProgram(m_program_id));
 }
 
@@ -33,6 +50,8 @@ static uint32_t compile_shader_source(const char *src, int32_t src_len, uint32_t
 }
 
 bool Shader::load_from_memory(const char *vs, size_t vs_len, const char *fs, size_t fs_len, const char *gs, size_t gs_len) {
+    this->delete_program_if_exists();
+
     GL_CHECK(m_program_id = glCreateProgram());
     if(!m_program_id) {
         fprintf(stderr, "[error] Shader: Failed to create program id.\n");
@@ -68,15 +87,24 @@ bool Shader::load_from_memory(const char *vs, size_t vs_len, const char *fs, siz
 }
 
 bool Shader::load_from_file(const char *filepath) {
-    /* Parse file to find sources */
-    const char *vs = NULL;
-    size_t vs_len  = 0;
-    const char *fs = NULL;
-    size_t fs_len  = 0;
-    const char *gs = NULL;
-    size_t gs_len  = 0;
+    LoadedFile file(filepath);
+    
+    if(!file.is_loaded()) {
+        fprintf(stderr, "[error] Shader: Failed to read shader file, path: \"%s\"\n", filepath);
+        return false;
+    }
 
-    return this->load_from_memory(vs, vs_len, fs, fs_len, gs, gs_len);
+    /* Parse file to find sources */
+    string_view_t vs;
+    string_view_t fs;
+    string_view_t gs;
+    const bool parse_success = find_shader_sources(file.data(), file.size(), vs, fs, gs);
+    if(!parse_success) {
+        fprintf(stderr, "[error] Shader: Failed to parse shader file, path: %s\n", filepath);
+        return false;
+    }
+    
+    return this->load_from_memory(vs.pointer, vs.length, fs.pointer, fs.length, gs.pointer, gs.length);
 }
 
 void Shader::delete_program_if_exists(void) {
@@ -88,42 +116,42 @@ void Shader::delete_program_if_exists(void) {
     }
 }
 
-void Shader::upload_int(const char *name, int32_t value) {
+void Shader::upload_int(const char *name, int32_t value) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
         GL_CHECK(glUniform1i(location, value));
     }
 }
 
-void Shader::upload_float(const char *name, float value) {
+void Shader::upload_float(const char *name, float value) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
         GL_CHECK(glUniform1f(location, value));
     }
 }
 
-void Shader::upload_vec2(const char *name, float values[2]) {
+void Shader::upload_vec2(const char *name, float values[2]) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
         GL_CHECK(glUniform2f(location, values[0], values[1]));
     }
 }
 
-void Shader::upload_vec3(const char *name, float values[2]) {
+void Shader::upload_vec3(const char *name, float values[2]) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
         GL_CHECK(glUniform3f(location, values[0], values[1], values[2]));
     }
 }
 
-void Shader::upload_vec4(const char *name, float values[2]) {
+void Shader::upload_vec4(const char *name, float values[2]) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
         GL_CHECK(glUniform4f(location, values[0], values[1], values[2], values[3]));
     }
 }
 
-void Shader::upload_mat4(const char *name, float values[4][4]) {
+void Shader::upload_mat4(const char *name, float values[4][4]) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
        GL_CHECK(glUniformMatrix4fv(location, 1, false, (float *)values));
@@ -139,5 +167,122 @@ bool Shader::is_valid_program(void) const {
         return false;
     }
 
+    return true;
+}
+
+ShaderFile::ShaderFile(void) {
+    ZERO_ARRAY(m_filepath);
+}
+
+ShaderFile::~ShaderFile(void) {
+}
+
+void ShaderFile::set_filepath(const char *filepath) {
+    strcpy_s(m_filepath, ARRAY_COUNT(m_filepath), filepath);
+}
+
+void ShaderFile::hotload(void) {
+    if(strlen(m_filepath) == 0) {
+        return;
+    }
+
+    FileTime time_now;
+    bool hacky_check_if_file_exists = FileTime::get_times(m_filepath, &time_now, NULL, NULL);
+
+    if(!hacky_check_if_file_exists) {
+        return;
+    }
+
+    bool should_hotload = time_now != m_last_time;
+    if(!should_hotload) {
+        return;
+    }
+
+    fprintf(stdout, "[info] Shader: Hot/Loading shader, path: %s\n", m_filepath);
+
+    this->load_from_file(m_filepath);
+    m_last_time = time_now;
+}
+
+/* Returns true if atleast vertex and fragment shaders were found */
+static bool find_shader_sources(const void  *file_data, 
+                                const size_t file_size, 
+                                string_view_t &out_vert_view, 
+                                string_view_t &out_frag_view, 
+                                string_view_t &out_geom_view) {
+
+    constexpr const char shader_token_start[] = "@shader_";
+    constexpr const char shader_vert_token[]  = "@shader_vertex";
+    constexpr const char shader_frag_token[]  = "@shader_fragment";
+    constexpr const char shader_geom_token[]  = "@shader_geometry";
+
+    /* Zero the out views */
+    out_vert_view = s_view_zero;
+    out_frag_view = s_view_zero;
+    out_geom_view = s_view_zero;
+
+    const string_view_t file_view = string_view((char *)file_data, file_size);
+
+    /* Find tokens */
+    const size_t token_1 = s_view_find(file_view, shader_token_start);
+    if(token_1 == s_view_invalid_idx) {
+        return false;
+    }
+
+    const size_t token_2 = s_view_find(file_view, shader_token_start, token_1 + strlen(shader_token_start));
+    if(token_2 == s_view_invalid_idx) {
+        return false;
+    }
+
+    const size_t token_3 = s_view_find(file_view, shader_token_start, token_2 + strlen(shader_token_start));
+
+    /* Determine which shader source is which */
+    string_view_t vert_view = s_view_zero;
+    string_view_t frag_view = s_view_zero;
+    string_view_t geom_view = s_view_zero;
+
+    bool redefined_shaders_error = false;
+    auto assign_shader = [&] (string_view_t view) -> void {
+        auto assign_inner = [&] (string_view_t *view, const char *token, string_view_t *dest) -> bool {
+            if(s_view_begins_with(*view, token, view)) {
+                if(dest->length) {
+                    redefined_shaders_error = true;
+                    return true;
+                }
+                *dest = *view;
+                return true;
+            }
+            return false;
+        };
+
+        if(assign_inner(&view, shader_vert_token, &vert_view)) { return; }
+        if(assign_inner(&view, shader_frag_token, &frag_view)) { return; }
+        if(assign_inner(&view, shader_geom_token, &geom_view)) { return; }
+    };
+    
+    /* First view is guaranteed */
+    assign_shader(s_view_substring(file_view, token_1, token_2 - 1));
+
+    /* Calc second and _optionally_ third shader view */
+    if(token_3 == s_view_invalid_idx) {
+        assign_shader(s_view_substring(file_view, token_2, file_view.length - 1));
+    } else {
+        assign_shader(s_view_substring(file_view, token_2, token_3 - 1));
+        assign_shader(s_view_substring(file_view, token_3, file_view.length - 1));
+    }
+    
+    /* Error checks */
+    if(redefined_shaders_error) {    
+        return false;
+    }
+
+    if(!vert_view.length || !frag_view.length) {
+        return false;
+    }
+
+    /* Fill the out views */
+    out_vert_view = vert_view;
+    out_frag_view = frag_view;
+    out_geom_view = geom_view;
     return true;
 }

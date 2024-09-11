@@ -44,6 +44,7 @@ enum class ArrayBufferUsage : int32_t {
 class VertexArray {
 public:
     CLASS_COPY_DISABLE(VertexArray);
+    CLASS_MOVE_ALLOW(VertexArray);
 
     /*
         Constructors
@@ -66,8 +67,9 @@ public:
 
     void add_vertex_buffer(const void *data, size_t data_size, ArrayBufferUsage usage, const BufferLayout &layout);
 
-    void add_index_buffer(uint32_t *index_data, size_t index_count, ArrayBufferUsage usage);
+    void add_index_buffer(const uint32_t *index_data, size_t index_count, ArrayBufferUsage usage);
 
+    uint32_t index_count(void) const;
 private:
     uint32_t m_vao_id;
 
