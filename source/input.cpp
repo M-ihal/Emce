@@ -1,10 +1,11 @@
 #include "input.h"
 
-#include <string.h>
+#include <cstring>
 #include <SDL.h>
 
 Input::Input(void) {
-    ZERO_ARRAY(m_key_state);
+    //ZERO_ARRAY(m_key_state);
+    ZERO_STRUCT(*this);
 }
 
 bool Input::key_check(Key key, uint32_t input_flags) const {

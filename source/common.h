@@ -20,6 +20,7 @@
 
 #define ARRAY_COUNT(arr) (sizeof(arr) / sizeof(arr[0]))
 #define ZERO_ARRAY(arr) memset(arr, 0, sizeof(arr)) // Static array, memset required (cstring)
+#define ZERO_STRUCT(var) memset(&(var), 0, sizeof(var))
 
 #define COMBINE__(l, r) l##r
 #define COMBINE_(l, r)  COMBINE__(l, r)

@@ -6,7 +6,7 @@ Camera::Camera(void) {
     m_position = { 0.0f, 0.0f, 0.0f };
     m_rotation = { 0.0f, 0.0f };
     m_plane_near = 0.1f;
-    m_plane_far = 100.0f;
+    m_plane_far = 1000.0f;
     m_field_of_view = DEG_TO_RAD(50.0f); 
     m_up_vector = { 0.0f, 1.0f, 0.0f };
 }
@@ -59,7 +59,7 @@ vec2 Camera::get_rotation(void) {
 }
 
 void Camera::update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, int32_t rotate_h, float delta_time, bool speed_up) {
-    constexpr float SPEED_MOVE_FAST = 20.0f;
+    constexpr float SPEED_MOVE_FAST = 40.0f;
     constexpr float SPEED_MOVE = 10.0f;
     constexpr float SPEED_ROTATE = 0.0075f;
 

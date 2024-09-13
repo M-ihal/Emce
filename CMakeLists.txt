@@ -30,10 +30,14 @@ set(source_files
     source/graphics/shader.h
     source/graphics/vertex_array.cpp
     source/graphics/vertex_array.h
+    source/graphics/texture.cpp
+    source/graphics/texture.h
     source/camera.cpp
     source/camera.h
     source/utils.cpp
     source/utils.h
+    source/chunk.cpp
+    source/chunk.h
 )
 
 set(source_files_external
@@ -46,11 +50,13 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${source_files_external})
 add_executable(emce ${source_files} ${source_files_external})
 
 target_include_directories(emce
-    PUBLIC source
-    PUBLIC external
-    PUBLIC source/graphics
-    PUBLIC external/SDL2/include
-    PUBLIC external/glew/include/GL
+PUBLIC ${PROJECT_SOURCE_DIR}/external/string_view
+    PUBLIC ${PROJECT_SOURCE_DIR}/source
+    PUBLIC ${PROJECT_SOURCE_DIR}/source/graphics
+    PUBLIC ${PROJECT_SOURCE_DIR}/external/SDL2/include
+    PUBLIC ${PROJECT_SOURCE_DIR}/external/glew/include/GL
+    
+	PUBLIC ${PROJECT_SOURCE_DIR}/external/stb
 )
 
 target_link_libraries(emce

@@ -3,6 +3,10 @@
 #include "common.h"
 #include "utils.h"
 
+/*
+    TODO: Better logging when loading and hotloading shaders
+*/
+
 class Shader {
 public:
     CLASS_COPY_DISABLE(Shader);
@@ -16,6 +20,8 @@ public:
     static void use_no_program(void);
 
     void use_program(void) const;
+
+    // Move to constructors \/
 
     bool load_from_memory(const char *vs, size_t vs_len, const char *fs, size_t fs_len, const char *gs = NULL, size_t gs_len = 0);
 
@@ -39,7 +45,7 @@ public:
     uint32_t program_id(void) { return m_program_id; };
 
 private:
-    void delete_program_if_exists(void);
+    void delete_program_if_exists(bool log = true);
 
     uint32_t m_program_id;
 };
@@ -48,11 +54,9 @@ class ShaderFile : public Shader {
 public:
     // CLASS_COPY_DISABLE(Shader);
 
-    ShaderFile(void);
+    ShaderFile(const char *filepath);
 
     ~ShaderFile(void);
-
-    void set_filepath(const char *filepath);
 
     void hotload(void);
 

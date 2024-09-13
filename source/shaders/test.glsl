@@ -10,10 +10,10 @@ uniform mat4 u_proj;
 uniform mat4 u_view;
 uniform mat4 u_model;
 
-out vec3 v_color;
+out vec2 v_tex_coord;
 
 void main() {
-    v_color = abs(a_normal) * 0.5;
+    v_tex_coord = a_tex_coord;
     gl_Position = u_proj * u_view * u_model * vec4(a_position, 1.0);
 }
 
@@ -21,10 +21,13 @@ void main() {
 
 #version 330 core
 
-in vec3 v_color;
+in vec2 v_tex_coord;
 out vec4 f_color;
 
+uniform sampler2D u_texture;
+
 void main() {
-    f_color = vec4(v_color, 1.0);
+    // f_color = vec4(v_color, 1.0);
+    f_color = texture(u_texture, v_tex_coord);
 }
 

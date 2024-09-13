@@ -21,7 +21,8 @@ enum InputFlags : uint32_t {
     DEFINE_KEY(RIGHT,  SDLK_RIGHT)\
     DEFINE_KEY(UP,     SDLK_UP)\
     DEFINE_KEY(DOWN,   SDLK_DOWN)\
-    DEFINE_KEY(ESCAPE, SDLK_ESCAPE)
+    DEFINE_KEY(ESCAPE, SDLK_ESCAPE)\
+    DEFINE_KEY(LEFT_SHIFT, SDLK_LSHIFT)
 
 /* Enum class of the defined keys */
 #define DEFINE_KEY(name, sdlk) name,

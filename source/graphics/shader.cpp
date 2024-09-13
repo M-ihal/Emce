@@ -6,7 +6,7 @@
 
 // TEMP  TODO: Rewrite the thing, or use something else
 #define STRING_VIEW_IMPLEMENTATION
-#include <string_view/string_view.h>
+#include <string_view.h>
 
 #include "utils.h"
 
@@ -78,7 +78,7 @@ bool Shader::load_from_memory(const char *vs, size_t vs_len, const char *fs, siz
         char error_buffer[256];
         glGetProgramInfoLog(m_program_id, ARRAY_COUNT(error_buffer), 0, error_buffer);
         fprintf(stderr, "[error] Shader: Failed to link shader program, error below:\n%s-----------\n", error_buffer);
-        this->delete_program_if_exists();
+        this->delete_program_if_exists(false);
         return false;
     }
 
@@ -87,8 +87,9 @@ bool Shader::load_from_memory(const char *vs, size_t vs_len, const char *fs, siz
 }
 
 bool Shader::load_from_file(const char *filepath) {
+    fprintf(stdout, "[info] Shader: Loading shader from file, path: %s\n", filepath);
+
     LoadedFile file(filepath);
-    
     if(!file.is_loaded()) {
         fprintf(stderr, "[error] Shader: Failed to read shader file, path: \"%s\"\n", filepath);
         return false;
@@ -107,12 +108,13 @@ bool Shader::load_from_file(const char *filepath) {
     return this->load_from_memory(vs.pointer, vs.length, fs.pointer, fs.length, gs.pointer, gs.length);
 }
 
-void Shader::delete_program_if_exists(void) {
+void Shader::delete_program_if_exists(bool log) {
     if(m_program_id) {
         GL_CHECK(glDeleteProgram(m_program_id));
+        if(log) {
+            fprintf(stdout, "[info] Shader: Deleted shader program, ID: %d (%p)\n", m_program_id, this);
+        }
         m_program_id = 0;
-    
-        fprintf(stdout, "[info] Shader: Deleted shader (%p)\n", this);
     }
 }
 
@@ -170,15 +172,14 @@ bool Shader::is_valid_program(void) const {
     return true;
 }
 
-ShaderFile::ShaderFile(void) {
-    ZERO_ARRAY(m_filepath);
+ShaderFile::ShaderFile(const char *filepath) {
+    strcpy_s(m_filepath, ARRAY_COUNT(m_filepath), filepath);
+
+    this->load_from_file(m_filepath);
+    FileTime::get_times(m_filepath, &m_last_time, NULL, NULL);
 }
 
 ShaderFile::~ShaderFile(void) {
-}
-
-void ShaderFile::set_filepath(const char *filepath) {
-    strcpy_s(m_filepath, ARRAY_COUNT(m_filepath), filepath);
 }
 
 void ShaderFile::hotload(void) {
@@ -198,9 +199,13 @@ void ShaderFile::hotload(void) {
         return;
     }
 
-    fprintf(stdout, "[info] Shader: Hot/Loading shader, path: %s\n", m_filepath);
+    fprintf(stdout, "[info] Hotload: Hotloading shader: \n");
 
-    this->load_from_file(m_filepath);
+    bool hotloaded = this->load_from_file(m_filepath);
+    if(!hotloaded) {
+        fprintf(stdout, "[error] Hotload: Failed to hotload the shader.\n");
+    }
+
     m_last_time = time_now;
 }
 

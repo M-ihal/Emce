@@ -4,6 +4,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include "common.h"
 #include "window.h"
@@ -12,6 +15,12 @@
 #include "vertex_array.h"
 #include "math_types.h"
 #include "camera.h"
+#include "texture.h"
+#include "chunk.h"
+
+/*
+    @TODO: Game / GameManager / Game-Something class
+*/
 
 VertexArray gen_cube_vao(void) {
     struct CubeVertex {
@@ -91,24 +100,41 @@ VertexArray gen_cube_vao(void) {
     return vao;
 }
 
-void draw_cube(const Shader &shader, float delta_time) {
+void draw_chunk(Chunk &chunk, const Shader &shader) {
+    static bool        s_initialized = false;
     static VertexArray s_cube_vao = gen_cube_vao();
+    static Texture     s_sand_tex("C://dev//emce//data//sand.png");
     static float       s_elapsed = 0.0f;
 
-    s_elapsed += delta_time;
-
-    mat4 rotate_m = mat4::identity();
-//    rotate_m *= mat4::rotate(rotate_m, s_elapsed, s_elapsed, s_elapsed);
+    if(!s_initialized) {
+        s_initialized = true;
+        s_sand_tex.set_filter_min(GL_NEAREST);
+        s_sand_tex.set_filter_mag(GL_NEAREST);
+    }
 
     shader.use_program();
-    shader.upload_mat4("u_model", rotate_m.e);
-
+    shader.upload_int("u_texture", 0);
+    s_sand_tex.bind_texture_unit(0);
     s_cube_vao.bind_vao();
 
-    glDrawElements(GL_TRIANGLES, s_cube_vao.index_count(), GL_UNSIGNED_INT, 0);
+    for_every_block(x, y, z) {
+        Block &block = chunk.get_block(x, y, z);
+
+        /* Don't draw AIR */
+        if(block.is_of_type(BlockType::AIR)) {
+            continue;
+        }
+
+        mat4 model = mat4::translate({ float(x), float(y), float(z) });
+        shader.upload_mat4("u_model", model.e);
+        glDrawElements(GL_TRIANGLES, s_cube_vao.index_count(), GL_UNSIGNED_INT, 0);
+    }
 }
 
 int SDL_main(int argc, char *argv[]) {
+    /* TEMP: init std randomizer */
+    srand(time(NULL));
+
     const bool sdl_success = SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) == 0;
     if(!sdl_success) {
         fprintf(stderr, "[error] SDL: Failed to initialize SDL, Error: %s.\n", SDL_GetError());
@@ -135,38 +161,16 @@ int SDL_main(int argc, char *argv[]) {
     }
 
     Camera camera;
-    camera.set_position({ 0.0f, 0.0f, -5.0f });
+    camera.set_position({ 5.0f, 20.0f, 5.0f });
     camera.set_rotation({ DEG_TO_RAD(90.0f), 0.0f });
 
-    ShaderFile shader;
-    shader.set_filepath("C://dev//emce//source//shaders//test.glsl");
-    shader.hotload();
+    ShaderFile shader("C://dev//emce//source//shaders//block.glsl");
 
-    BufferLayout layout;
-    layout.push_attribute("a_position", 3, GL_FLOAT, 4);
-    layout.push_attribute("a_color", 3, GL_FLOAT, 4);
-
-    float verts[] = {
-        0.0f, 0.0f, 0.0f,
-        1.0f, 0.0f, 0.0f,
-        1.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-        0.5f, 1.0f, 0.0f,
-        0.0f, 0.0f, 1.0f
-    };
-
-    uint32_t inds[] = {
-        0, 1, 2
-    };
-
-    VertexArray vao;
-    vao.add_vertex_buffer(verts, ARRAY_COUNT(verts) * sizeof(float), ArrayBufferUsage::STATIC, layout);
-    vao.add_index_buffer(inds, ARRAY_COUNT(inds), ArrayBufferUsage::STATIC);
-    vao.apply_vertex_attributes();
+    Chunk chunk;
 
     const double time_freq = SDL_GetPerformanceFrequency();
-    uint64_t time_now  = 0;
-    uint64_t time_last = 0;
+    uint64_t time_now  = SDL_GetPerformanceCounter();
+    uint64_t time_last = SDL_GetPerformanceCounter();
     double delta_time  = 0.0;
 
     while(window.is_running()) {
@@ -196,7 +200,7 @@ int SDL_main(int argc, char *argv[]) {
 
             int32_t rotate_h = 0;
             int32_t rotate_v = 0;
-            
+
 #if 0
             if(input.key_is_down(Key::UP))    { rotate_v += 10; }
             if(input.key_is_down(Key::DOWN))  { rotate_v -= 10; }
@@ -208,8 +212,8 @@ int SDL_main(int argc, char *argv[]) {
                 rotate_v = -input.mouse_rel_y();
             }
 #endif
-    
-            camera.update_free(move_fw, move_side, rotate_v, rotate_h, delta_time, false);
+
+            camera.update_free(move_fw, move_side, rotate_v, rotate_h, delta_time, input.key_is_down(Key::LEFT_SHIFT));
         }
 
         mat4 proj_m = camera.calc_proj((float)window.width() / (float)window.height());
@@ -223,13 +227,8 @@ int SDL_main(int argc, char *argv[]) {
         shader.use_program();
         shader.upload_mat4("u_proj", proj_m.e);
         shader.upload_mat4("u_view", view_m.e);
-        shader.upload_mat4("u_model", mat4::identity().e);
 
-        vao.bind_vao();
-
-        glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
-
-        draw_cube(shader, delta_time);
+        draw_chunk(chunk, shader);
 
         window.swap_buffers();
     }
