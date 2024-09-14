@@ -108,6 +108,11 @@ vec3 operator / (const vec3 &l, const float r) {
     return vec3{ l.x / r, l.y / r, l.z / r };
 }
 
+vec3 &operator += (vec3 &l, const vec3 &r) {
+    l = l + r;
+    return l;
+}
+
 /*
     --- mat4 ---
 */

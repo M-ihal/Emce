@@ -45,21 +45,21 @@ public:
 
     bool load_from_memory(uint8_t *data, int32_t width, int32_t height, TextureLoadSpec spec);
 
-    bool load_from_file(const char *filepath, TextureLoadSpec spec = { TextureDataFormat::INVALID, TextureDataFormat::INVALID, TextureDataType::INVALID });
+    bool load_from_file(const char *filepath, bool flip_on_load = false, TextureLoadSpec spec = { TextureDataFormat::INVALID, TextureDataFormat::INVALID, TextureDataType::INVALID });
 
-    void bind_texture(void);
+    void bind_texture(void) const;
 
-    void bind_texture_unit(int32_t unit);
+    void bind_texture_unit(int32_t unit) const;
 
     void set_pixels(uint8_t *data, int32_t off_x, int32_t off_y, int32_t width, int32_t height, TextureDataFormat data_format, TextureDataType data_type);
 
-    void set_filter_min(int32_t filter);
+    void set_filter_min(TextureFilter param);
 
-    void set_filter_mag(int32_t filter);
+    void set_filter_mag(TextureFilter param);
 
-    void set_wrap_s(int32_t wrap);
+    void set_wrap_s(TextureWrap param);
 
-    void set_wrap_t(int32_t wrap);
+    void set_wrap_t(TextureWrap param);
 
     vec2i get_size(void);
 
@@ -69,8 +69,8 @@ private:
     int32_t  m_height;
     TextureDataFormat m_internal_format;
 
-    int32_t  m_filter_min;
-    int32_t  m_filter_mag;
-    int32_t  m_wrap_s;
-    int32_t  m_wrap_t;
+    TextureFilter m_filter_min;
+    TextureFilter m_filter_mag;
+    TextureWrap   m_wrap_s;
+    TextureWrap   m_wrap_t;
 };

@@ -23,6 +23,53 @@
 */
 
 
+void render_random_thing_at_origin(const Camera &camera, float aspect) {
+    static Shader s_shader;
+    static VertexArray s_vao;
+    static Texture s_texture;
+    static bool    s_initialized = false;
+    if(!s_initialized) {
+        s_initialized = true;
+        s_shader.load_from_file("C://dev//emce//source//shaders//flat_image.glsl");
+        s_texture.load_from_file("C://dev//emce//data//dog.png", true);
+
+        const float fval = 4.0f;
+
+        const float vertices[] = {
+            -fval, -fval, 0.0f, 0.0f, 0.0f,
+            +fval, -fval, 0.0f, 1.0f, 0.0f,
+            +fval, +fval, 0.0f, 1.0f, 1.0f,
+            -fval, +fval, 0.0f, 0.0f, 1.0f,
+        };
+
+        const uint32_t indices[] = {
+            0, 1, 2,
+            2, 3, 0
+        };
+
+        BufferLayout layout;
+        layout.push_attribute("a_position", 3, GL_FLOAT, 4);
+        layout.push_attribute("a_tex_coord", 2, GL_FLOAT, 4);
+
+        s_vao.create_vao(layout, ArrayBufferUsage::STATIC);
+        s_vao.set_vbo_data(vertices, ARRAY_COUNT(vertices) * sizeof(float));
+        s_vao.set_ibo_data(indices, 6);
+        s_vao.apply_vao_attributes();
+    }
+
+    mat4 proj_m = camera.calc_proj(aspect);
+    mat4 view_m = camera.calc_view();
+    s_shader.use_program();
+    s_shader.upload_mat4("u_proj", proj_m.e);
+    s_shader.upload_mat4("u_view", view_m.e);
+    s_shader.upload_mat4("u_model", mat4::identity().e);
+    s_shader.upload_int("u_image", 0);
+    s_texture.bind_texture_unit(0);
+
+    s_vao.bind_vao();
+    glDrawElements(GL_TRIANGLES, s_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL);
+}
+
 int SDL_main(int argc, char *argv[]) {
     /* TEMP: init std randomizer */
     srand(time(NULL));
@@ -53,14 +100,16 @@ int SDL_main(int argc, char *argv[]) {
     }
 
     Camera camera;
-    camera.set_position({ 0.0f, 0.0f, 0.0f });
-    camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
+    camera.set_position({ 0.0f, 0.0f, -5.0f });
+    camera.set_rotation({ DEG_TO_RAD(0.0f), DEG_TO_RAD(.0f) });
+
 
     ShaderFile shader("C://dev//emce//source//shaders//block.glsl");
 
-    Texture texture;
-    texture.load_from_file("C://dev//emce//data//sand.png");
-    texture.set_filter_min();
+    Texture sand_texture;
+    sand_texture.load_from_file("C://dev//emce//data//sand.png");
+    sand_texture.set_filter_min(TextureFilter::NEAREST);
+    sand_texture.set_filter_mag(TextureFilter::NEAREST);
 
     Chunk chunk;
 
@@ -112,7 +161,9 @@ int SDL_main(int argc, char *argv[]) {
             camera.update_free(move_fw, move_side, rotate_v, rotate_h, delta_time, input.key_is_down(Key::LEFT_SHIFT));
         }
 
-        mat4 proj_m = camera.calc_proj((float)window.width() / (float)window.height());
+        float aspect_ratio = (float)window.width() / (float)window.height();
+
+        mat4 proj_m = camera.calc_proj(aspect_ratio);
         mat4 view_m = camera.calc_view();
 
         glViewport(0, 0, window.width(), window.height());
@@ -124,7 +175,9 @@ int SDL_main(int argc, char *argv[]) {
         shader.upload_mat4("u_proj", proj_m.e);
         shader.upload_mat4("u_view", view_m.e);
 
-        chunk.render(shader);
+        chunk.render(shader, sand_texture);
+
+        render_random_thing_at_origin(camera, aspect_ratio);
 
         window.swap_buffers();
     }

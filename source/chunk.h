@@ -4,6 +4,7 @@
 #include "math_types.h"
 #include "vertex_array.h"
 #include "shader.h"
+#include "texture.h"
 
 #define CHUNK_SIZE_X 16 
 #define CHUNK_SIZE_Y 64
@@ -23,7 +24,7 @@ class Block {
 public:
     Block(void);
 
-    bool is_of_type(BlockType type);
+    bool is_of_type(BlockType type) const;
     void set_type(BlockType type);
 
 private:
@@ -42,7 +43,9 @@ public:
 
     Block &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z);
 
-    void render(const Shader &shader);
+    const Block &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z) const;
+
+    void render(const Shader &shader, const Texture &texture); // TEMP
 
 private:
     VertexArray m_chunk_vao;

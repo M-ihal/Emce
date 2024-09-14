@@ -22,10 +22,7 @@ static constexpr int32_t gl_from_array_buffer_data_type(ArrayBufferDataType type
 
 static constexpr int32_t size_of_array_buffer_data_type(ArrayBufferDataType type) {
     switch(type) {
-        default: {
-            INVALID_CODE_PATH;
-            return -1;
-        }
+        default: INVALID_CODE_PATH; return -1;
         case ArrayBufferDataType::INT:
         case ArrayBufferDataType::FLOAT: {
             return 4;

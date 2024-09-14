@@ -75,10 +75,10 @@ bool Texture::load_empty(int32_t width, int32_t height, TextureDataFormat intern
     m_height          = height;
     m_internal_format = internal_format;
 
-    this->set_filter_min(GL_LINEAR);
-    this->set_filter_mag(GL_LINEAR);
-    this->set_wrap_s(GL_CLAMP_TO_EDGE);
-    this->set_wrap_t(GL_CLAMP_TO_EDGE);
+    this->set_filter_min(TextureFilter::LINEAR);
+    this->set_filter_mag(TextureFilter::LINEAR);
+    this->set_wrap_s(TextureWrap::CLAMP);
+    this->set_wrap_t(TextureWrap::CLAMP);
 
     fprintf(stdout, "[info] Texture: Created texture, ID: %d (%p)\n", m_texture_id, this);
     return true;
@@ -96,8 +96,10 @@ bool Texture::load_from_memory(uint8_t *data, int32_t width, int32_t height, Tex
     return true;
 }
 
-bool Texture::load_from_file(const char *filepath, TextureLoadSpec spec) {
+bool Texture::load_from_file(const char *filepath, bool flip_on_load, TextureLoadSpec spec) {
     fprintf(stdout, "[info] Texture: Loading texture from file, path: %s\n", filepath);
+
+    stbi_set_flip_vertically_on_load(flip_on_load);
 
     int32_t width;
     int32_t height;
@@ -114,8 +116,8 @@ bool Texture::load_from_file(const char *filepath, TextureLoadSpec spec) {
     if(spec.internal_format == TextureDataFormat::INVALID) {
         switch(bpp) {
             default: INVALID_CODE_PATH; break;
-            case 3: internal_format = TextureDataFormat::RGB;
-            case 4: internal_format = TextureDataFormat::RGBA;
+            case 3: internal_format = TextureDataFormat::RGB;  break;
+            case 4: internal_format = TextureDataFormat::RGBA; break;
         }
     } else {
         internal_format = spec.internal_format;
@@ -138,8 +140,8 @@ bool Texture::load_from_file(const char *filepath, TextureLoadSpec spec) {
     if(spec.data_format == TextureDataFormat::INVALID) {
         switch(bpp) {
             default: INVALID_CODE_PATH; break;
-            case 3: data_format = TextureDataFormat::RGB;
-            case 4: data_format = TextureDataFormat::RGBA;
+            case 3: data_format = TextureDataFormat::RGB;  break;
+            case 4: data_format = TextureDataFormat::RGBA; break;
         }
     } else {
         data_format = spec.data_format;
@@ -150,12 +152,13 @@ bool Texture::load_from_file(const char *filepath, TextureLoadSpec spec) {
     return true;
 }
 
-void Texture::bind_texture(void) {
+void Texture::bind_texture(void) const {
     ASSERT(m_texture_id);
     GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture_id));
 }
 
-void Texture::bind_texture_unit(int32_t unit) {
+// TODO: Don't crash and use placeholder image/texture?
+void Texture::bind_texture_unit(int32_t unit) const {
     ASSERT(m_texture_id);
     ASSERT(unit >= 0);
     GL_CHECK(glBindTextureUnit(unit, m_texture_id));
@@ -171,31 +174,34 @@ void Texture::set_pixels(uint8_t *data, int32_t off_x, int32_t off_y, int32_t wi
     const int32_t gl_data_format = gl_data_format_from_texture_data_format(data_format);
     const int32_t gl_data_type   = gl_data_type_from_texture_data_type(data_type);
 
+    // Keep this, or do something better
+    GL_CHECK(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
+
     this->bind_texture();
     GL_CHECK(glTexSubImage2D(GL_TEXTURE_2D, 0, off_x, off_y, width, height, gl_data_format, gl_data_type, data));
 }
 
-void Texture::set_filter_min(int32_t param) {
+void Texture::set_filter_min(TextureFilter param) {
     this->bind_texture();
-    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, param));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_from_texture_filter(param)));
     m_filter_min = param;
 }
 
-void Texture::set_filter_mag(int32_t param) {
+void Texture::set_filter_mag(TextureFilter param) {
     this->bind_texture();
-    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, param));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_from_texture_filter(param)));
     m_filter_mag = param;
 }
 
-void Texture::set_wrap_s(int32_t param) {
+void Texture::set_wrap_s(TextureWrap param) {
     this->bind_texture();
-    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, param));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, gl_wrap_from_texture_wrap(param)));
     m_wrap_s = param;
 }
 
-void Texture::set_wrap_t(int32_t param) {
+void Texture::set_wrap_t(TextureWrap param) {
     this->bind_texture();
-    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, param));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, gl_wrap_from_texture_wrap(param)));
     m_wrap_t = param;
 }
 

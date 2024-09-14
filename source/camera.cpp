@@ -12,7 +12,7 @@ Camera::Camera(void) {
 }
 
 /* TODO Pull math to function */
-vec3 Camera::calc_direction(void) {
+vec3 Camera::calc_direction(void) const {
     const float v_angle = m_rotation.y;
     const float h_angle = m_rotation.x;
     return vec3{
@@ -22,7 +22,7 @@ vec3 Camera::calc_direction(void) {
     };
 }
 
-vec3 Camera::calc_direction_side(void) {
+vec3 Camera::calc_direction_side(void) const {
     const float v_angle = 0.0f;
     const float h_angle = m_rotation.x + M_PI * 0.5f;
     return vec3{
@@ -32,11 +32,11 @@ vec3 Camera::calc_direction_side(void) {
     };
 }
 
-mat4 Camera::calc_proj(float aspect_ratio) {
+mat4 Camera::calc_proj(float aspect_ratio) const {
     return mat4::perspective(m_field_of_view, aspect_ratio, m_plane_near, m_plane_far);
 }
 
-mat4 Camera::calc_view(void) {
+mat4 Camera::calc_view(void) const {
     vec3 forward = this->calc_direction();
     vec3 focus_p = m_position + forward;
     return mat4::look_at(m_position, focus_p, m_up_vector);
@@ -46,7 +46,7 @@ void Camera::set_position(const vec3 &position) {
     m_position = position;
 }
 
-vec3 Camera::get_position(void) {
+vec3 Camera::get_position(void) const {
     return m_position;
 }
 
@@ -54,7 +54,7 @@ void Camera::set_rotation(const vec2 &rotation) {
     m_rotation = rotation;
 }
 
-vec2 Camera::get_rotation(void) {
+vec2 Camera::get_rotation(void) const {
     return m_rotation;
 }
 

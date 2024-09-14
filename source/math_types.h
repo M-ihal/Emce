@@ -64,6 +64,7 @@ struct vec3 {
 vec3 operator + (const vec3 &l, const vec3 r);
 vec3 operator - (const vec3 &l, const vec3 r);
 vec3 operator / (const vec3 &l, const float r);
+vec3 &operator += (vec3 &l, const vec3 &r);
 
 /* The matrix operations are column major, but initialization is row major due to memory layout */
 /*
