@@ -22,114 +22,6 @@
     @TODO: Game / GameManager / Game-Something class
 */
 
-VertexArray gen_cube_vao(void) {
-    struct CubeVertex {
-        vec3 position;
-        vec3 normal;
-        vec2 tex_coord;
-    };
-
-    const CubeVertex vertices[] = {
-        { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f }, // Bottom-left
-        {  0.5f,  0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f }, // top-right
-        {  0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f }, // bottom-right         
-        {  0.5f,  0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f }, // top-right
-        { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f }, // bottom-left
-        { -0.5f,  0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f }, // top-left
-                                                                // Front face
-        { -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f }, // bottom-left
-        {  0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f }, // bottom-right
-        {  0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f }, // top-right
-        {  0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f }, // top-right
-        { -0.5f,  0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f }, // top-left
-        { -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f }, // bottom-left
-                                                               // Left face
-        { -0.5f,  0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f }, // top-right
-        { -0.5f,  0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f }, // top-left
-        { -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f }, // bottom-left
-        { -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f }, // bottom-left
-        { -0.5f, -0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f }, // bottom-right
-        { -0.5f,  0.5f,  0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f }, // top-right
-                                                                // Right face
-        { 0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f },   // top-left
-        { 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f },   // bottom-right
-        { 0.5f,  0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f },   // top-right         
-        { 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f },   // bottom-right
-        { 0.5f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f },   // top-left
-        { 0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f },   // bottom-left     
-                                                                // Bottom face
-        { -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f }, // top-right
-        {  0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f }, // top-left
-        {  0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f }, // bottom-left
-        {  0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f }, // bottom-left
-        { -0.5f, -0.5f,  0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f }, // bottom-right
-        { -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f }, // top-right
-                                                                // Top face
-        { -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },  // top-left
-        {  0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f },  // bottom-right
-        {  0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f },  // top-right     
-        {  0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f },  // bottom-right
-        { -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },  // top-left
-        { -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f }   // bottom-left 
-    };
-
-    const uint32_t indices[] = {
-         0,  1,  2,
-         3,  4,  5,
-         6,  7,  8,
-         9, 10, 11,
-        12, 13, 14,
-        15, 16, 17,
-        18, 19, 20,
-        21, 22, 23,
-        24, 25, 26,
-        27, 28, 29,
-        30, 31, 32,
-        33, 34, 35
-    };
-
-    BufferLayout layout;
-    layout.push_attribute("a_position", 3, GL_FLOAT, 4);
-    layout.push_attribute("a_normal", 3, GL_FLOAT, 4);
-    layout.push_attribute("a_tex_coord", 2, GL_FLOAT, 4);
-
-    VertexArray vao;
-    vao.add_vertex_buffer(vertices, ARRAY_COUNT(vertices) * sizeof(CubeVertex), ArrayBufferUsage::STATIC, layout);
-    vao.add_index_buffer(indices, ARRAY_COUNT(indices), ArrayBufferUsage::STATIC);
-    vao.apply_vertex_attributes();
-    return vao;
-}
-
-void draw_chunk(Chunk &chunk, const Shader &shader) {
-    static bool        s_initialized = false;
-    static VertexArray s_cube_vao = gen_cube_vao();
-    static Texture     s_sand_tex("C://dev//emce//data//sand.png");
-    static float       s_elapsed = 0.0f;
-
-    if(!s_initialized) {
-        s_initialized = true;
-        s_sand_tex.set_filter_min(GL_NEAREST);
-        s_sand_tex.set_filter_mag(GL_NEAREST);
-    }
-
-    shader.use_program();
-    shader.upload_int("u_texture", 0);
-    s_sand_tex.bind_texture_unit(0);
-    s_cube_vao.bind_vao();
-
-    for_every_block(x, y, z) {
-        Block &block = chunk.get_block(x, y, z);
-
-        /* Don't draw AIR */
-        if(block.is_of_type(BlockType::AIR)) {
-            continue;
-        }
-
-        mat4 model = mat4::translate({ float(x), float(y), float(z) });
-        shader.upload_mat4("u_model", model.e);
-        glDrawElements(GL_TRIANGLES, s_cube_vao.index_count(), GL_UNSIGNED_INT, 0);
-    }
-}
 
 int SDL_main(int argc, char *argv[]) {
     /* TEMP: init std randomizer */
@@ -161,10 +53,14 @@ int SDL_main(int argc, char *argv[]) {
     }
 
     Camera camera;
-    camera.set_position({ 5.0f, 20.0f, 5.0f });
-    camera.set_rotation({ DEG_TO_RAD(90.0f), 0.0f });
+    camera.set_position({ 0.0f, 0.0f, 0.0f });
+    camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
     ShaderFile shader("C://dev//emce//source//shaders//block.glsl");
+
+    Texture texture;
+    texture.load_from_file("C://dev//emce//data//sand.png");
+    texture.set_filter_min();
 
     Chunk chunk;
 
@@ -228,7 +124,7 @@ int SDL_main(int argc, char *argv[]) {
         shader.upload_mat4("u_proj", proj_m.e);
         shader.upload_mat4("u_view", view_m.e);
 
-        draw_chunk(chunk, shader);
+        chunk.render(shader);
 
         window.swap_buffers();
     }

@@ -2,6 +2,8 @@
 
 #include "common.h"
 #include "math_types.h"
+#include "vertex_array.h"
+#include "shader.h"
 
 #define CHUNK_SIZE_X 16 
 #define CHUNK_SIZE_Y 64
@@ -33,10 +35,16 @@ public:
     CLASS_COPY_DISABLE(Chunk);
 
     Chunk(void);
+
     ~Chunk(void);
+
+    void update_chunk_vao(void);
 
     Block &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z);
 
+    void render(const Shader &shader);
+
 private:
-    Block m_blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
+    VertexArray m_chunk_vao;
+    Block       m_blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
 };
