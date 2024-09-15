@@ -89,8 +89,8 @@ bool Shader::load_from_memory(const char *vs, size_t vs_len, const char *fs, siz
 bool Shader::load_from_file(const char *filepath) {
     fprintf(stdout, "[info] Shader: Loading shader from file, path: %s\n", filepath);
 
-    LoadedFile file(filepath);
-    if(!file.is_loaded()) {
+    FileContents file;
+    if(!read_entire_file(filepath, file, true)) {
         fprintf(stderr, "[error] Shader: Failed to read shader file, path: \"%s\"\n", filepath);
         return false;
     }
@@ -99,13 +99,16 @@ bool Shader::load_from_file(const char *filepath) {
     string_view_t vs;
     string_view_t fs;
     string_view_t gs;
-    const bool parse_success = find_shader_sources(file.data(), file.size(), vs, fs, gs);
+    const bool parse_success = find_shader_sources(file.data, file.size, vs, fs, gs);
     if(!parse_success) {
         fprintf(stderr, "[error] Shader: Failed to parse shader file, path: %s\n", filepath);
+        free_loaded_file(file);
         return false;
     }
     
-    return this->load_from_memory(vs.pointer, vs.length, fs.pointer, fs.length, gs.pointer, gs.length);
+    const bool success = this->load_from_memory(vs.pointer, vs.length, fs.pointer, fs.length, gs.pointer, gs.length);
+    free_loaded_file(file);
+    return success;
 }
 
 void Shader::delete_program_if_exists(bool log) {

@@ -5,7 +5,7 @@ project(emce)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-g2")
+# set(CMAKE_CXX_FLAGS "-g2")
 set(CMAKE_BUILD_TYPE "Debug")
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) # All compiled things will be placed in the same folder, so don't need to copy .dlls and stuff
@@ -34,6 +34,8 @@ set(source_files
     source/graphics/vertex_array.h
     source/graphics/texture.cpp
     source/graphics/texture.h
+    source/graphics/font.cpp
+    source/graphics/font.h
     source/camera.cpp
     source/camera.h
     source/utils.cpp

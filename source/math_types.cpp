@@ -45,6 +45,10 @@ vec2 vec2::make(float xy) {
     return vec2{ xy, xy };
 }
 
+vec2 vec2::make(const struct vec2i &v) {
+    return vec2{ float(v.x), float(v.y) };
+}
+
 vec2 vec2::zero(void) {
     return vec2{ 0.0f, 0.0f };
 }
@@ -161,30 +165,30 @@ mat4 mat4::orthographic(float left, float bottom, float right, float top, float 
 
 mat4 mat4::perspective(float fov, float aspect, float near, float far) {
     /* NOTE: Degrees are an unhandy unit to work with.
-	 * linmath.h uses radians for everything! */
-	float const a = 1.f / tanf(fov / 2.f);
+     * linmath.h uses radians for everything! */
+    float const a = 1.f / tanf(fov / 2.f);
 
     mat4 m = mat4::identity();
 
-	m.e00 = a / aspect;
-	m.e01 = 0.f;
-	m.e02 = 0.f;
-	m.e03 = 0.f;
+    m.e00 = a / aspect;
+    m.e01 = 0.f;
+    m.e02 = 0.f;
+    m.e03 = 0.f;
 
-	m.e10 = 0.f;
-	m.e11 = a;
-	m.e12 = 0.f;
-	m.e13 = 0.f;
+    m.e10 = 0.f;
+    m.e11 = a;
+    m.e12 = 0.f;
+    m.e13 = 0.f;
 
-	m.e20 = 0.f;
-	m.e21 = 0.f;
-	m.e22 = -((far + near) / (far - near));
-	m.e23 = -1.f;
+    m.e20 = 0.f;
+    m.e21 = 0.f;
+    m.e22 = -((far + near) / (far - near));
+    m.e23 = -1.f;
 
-	m.e30 = 0.f;
-	m.e31 = 0.f;
-	m.e32 = -((2.f * far * near) / (far - near));
-	m.e33 = 0.f;
+    m.e30 = 0.f;
+    m.e31 = 0.f;
+    m.e32 = -((2.f * far * near) / (far - near));
+    m.e33 = 0.f;
 
     return m;
 }

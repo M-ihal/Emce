@@ -26,11 +26,7 @@
 #define COMBINE_(l, r)  COMBINE__(l, r)
 #define COMBINE(l, r)   COMBINE_(l, r)
 
-#if 1 && defined(__glew_h__)
 #define GL_CHECK(...) glGetError(); __VA_ARGS__; { auto COMBINE(error_code, __LINE__) = glGetError(); if(COMBINE(error_code, __LINE__) != GL_NO_ERROR) { fprintf(stderr, "[error] GL_CHECK: line:%d code:%d str:%s exp:%s\n", __LINE__, COMBINE(error_code, __LINE__), glewGetErrorString(COMBINE(error_code, __LINE__)), #__VA_ARGS__); } }
-#else
-#define GL_CHECK(...) __VA_ARGS__;
-#endif
 
 /* requires: stdio.h */
 #define PRINT_INT(v) fprintf(stdout, "\"%s\" = %d\n", #v, v)

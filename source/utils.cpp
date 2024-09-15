@@ -3,59 +3,43 @@
 #include <stdio.h>
 #include <malloc.h>
 
-LoadedFile::LoadedFile(const char *filepath, bool null_terminated) {
-    ASSERT(filepath);
+bool read_entire_file(const char *filepath, FileContents &file, bool null_terminated) {
+    file.data = NULL;
+    file.size = 0;
 
-    m_sanity_check = false;
-    m_data = NULL;
-    m_size = 0;
-
-    FILE *file = NULL;
-    if(fopen_s(&file, filepath, "rb") != 0) {
-        return;
+    FILE *f = NULL;
+    if(fopen_s(&f, filepath, "rb") != 0) {
+        return false;
     }
 
-    fseek(file, 0, SEEK_END);
-    m_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
+    fseek(f, 0, SEEK_END);
+    file.size = ftell(f);
+    fseek(f, 0, SEEK_SET);
 
     /* TODO: fail to load if file size is 0? */
-    if(!m_size) {
-        return;
+    if(!file.size) {
+        return false;
     }
 
     if(null_terminated) {
-        m_data = malloc(m_size + 1);
-        ASSERT(m_data);
-        fread(m_data, 1, m_size, file);
-        ((char *)m_data)[m_size] = '\0';
+        file.data = (uint8_t *)malloc(file.size + 1);
+        ASSERT(file.data, "read_entire_file: Failed to allocate memory.\n");
+        fread(file.data, 1, file.size, f);
+        ((char *)file.data)[file.size] = '\0';
     } else {
-        m_data = malloc(m_size);
-        ASSERT(m_data);
-        fread(m_data, 1, m_size, file);
+        file.data = (uint8_t *)malloc(file.size);
+        ASSERT(file.data, "read_entire_file: Failed to allocate memory.\n");
+        fread(file.data, 1, file.size, f);
     }
 
-    fclose(file);
-    m_sanity_check = true;
+    fclose(f);
+    return true;
 }
 
-LoadedFile::~LoadedFile(void) {
-    if(m_data) {
-        free(m_data);
-        m_data = NULL;
-    }
-}
-
-const void *LoadedFile::data(void) const {
-    return m_data;
-}
-
-const size_t LoadedFile::size(void) const {
-    return m_size;
-}
-
-bool LoadedFile::is_loaded(void) const {
-    return m_data && m_size && m_sanity_check;
+void free_loaded_file(FileContents &file) {
+    free(file.data);
+    file.data = NULL;
+    file.size = 0;
 }
 
 #if defined(_WIN32)

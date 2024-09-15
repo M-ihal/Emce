@@ -2,23 +2,13 @@
 
 #include "common.h"
 
-class LoadedFile {
-public:
-    CLASS_COPY_DISABLE(LoadedFile);
-
-    explicit LoadedFile(const char *filepath, bool null_terminated = false);
-    ~LoadedFile(void);
-
-    const void  *data(void) const;
-    const size_t size(void) const;
-
-    bool is_loaded(void) const;
-
-private:
-    void  *m_data;
-    size_t m_size;
-    bool   m_sanity_check;
+struct FileContents {
+    uint8_t *data = NULL;
+    size_t   size = 0;
 };
+
+bool read_entire_file(const char *filepath, FileContents &file, bool null_terminated = false);
+void free_loaded_file(FileContents &file);
 
 struct FileTime {
     uint16_t year         = 0;

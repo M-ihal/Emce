@@ -25,6 +25,7 @@ inline static constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
 inline static constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format) {
     switch(format) {
         default: INVALID_CODE_PATH;   return -1;
+        case TextureDataFormat::RED:  return GL_R8; // *8 or something?
         case TextureDataFormat::RGB:  return GL_RGB8;
         case TextureDataFormat::RGBA: return GL_RGBA8;
     }
@@ -33,6 +34,7 @@ inline static constexpr int32_t gl_internal_format_from_texture_data_format(Text
 inline static constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format) {
     switch(format) {
         default: INVALID_CODE_PATH;   return -1;
+        case TextureDataFormat::RED:  return GL_RED;
         case TextureDataFormat::RGB:  return GL_RGB;
         case TextureDataFormat::RGBA: return GL_RGBA;
     }
@@ -205,6 +207,6 @@ void Texture::set_wrap_t(TextureWrap param) {
     m_wrap_t = param;
 }
 
-vec2i Texture::get_size(void) {
+vec2i Texture::get_size(void) const {
     return vec2i{ m_width, m_height };
 }

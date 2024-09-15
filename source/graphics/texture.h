@@ -14,6 +14,7 @@ enum class TextureWrap : int8_t {
 };
 
 enum class TextureDataFormat : int8_t { 
+    RED,
     RGB,
     RGBA,
     INVALID
@@ -61,7 +62,7 @@ public:
 
     void set_wrap_t(TextureWrap param);
 
-    vec2i get_size(void);
+    vec2i get_size(void) const;
 
 private:
     uint32_t m_texture_id;

@@ -23,6 +23,7 @@ struct vec2 {
 
     static vec2 make(float x, float y);
     static vec2 make(float xy);
+    static vec2 make(const struct vec2i &v);
     static vec2 zero(void);
 };
 

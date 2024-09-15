@@ -47,6 +47,7 @@ class ShaderFile : public Shader {
 public:
     // CLASS_COPY_DISABLE(Shader);
 
+    // Make set_filepath .. etc
     ShaderFile(const char *filepath);
 
     ~ShaderFile(void);
