@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common.h"
-#include "math_types.h"
 #include "vertex_array.h"
 #include "shader.h"
 #include "texture.h"
@@ -24,8 +23,9 @@ class Block {
 public:
     Block(void);
 
-    bool is_of_type(BlockType type) const;
     void set_type(BlockType type);
+
+    bool is_of_type(BlockType type) const;
 
 private:
     BlockType m_type;
@@ -33,7 +33,11 @@ private:
 
 class Chunk {
 public:
-    CLASS_COPY_DISABLE(Chunk);
+    // temp
+    friend class World;
+
+    // CLASS_COPY_DISABLE(Chunk);
+    // CLASS_MOVE_ALLOW(Chunk);
 
     Chunk(void);
 
@@ -45,7 +49,10 @@ public:
 
     const Block &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z) const;
 
-    void render(const Shader &shader, const Texture &texture); // TEMP
+    static bool is_inside_chunk(int32_t rel_x, int32_t rel_y, int32_t rel_z);
+
+    //TEMP
+    void render(vec3i offset, const Shader &shader, const Texture &texture); // TEMP
 
 private:
     VertexArray m_chunk_vao;

@@ -40,6 +40,8 @@ set(source_files
     source/utils.h
     source/chunk.cpp
     source/chunk.h
+    source/world.cpp
+    source/world.h
 )
 
 set(source_files_external

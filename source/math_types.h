@@ -52,6 +52,7 @@ struct vec3 {
     static vec3 make(float x, float y, float z);
     static vec3 make(float xyz);
     static vec3 make(const vec2 &v, float z);
+    static vec3 make(const struct vec3i &v);
     static vec3 zero(void);
 
     static float length_sq(const vec3 &vec);
@@ -59,6 +60,19 @@ struct vec3 {
     static vec3  normalize(const vec3 &vec);
     static vec3  cross(const vec3 &a, const vec3 &b);
     static float dot(const vec3 &a, const vec3 &b);
+};
+
+struct vec3i {
+    union {
+        struct {
+            int32_t x;
+            int32_t y;
+            int32_t z;
+        };
+        int32_t e[3];
+    };
+
+    static vec3i make(const vec3 &v);
 };
 
 vec3 operator + (const vec3 &l, const vec3 r);

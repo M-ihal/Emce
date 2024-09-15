@@ -1,6 +1,7 @@
 #include "chunk.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 
 // @TEMP
 #include <glew.h>
@@ -18,25 +19,21 @@ void Block::set_type(BlockType type) {
 }
 
 Chunk::Chunk(void) {
-    for_every_block(x, y, z) {
-       Block &block = this->get_block(x, y, z);
-
-#if 0
-       if(rand() % 4 == 0) {
-           block.set_type(BlockType::SAND);
-       } else {
-           block.set_type(BlockType::AIR);
-       }
-#else
-       block.set_type(BlockType::SAND);
-#endif
+    for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
+        for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
+            const int32_t height = CHUNK_SIZE_Y - rand() % 16;
+            for(int32_t y = 0; y < height; ++y) {
+                Block &block = this->get_block(x, y, z);
+                block.set_type(BlockType::SAND);
+            }
+        }
     }
 
     this->update_chunk_vao();
 }
 
 Chunk::~Chunk(void) {
-
+    m_chunk_vao.delete_vao();
 }
 
 VertexArray stupid_regen_chunk_vao(const Chunk &chunk);
@@ -60,9 +57,15 @@ const Block &Chunk::get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z) const
     return m_blocks[rel_x][rel_y][rel_z];
 }
 
-void Chunk::render(const Shader &shader, const Texture &texture) {
+bool Chunk::is_inside_chunk(int32_t rel_x, int32_t rel_y, int32_t rel_z) {
+    return(rel_x >= 0 && rel_x < CHUNK_SIZE_X
+        && rel_y >= 0 && rel_y < CHUNK_SIZE_Y
+        && rel_z >= 0 && rel_z < CHUNK_SIZE_Z);
+}
+
+void Chunk::render(vec3i offset, const Shader &shader, const Texture &texture) {
     shader.use_program();
-    shader.upload_mat4("u_model", mat4::identity().e);
+    shader.upload_mat4("u_model", mat4::translate(vec3{ float(offset.x * CHUNK_SIZE_X), 0.0f, float(offset.z * CHUNK_SIZE_Z) }).e);
     shader.upload_int("u_texture", 0);
     texture.bind_texture_unit(0);
 
@@ -153,19 +156,31 @@ VertexArray stupid_regen_chunk_vao(const Chunk &chunk) {
     for_every_block(x, y, z) {
         const Block &block = chunk.get_block(x, y, z);
         if(block.is_of_type(BlockType::SAND)) {
-            push_quad(v_z_p, x, y, z);
-            push_quad(v_z_n, x, y, z);
-            push_quad(v_x_p, x, y, z);
-            push_quad(v_x_n, x, y, z);
-            push_quad(v_y_p, x, y, z);
-            push_quad(v_y_n, x, y, z);
+            if(!(Chunk::is_inside_chunk(x, y, z + 1) && chunk.get_block(x, y, z + 1).is_of_type(BlockType::SAND))) {
+                push_quad(v_z_p, x, y, z);
+            }
+            if(!(Chunk::is_inside_chunk(x, y, z - 1) && chunk.get_block(x, y, z - 1).is_of_type(BlockType::SAND))) {
+                push_quad(v_z_n, x, y, z);
+            }
+            if(!(Chunk::is_inside_chunk(x + 1, y, z) && chunk.get_block(x + 1, y, z).is_of_type(BlockType::SAND))) {
+                push_quad(v_x_p, x, y, z);
+            }
+            if(!(Chunk::is_inside_chunk(x - 1, y, z) && chunk.get_block(x - 1, y, z).is_of_type(BlockType::SAND))) {
+                push_quad(v_x_n, x, y, z);
+            }
+            if(!(Chunk::is_inside_chunk(x, y + 1, z) && chunk.get_block(x, y + 1, z).is_of_type(BlockType::SAND))) {
+                push_quad(v_y_p, x, y, z);
+            }
+            if(!(Chunk::is_inside_chunk(x, y - 1, z) && chunk.get_block(x, y - 1, z).is_of_type(BlockType::SAND))) {
+                push_quad(v_y_n, x, y, z);
+            }
         }
     }
 
     BufferLayout layout;
-    layout.push_attribute("a_position", 3, GL_FLOAT, 4);
-    layout.push_attribute("a_normal", 3, GL_FLOAT, 4);
-    layout.push_attribute("a_tex_coord", 2, GL_FLOAT, 4);
+    layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
+    layout.push_attribute("a_normal", 3, BufferDataType::FLOAT);
+    layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
 
     VertexArray vao;
     vao.create_vao(layout, ArrayBufferUsage::STATIC);

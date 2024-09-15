@@ -17,11 +17,11 @@
 #include "camera.h"
 #include "texture.h"
 #include "chunk.h"
+#include "world.h"
 
 /*
     @TODO: Game / GameManager / Game-Something class
 */
-
 
 void render_random_thing_at_origin(const Camera &camera, float aspect) {
     static Shader s_shader;
@@ -48,8 +48,8 @@ void render_random_thing_at_origin(const Camera &camera, float aspect) {
         };
 
         BufferLayout layout;
-        layout.push_attribute("a_position", 3, GL_FLOAT, 4);
-        layout.push_attribute("a_tex_coord", 2, GL_FLOAT, 4);
+        layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
+        layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
 
         s_vao.create_vao(layout, ArrayBufferUsage::STATIC);
         s_vao.set_vbo_data(vertices, ARRAY_COUNT(vertices) * sizeof(float));
@@ -100,8 +100,8 @@ int SDL_main(int argc, char *argv[]) {
     }
 
     Camera camera;
-    camera.set_position({ 0.0f, 0.0f, -5.0f });
-    camera.set_rotation({ DEG_TO_RAD(0.0f), DEG_TO_RAD(.0f) });
+    camera.set_position({ 0.0f, 128.0f, -5.0f });
+    camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
 
     ShaderFile shader("C://dev//emce//source//shaders//block.glsl");
@@ -111,7 +111,7 @@ int SDL_main(int argc, char *argv[]) {
     sand_texture.set_filter_min(TextureFilter::NEAREST);
     sand_texture.set_filter_mag(TextureFilter::NEAREST);
 
-    Chunk chunk;
+    World world;
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -146,17 +146,10 @@ int SDL_main(int argc, char *argv[]) {
             int32_t rotate_h = 0;
             int32_t rotate_v = 0;
 
-#if 0
-            if(input.key_is_down(Key::UP))    { rotate_v += 10; }
-            if(input.key_is_down(Key::DOWN))  { rotate_v -= 10; }
-            if(input.key_is_down(Key::LEFT))  { rotate_h -= 10; }
-            if(input.key_is_down(Key::RIGHT)) { rotate_h += 10; }
-#else
             if(input.button_is_down(Button::LEFT)) {
                 rotate_h =  input.mouse_rel_x();
                 rotate_v = -input.mouse_rel_y();
             }
-#endif
 
             camera.update_free(move_fw, move_side, rotate_v, rotate_h, delta_time, input.key_is_down(Key::LEFT_SHIFT));
         }
@@ -175,7 +168,7 @@ int SDL_main(int argc, char *argv[]) {
         shader.upload_mat4("u_proj", proj_m.e);
         shader.upload_mat4("u_view", view_m.e);
 
-        chunk.render(shader, sand_texture);
+        world.render_chunks(shader, sand_texture);
 
         render_random_thing_at_origin(camera, aspect_ratio);
 

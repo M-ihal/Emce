@@ -65,6 +65,10 @@ vec3 vec3::make(const vec2 &v, float z) {
     return vec3{ v.x, v.y, z };
 }
 
+vec3 vec3::make(const vec3i &v) {
+    return vec3{ float(v.x), float(v.y), float(v.z) };
+}
+
 vec3 vec3::zero(void) {
     return vec3{ 0.0f, 0.0f, 0.0f, };
 }
@@ -111,6 +115,14 @@ vec3 operator / (const vec3 &l, const float r) {
 vec3 &operator += (vec3 &l, const vec3 &r) {
     l = l + r;
     return l;
+}
+
+/*
+    --- vec3i ---
+*/
+
+vec3i vec3i::make(const vec3 &v) {
+    return vec3i{ int32_t(v.x), int32_t(v.y), int32_t(v.z) };
 }
 
 /*
