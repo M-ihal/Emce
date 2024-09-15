@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.27.5)
 
 project(emce)
 
-# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# set(CMAKE_CXX_STANDARD 17)
-# set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# set(CMAKE_CXX_FLAGS "-g2")
-# set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "-g2")
+set(CMAKE_BUILD_TYPE "Debug")
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) # All compiled things will be placed in the same folder, so don't need to copy .dlls and stuff
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) # All compiled things will be placed in the same folder, so don't need to copy .dlls and stuff

@@ -36,8 +36,8 @@ Window::~Window(void) {
 
 bool Window::initialize(int width, int height, const char *title) {
     ASSERT(::s_has_any_window_been_created == false, "Only one window allowed.\n");
-    ASSERT(m_sdl_window == NULL);
-    ASSERT(m_gl_context == NULL);
+    ASSERT(!m_sdl_window);
+    ASSERT(!m_gl_context);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -64,6 +64,9 @@ bool Window::initialize(int width, int height, const char *title) {
 
     /* Initialize window size */
     SDL_GetWindowSize(m_sdl_window, &m_width, &m_height);
+
+    /* Set vsync */
+    SDL_GL_SetSwapInterval(1);
 
     return true;
 }

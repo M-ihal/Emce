@@ -4,11 +4,9 @@
 #include "shader.h"
 #include "texture.h"
 #include "chunk.h"
-#include "math_types.h"
 
 // meeh
-#include <vector>
-#include <tuple>
+#include <unordered_map>
 
 // @temp
 #define WORLD_CHUNK_SIZE_X 2
@@ -25,9 +23,6 @@ public:
     void render_chunks(const Shader &shader, const Texture &sand_texture);
 
 private:
-
-    // @todo Allocate memory beforehand and then create chunks??
-
-    // @temp
-    std::vector<std::tuple<Chunk *, vec3i>> m_chunks;
+    // Big @todo
+    std::unordered_map<uint64_t, Chunk *> m_chunks;
 };

@@ -1,6 +1,7 @@
 #pragma once
-
 #include "common.h"
+
+// #define DO_VAO_LOGS
 
 enum class BufferDataType : int32_t {
     INT   = 1,
