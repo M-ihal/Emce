@@ -37,6 +37,8 @@ struct vec2i {
         };
         int32_t e[2];
     };
+
+    static vec2i zero(void);
 };
 
 struct vec3 {

@@ -21,6 +21,10 @@
 #include "font.h"
 #include "text_batcher.h"
 
+#define INIT_WINDOW_WIDTH  1280
+#define INIT_WINDOW_HEIGHT 720
+#define INIT_WINDOW_TITLE  "emce"
+
 /*
     @todo: Game / GameManager / Game-Something class
     @todo: Better cleanup of reasorces... maybe make it explicit not in destructors
@@ -86,8 +90,8 @@ int SDL_main(int argc, char *argv[]) {
 
     Window window;
     Input  input;
-
-    if(!window.initialize(900, 600, "emce")) {
+    
+    if(!window.initialize(INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT, INIT_WINDOW_TITLE)) {
         fprintf(stderr, "[error] Window: Failed to create valid opengl window.\n");
         return -1;
     }
@@ -135,8 +139,8 @@ int SDL_main(int argc, char *argv[]) {
     // font.load_from_ttf_file("C://dev//emce//data//LiberationMono-Regular.ttf", 20);
     font.load_from_ttf_file("C://dev//emce//data//CascadiaMono.ttf", 16);
     // font.load_from_ttf_file("C://dev//emce//data//font.ttf", 16);
-    // font.get_atlas().set_filter_min(TextureFilter::NEAREST);
-    // font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
+    font.get_atlas().set_filter_min(TextureFilter::NEAREST);
+    font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -199,14 +203,49 @@ int SDL_main(int argc, char *argv[]) {
 
         /* Draw debug info */ {
             const vec2 padding = { 4, 4 };
+            TextBatcher::begin();
 
             float cursor_x = padding.x;
             float cursor_y = window.height() - font.get_height() - padding.y;
-            TextBatcher::begin();
-            TextBatcher::push_text_formatted(vec2{ cursor_x, cursor_y }, font, "frame time %.6f", delta_time);
-            cursor_y -= font.get_height();
-            TextBatcher::push_text_formatted(vec2{ cursor_x, cursor_y }, font, "frame time %.6f", delta_time);
-            TextBatcher::render(window.width(), window.height(), font);
+
+#define SKIP_LINE()\
+            cursor_y -= font.get_height()
+#define PUSH_TEXT(format, ...)\
+            TextBatcher::push_text_formatted(vec2{ cursor_x, cursor_y }, font, format, __VA_ARGS__);\
+            SKIP_LINE()
+
+            PUSH_TEXT(" --- Frame ---");
+            PUSH_TEXT("frame time: %.6f", delta_time);
+            SKIP_LINE();
+            PUSH_TEXT(" --- Camera ---");
+            PUSH_TEXT("camera pos: %.2f, %.2f, %.2f", camera.get_position().x, camera.get_position().y, camera.get_position().z);
+
+#if 1
+SKIP_LINE();
+PUSH_TEXT("Architecto nisi accusantium nihil sunt est non provident.");
+PUSH_TEXT("Dolorem voluptatem maiores ut eveniet voluptatem doloribus velit aperiam.");
+PUSH_TEXT("Molestiae molestiae qui unde rerum ducimus illum aliquam.");
+PUSH_TEXT("Eum autem quo et magnam rem doloremque.");
+PUSH_TEXT("Dolor quo delectus eius cumque et qui.");
+PUSH_TEXT("Autem quidem debitis illo ea provident eos mollitia commodi.");
+PUSH_TEXT("Officia laboriosam dolor illum autem earum quidem ad.");
+PUSH_TEXT("Porro consequatur quia odio et atque autem deserunt.");
+PUSH_TEXT("Itaque eaque aut vero. Aut sunt cupiditate ipsa vitae quis et accusantium.");
+PUSH_TEXT("Maxime qui exercitationem velit est sint animi iure.");
+PUSH_TEXT("Et ipsam eum quia cupiditate. Sint eos occaecati rerum quo eveniet consequuntur expedita eligendi.");
+PUSH_TEXT("Corrupti consectetur nostrum temporibus.");
+PUSH_TEXT("Consequatur voluptas rerum atque ipsum quae porro quisquam at.");
+PUSH_TEXT("Quas dolores et quo. Quam aspernatur ea similique aspernatur.");
+PUSH_TEXT("Tempora dolor tempore corrupti. Molestias sed doloribus ea.");
+PUSH_TEXT("Aut tenetur repellendus voluptatum et libero suscipit.");
+PUSH_TEXT("Asperiores neque vel veniam et et. Odio sunt dignissimos esse autem cumque ratione optio.");
+PUSH_TEXT("Voluptatibus eos ullam aut aliquam est distinctio. Alias eius alias autem sequi atque rerum sint odio.");
+#endif
+
+#undef PUSH_TEXT
+#undef SKIP_LINE
+
+            TextBatcher::render(window.width(), window.height(), font, vec2i{ 3, -3 });
         }
 
         window.swap_buffers();

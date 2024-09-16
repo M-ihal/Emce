@@ -66,22 +66,35 @@ void TextBatcher::begin(void) {
     s_chars_pushed = 0;
 }
 
-void TextBatcher::render(int32_t width, int32_t height, const Font &font) {
+void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec2i shadow_offset) {
+    // @todo Get rid of these somehow
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_DEPTH_TEST);
 
     s_shader.use_program();
     s_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(width), float(height), -1.0f, 1.0f).e);
-    s_shader.upload_vec3("u_color", vec3{ 1.0f, 1.0f, 1.0f }.e);
     s_shader.upload_int("u_font_atlas", 0);
     font.get_atlas().bind_texture_unit(0);
 
     s_vao.bind_vao();
     s_vao.upload_vbo_data(s_vertices, s_chars_pushed * 4 * sizeof(TextQuadVertex), 0);
 
+    /* Draw text shadow */
+    if(shadow_offset.x != 0 || shadow_offset.y != 0) {
+        s_shader.upload_vec2("u_offset", vec2::make(shadow_offset).e);
+        s_shader.upload_vec3("u_color", vec3{ 0.0f, 0.0f, 0.0f }.e);
+        GL_CHECK(glDrawElements(GL_TRIANGLES, s_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
+    }
+
+    /* Draw actual text */
+    s_shader.upload_vec2("u_offset", vec2{ 0.0f, 0.0f }.e);
+    s_shader.upload_vec3("u_color", vec3{ 1.0f, 1.0f, 1.0f }.e);
     GL_CHECK(glDrawElements(GL_TRIANGLES, s_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
 
+
     glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
 }
 
 void TextBatcher::push_text(vec2 position, const Font &font, const char *string) {

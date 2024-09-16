@@ -58,6 +58,14 @@ vec2 operator + (const vec2 &l, const vec2 &r) {
 }
 
 /*
+    --- vec2i ---
+*/
+
+vec2i vec2i::zero(void) {
+    return vec2i{ 0, 0 };
+}
+
+/*
     --- vec3 ---
 */
 
