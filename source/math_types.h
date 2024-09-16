@@ -27,6 +27,8 @@ struct vec2 {
     static vec2 zero(void);
 };
 
+vec2 operator + (const vec2 &l, const vec2 &r);
+
 struct vec2i {
     union {
         struct {

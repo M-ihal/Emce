@@ -21,7 +21,7 @@ Shader::Shader(void) {
     m_program_id = 0;
 }
 
-Shader::~Shader(void) {
+void Shader::delete_shader(void) {
     this->delete_program_if_exists();
 }
 
@@ -175,14 +175,21 @@ bool Shader::is_valid_program(void) const {
     return true;
 }
 
-ShaderFile::ShaderFile(const char *filepath) {
+ShaderFile::ShaderFile(void) {
+    ZERO_ARRAY(m_filepath);
+}
+
+void ShaderFile::delete_shader_file(void) {
+    this->delete_shader();
+    ZERO_ARRAY(m_filepath);
+    ZERO_STRUCT(m_last_time);
+}
+
+void ShaderFile::set_filepath_and_load(const char *filepath) {
     strcpy_s(m_filepath, ARRAY_COUNT(m_filepath), filepath);
 
     this->load_from_file(m_filepath);
     FileTime::get_times(m_filepath, &m_last_time, NULL, NULL);
-}
-
-ShaderFile::~ShaderFile(void) {
 }
 
 void ShaderFile::hotload(void) {

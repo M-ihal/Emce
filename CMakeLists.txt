@@ -44,6 +44,8 @@ set(source_files
     source/chunk.h
     source/world.cpp
     source/world.h
+    source/text_batcher.cpp
+    source/text_batcher.h
 )
 
 set(source_files_external

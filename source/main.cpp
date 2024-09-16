@@ -19,56 +19,15 @@
 #include "chunk.h"
 #include "world.h"
 #include "font.h"
+#include "text_batcher.h"
 
 /*
     @todo: Game / GameManager / Game-Something class
     @todo: Better cleanup of reasorces... maybe make it explicit not in destructors
 */
 
-// @todo Batch text rendering 
-void test_render_text(const Shader &shader, const VertexArray &glyph_vao, const Font &font, int32_t window_w, int32_t window_h) {
-    const char *text = "TEST!";
-    vec2 cursor = { 100.0f, 100.0f };
-    const size_t len = strlen(text);
-
-    shader.use_program();
-    shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(window_w), float(window_h), -1.0f, 1.0f).e);
-    shader.upload_vec3("u_color", vec3{ 1.0f, 1.0f, 1.0f }.e);
-    shader.upload_int("u_font_atlas", 0);
-    font.get_atlas().bind_texture_unit(0);  
-
-    for(int32_t index = 0; index < len; ++index) {
-        const int32_t codepoint = text[index];
-
-        Font::Glyph glyph;
-        if(!font.get_glyph(codepoint, glyph)) continue; // @todo has_glyph
-
-        vec2 glyph_size = { float(glyph.width), float(glyph.height) };
-        vec2 glyph_p = {
-            cursor.x + glyph.left_side_bearing * font.get_scale_for_pixel_height(),
-            cursor.y - glyph.height - glyph.offset_y
-        };
-
-        float verts[] = {
-            glyph_p.x,                glyph_p.y, glyph.tex_coords[0].x, glyph.tex_coords[0].y,
-            glyph_p.x + glyph_size.x, glyph_p.y, glyph.tex_coords[1].x, glyph.tex_coords[1].y,
-            glyph_p.x + glyph_size.x, glyph_p.y + glyph_size.y, glyph.tex_coords[2].x, glyph.tex_coords[2].y,
-            glyph_p.x,                glyph_p.y + glyph_size.y, glyph.tex_coords[3].x, glyph.tex_coords[3].y,
-
-        };
-
-        glyph_vao.upload_vbo_data(verts, 4 * 4 * sizeof(float), 0);
-
-        glyph_vao.bind_vao();
-        glDrawElements(GL_TRIANGLES, glyph_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL);
-
-        // const int32_t adv = glyph->advance + font->kerning_advance(string[idx], string[idx + 1]);
-        // cursor.x += adv * font->scale_for_pixel_height;
-        cursor.x += float(glyph.width);
-    }
-}
-
 void render_random_thing_at_origin(const Camera &camera, float aspect) {
+    /// @todo NOT DELETING THOSE....
     static Shader s_shader;
     static VertexArray s_vao;
     static Texture s_texture;
@@ -148,9 +107,10 @@ int SDL_main(int argc, char *argv[]) {
     camera.set_position({ 0.0f, 128.0f, -5.0f });
     camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
-    ShaderFile shader("C://dev//emce//source//shaders//block.glsl");
+    TextBatcher::initialize();
 
-    ShaderFile text_shader("C://dev//emce//source//shaders//simple_text.glsl");
+    ShaderFile shader;
+    shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
 
     VertexArray glyph_vao;
     /* Initialzie text vao */ {
@@ -172,7 +132,11 @@ int SDL_main(int argc, char *argv[]) {
     World world;
 
     Font font;
-    font.load_from_ttf_file("C://dev//emce//data//font.ttf", 16);
+    // font.load_from_ttf_file("C://dev//emce//data//LiberationMono-Regular.ttf", 20);
+    font.load_from_ttf_file("C://dev//emce//data//CascadiaMono.ttf", 16);
+    // font.load_from_ttf_file("C://dev//emce//data//font.ttf", 16);
+    // font.get_atlas().set_filter_min(TextureFilter::NEAREST);
+    // font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -183,7 +147,6 @@ int SDL_main(int argc, char *argv[]) {
         window.process_events(input);
 
         shader.hotload();
-        text_shader.hotload();
 
         if(input.key_pressed(Key::ESCAPE)) {
             window.should_quit();
@@ -234,13 +197,27 @@ int SDL_main(int argc, char *argv[]) {
 
         render_random_thing_at_origin(camera, aspect_ratio);
 
-        test_render_text(text_shader, glyph_vao, font, window.width(), window.height());
+        /* Draw debug info */ {
+            const vec2 padding = { 4, 4 };
+
+            float cursor_x = padding.x;
+            float cursor_y = window.height() - font.get_height() - padding.y;
+            TextBatcher::begin();
+            TextBatcher::push_text_formatted(vec2{ cursor_x, cursor_y }, font, "frame time %.6f", delta_time);
+            cursor_y -= font.get_height();
+            TextBatcher::push_text_formatted(vec2{ cursor_x, cursor_y }, font, "frame time %.6f", delta_time);
+            TextBatcher::render(window.width(), window.height(), font);
+        }
 
         window.swap_buffers();
     }
 
     sand_texture.delete_texture_if_exists();
     font.delete_font();
+
+    shader.delete_shader_file();
+
+    TextBatcher::destroy();
 
     return 0;
 }

@@ -11,6 +11,7 @@
 class Font {
 public:
     struct Glyph {
+        bool    has_glyph;
         int32_t width;
         int32_t height;
         int32_t offset_x;
@@ -29,6 +30,8 @@ public:
     
     /* Deletes allocated structs and the atlas texture */
     void delete_font(void);
+
+    int32_t get_kerning_advance(int32_t codepoint_left, int32_t codepoint_right) const;
 
     // @temp
     bool get_glyph(int32_t codepoint, Glyph &glyph) const {
@@ -51,6 +54,14 @@ public:
 
     float get_scale_for_pixel_height(void) const {
         return m_scale_for_pixel_height;
+    }
+
+    int32_t get_height(void) const {
+        return m_height;
+    }
+
+    int32_t get_line_gap(void) const {
+        return m_line_gap;
     }
 
 private:

@@ -27,7 +27,5 @@ out vec4 final_color;
 void main() {
     float alpha = texture(u_font_atlas, v_tex_coord).r;
     final_color = vec4(u_color, alpha);
-    if(final_color.a < 0.1) {
-        discard;
-    }
+    // final_color = vec4(v_tex_coord, 0.0, 1.0);
 }

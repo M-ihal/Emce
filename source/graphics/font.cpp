@@ -35,8 +35,10 @@ bool Font::load_from_ttf_file(const char *filepath, int32_t height_in_pixels) {
     m_font_stb_info = (void *)font_info;
     m_font_file = font_file;
 
-    /* Get basic font variables */
+    /* Get basic font variables @todo Check stuff about the font sizing... */
+    m_height = height_in_pixels;
     m_scale_for_pixel_height = stbtt_ScaleForMappingEmToPixels(font_info, height_in_pixels);
+    // m_scale_for_pixel_height = stbtt_ScaleForPixelHeight(font_info, height_in_pixels);
     stbtt_GetFontVMetrics(font_info, &m_ascent, &m_descent, &m_line_gap);
 
     /* @todo Hardcoded, Allocate font atlas bitmap */
@@ -59,22 +61,33 @@ bool Font::load_from_ttf_file(const char *filepath, int32_t height_in_pixels) {
     /* @todo Try to load all ASCII characters for now */
     for(int32_t codepoint = 0; codepoint  < 255; ++codepoint) {
         Font::Glyph glyph = { };
-        
+        stbtt_GetCodepointHMetrics(font_info, codepoint, &glyph.advance, &glyph.left_side_bearing);
+
         uint8_t *glyph_bitmap = stbtt_GetCodepointBitmap(font_info, 0, m_scale_for_pixel_height, codepoint, &glyph.width, &glyph.height, &glyph.offset_y, &glyph.offset_y);
         if(!glyph_bitmap) {
             /* No bitmap for this character -> Do not add @todo */
+            m_glyphs.insert({ codepoint, glyph });
             continue;
         }
 
+        /* If got here, the glyph has bitmap data */
+        glyph.has_glyph = true;
+
         stbrp_rect glyph_rect;
-        glyph_rect.w = glyph.width;
-        glyph_rect.h = glyph.height;
+        glyph_rect.w = glyph.width + 2;  // @hack +2
+        glyph_rect.h = glyph.height + 2; // @hack +2
         stbrp_pack_rects(&rect_pack_context, &glyph_rect, 1);
         if(!glyph_rect.was_packed) {
             /* Failed to pack glyph rect for some reason @todo */
             free(glyph_bitmap);
             continue;
         }
+
+        // @todo @hack Quick solution to edge artefacts when rendering, leaving one pixel border around each glyph
+        glyph_rect.w -= 2;
+        glyph_rect.h -= 2;
+        glyph_rect.x += 1;
+        glyph_rect.y += 1;
 
         /* Copy glyph bitmap to the assigned location in atlas bitmap, also flip it @todo */
         for(int32_t y = 0; y < glyph_rect.h; ++y) {
@@ -115,4 +128,8 @@ void Font::delete_font(void) {
     free_loaded_file(m_font_file);
     free(m_font_stb_info);
     m_glyphs.clear();
+}
+
+int32_t Font::get_kerning_advance(int32_t codepoint_left, int32_t codepoint_right) const {
+    return stbtt_GetGlyphKernAdvance((stbtt_fontinfo *)m_font_stb_info, codepoint_left, codepoint_right);
 }

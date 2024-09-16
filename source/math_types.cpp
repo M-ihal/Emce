@@ -53,6 +53,10 @@ vec2 vec2::zero(void) {
     return vec2{ 0.0f, 0.0f };
 }
 
+vec2 operator + (const vec2 &l, const vec2 &r) {
+    return vec2{ l.x + r.x, l.y + r.y };
+}
+
 /*
     --- vec3 ---
 */

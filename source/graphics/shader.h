@@ -5,6 +5,9 @@
 
 /*
     TODO: Better logging when loading and hotloading shaders
+
+
+    @todo explicit delete function !!!!
 */
 
 class Shader {
@@ -13,7 +16,7 @@ public:
 
     Shader(void);
     
-    ~Shader(void);
+    void delete_shader(void);
 
     static void use_no_program(void);
 
@@ -45,13 +48,14 @@ private:
 
 class ShaderFile : public Shader {
 public:
-    // CLASS_COPY_DISABLE(Shader);
+    CLASS_COPY_DISABLE(ShaderFile);
 
-    // Make set_filepath .. etc
-    ShaderFile(const char *filepath);
+    ShaderFile(void);
 
-    ~ShaderFile(void);
+    void delete_shader_file(void);
 
+    void set_filepath_and_load(const char *filepath);
+    
     void hotload(void);
 
 private:
