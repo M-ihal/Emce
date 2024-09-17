@@ -19,9 +19,11 @@ public:
     World(void);
 
     ~World(void);
-    
+ 
     void render_chunks(const Shader &shader, const Texture &sand_texture);
     
+    Chunk *get_chunk(int32_t x, int32_t z, bool create_if_doesnt_exist = false);
+
     // @temp
     void gen_chunk_at(vec2i chunk);
 

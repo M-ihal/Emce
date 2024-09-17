@@ -66,7 +66,7 @@ void Camera::update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, i
     m_rotation.x += rotate_h * SPEED_ROTATE;
     m_rotation.y += rotate_v * SPEED_ROTATE;
 
-    const float EPS = 0.001f;
+    const float EPS = 0.01f;
     m_rotation.y = clamp(m_rotation.y, DEG_TO_RAD(-90.0f + EPS), DEG_TO_RAD(90.0f - EPS));
     m_rotation.x = wrap(m_rotation.x, 0.0f, M_PI * 2.0f);
 

@@ -31,16 +31,12 @@ in vec3 v_normal;
 out vec4 final_color;
 
 void main() {
-    const vec3 sun_diffuse = vec3(0.95, 0.95, 0.9);
-    const vec3 sun_dir = normalize(vec3(+0.5, -1.0, +0.4));
+    const vec3 sun_diffuse = vec3(0.8, 0.8, 0.8);
+    const vec3 sun_dir = normalize(vec3(+0.3, -1.0, +0.4));
     vec3 normal        = normalize(v_normal);
     vec3 dir_to_sun    = -sun_dir; 
-    float diff = max(dot(normal, dir_to_sun), 0.2);
+    float diff = max(dot(normal, dir_to_sun), 0.3);
     vec3  diffuse = sun_diffuse * diff;
 
-
     final_color = vec4(diffuse, 1.0) * texture(u_texture, v_tex_coord);
-
-    // final_color.xyz += abs(normal) * 0.05;
-    // final_color = vec4(abs(normal), 1.0);
 }

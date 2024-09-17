@@ -16,7 +16,8 @@
 
 enum class BlockType : int32_t {
     AIR = 0, /* NONE */
-    SAND
+    SAND,
+    DIRT
 };
 
 class Block {
@@ -33,11 +34,7 @@ private:
 
 class Chunk {
 public:
-    // temp
     friend class World;
-
-    // CLASS_COPY_DISABLE(Chunk);
-    // CLASS_MOVE_ALLOW(Chunk);
 
     Chunk(void);
 
@@ -50,9 +47,6 @@ public:
     const Block &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z) const;
 
     static bool is_inside_chunk(int32_t rel_x, int32_t rel_y, int32_t rel_z);
-
-    //TEMP
-    void render(vec3i offset, const Shader &shader, const Texture &texture); // TEMP
 
 private:
     VertexArray m_chunk_vao;

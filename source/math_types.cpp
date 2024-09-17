@@ -220,11 +220,15 @@ mat4 mat4::look_at(vec3 eye, vec3 focus, vec3 up_vec) {
 }
 
 mat4 mat4::translate(const vec3 &vec) {
-    return mat4 {
+    return translate(vec.x, vec.y, vec.z);
+}
+
+mat4 mat4::translate(float x, float y, float z) {
+    return {
         1.0f,  0.0f,  0.0f,  0.0f,
         0.0f,  1.0f,  0.0f,  0.0f,
         0.0f,  0.0f,  1.0f,  0.0f,
-        vec.x, vec.y, vec.z, 1.0f
+        x,     y,     z,     1.0f
     };
 }
 
@@ -264,12 +268,21 @@ mat4 mat4::rotate(float x, float y, float z) {
     return result;
 }
 
+mat4 mat4::scale(float x, float y, float z) {
+    return {
+        x,    0.0f, 0.0f, 0.0f,
+        0.0f, y,    0.0f, 0.0f,
+        0.0f, 0.0f, z,    0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
+    };
+}
+
 mat4 operator * (const mat4 &l, const mat4 &r) {
-    mat4 result = {};
-    for(int32_t i = 0; i < 4; ++i) {
-        for(int32_t j = 0; j < 4; ++j) {
-            for(int32_t k = 0; k < 4; ++k) {
-                result.e[j][i] += l.e[k][i] * r.e[j][k];
+    mat4 result = { };
+    for(int32_t row = 0; row < 4; ++row) {
+        for(int32_t col = 0; col < 4; ++col) {
+            for(int32_t i = 0; i < 4; ++i) {
+                result.e[row][col] += l.e[row][i] * r.e[i][col];
             }
         }
     }

@@ -85,6 +85,24 @@ vec3 operator - (const vec3 &l, const vec3 r);
 vec3 operator / (const vec3 &l, const float r);
 vec3 &operator += (vec3 &l, const vec3 &r);
 
+struct vec4 {
+    union {
+        struct {
+            float x;
+            float y;
+            float z;
+            float w;
+        };
+        struct {
+            float r;
+            float g;
+            float b;
+            float a;
+        };
+        float e[4];
+    };
+};
+
 /* The matrix operations are column major, but initialization is row major due to memory layout */
 /*
     i.e. Translation matrix would be initialized like:
@@ -114,7 +132,9 @@ struct mat4 {
     static mat4 perspective(float fov, float aspect, float near, float far);
     static mat4 look_at(vec3 eye, vec3 focus, vec3 up_vec);
     static mat4 translate(const vec3 &vec);
+    static mat4 translate(float x, float y, float z);
     static mat4 rotate(float x, float y, float z);
+    static mat4 scale(float x, float y, float z);
 };
 
 mat4 operator * (const mat4 &l, const mat4 &r);

@@ -48,6 +48,8 @@ set(source_files
     source/text_batcher.h
     source/debug_ui.cpp
     source/debug_ui.h
+    source/console.cpp
+    source/console.h
 )
 
 set(source_files_external

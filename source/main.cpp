@@ -21,6 +21,7 @@
 #include "font.h"
 #include "text_batcher.h"
 #include "debug_ui.h"
+#include "console.h"
 
 #define INIT_WINDOW_WIDTH  1280
 #define INIT_WINDOW_HEIGHT 720
@@ -143,42 +144,30 @@ int SDL_main(int argc, char *argv[]) {
 
     TextBatcher::initialize();
     DebugUI::initialize();
+    Console::initialize();
 
     Camera camera;
-    camera.set_position({ 0.0f, 128.0f, 0.0f });
+    camera.set_position({ -54.0f, 128.0f, 37.0f });
     camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
-
-    TextBatcher text_batcher;
 
     ShaderFile shader;
     shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
-
-    VertexArray glyph_vao;
-    /* Initialzie text vao */ {
-        BufferLayout layout;
-        layout.push_attribute("a_position", 2, BufferDataType::FLOAT);
-        layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
-        glyph_vao.create_vao(layout, ArrayBufferUsage::STATIC);
-        glyph_vao.set_vbo_data(NULL, 4 * 4 * sizeof(float));
-        const uint32_t inds[] = { 0, 1, 2, 2, 3, 0 };
-        glyph_vao.set_ibo_data(inds, 6);
-        glyph_vao.apply_vao_attributes();
-    }
 
     Texture sand_texture;
     sand_texture.load_from_file("C://dev//emce//data//sand.png");
     sand_texture.set_filter_min(TextureFilter::NEAREST);
     sand_texture.set_filter_mag(TextureFilter::NEAREST);
 
-    World world;
-
     Font font;
-    // font.load_from_ttf_file("C://dev//emce//data//LiberationMono-Regular.ttf", 20);
     font.load_from_ttf_file("C://dev//emce//data//CascadiaMono.ttf", 16);
-    // font.load_from_ttf_file("C://dev//emce//data//minecraft.ttf", 20);
-    // font.load_from_ttf_file("C://dev//emce//data//minecraftia-regular.ttf", 16);
     font.get_atlas().set_filter_min(TextureFilter::NEAREST);
     font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
+
+    World world;
+    
+    for(int32_t x = -8; x <= 8; ++x) 
+        for(int32_t z = -8; z <= 8; ++z) 
+            world.gen_chunk_at({ x, z });
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -226,6 +215,8 @@ int SDL_main(int argc, char *argv[]) {
             camera.update_free(move_fw, move_side, rotate_v, rotate_h, delta_time, input.key_is_down(Key::LEFT_SHIFT));
         }
 
+        Console::update(input);
+
         float aspect_ratio = (float)window.width() / (float)window.height();
 
         mat4 proj_m = camera.calc_proj(aspect_ratio);
@@ -241,13 +232,12 @@ int SDL_main(int argc, char *argv[]) {
         shader.upload_mat4("u_view", view_m.e);
 
         WorldPosition position = WorldPosition::from_real(camera.get_position());
-        
-        world.gen_chunk_at(position.chunk);
 
         world.render_chunks(shader, sand_texture);
 
         render_random_thing_at_origin(camera, aspect_ratio);
 
+        Console::render(window.width(), window.height());
 
         /* Draw debug info */ {
             static int32_t draw_fps = 0;
@@ -278,6 +268,9 @@ int SDL_main(int argc, char *argv[]) {
             DebugUI::push_text_left("block:    %+d, %+d, %+d", position.block.x, position.block.y, position.block.z);
             DebugUI::push_text_left("blockrel: %+d, %+d, %+d", position.block_rel.x, position.block_rel.y, position.block_rel.z);
             DebugUI::push_text_left("chunk:    %+d, %+d", position.chunk.x, position.chunk.y);
+            DebugUI::push_text_left("rotation H: %+.3f", RAD_TO_DEG(camera.get_rotation().x));
+            DebugUI::push_text_left("rotation V: %+.3f", RAD_TO_DEG(camera.get_rotation().y));
+
         }
 
         DebugUI::render();
@@ -287,9 +280,9 @@ int SDL_main(int argc, char *argv[]) {
 
     sand_texture.delete_texture_if_exists();
     font.delete_font();
-
     shader.delete_shader_file();
 
+    Console::destroy();
     DebugUI::destroy();
     TextBatcher::destroy();
 
