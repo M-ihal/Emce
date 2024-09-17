@@ -16,7 +16,7 @@ Font::Font(void) {
     m_font_stb_info = NULL;
 }
 
-bool Font::load_from_ttf_file(const char *filepath, int32_t height_in_pixels) {
+bool Font::load_from_file(const char *filepath, int32_t height_in_pixels) {
     fprintf(stdout, "[info] Font: Loading font from ttf file, path: %s\n", filepath);
 
     FileContents font_file;
@@ -46,12 +46,12 @@ bool Font::load_from_ttf_file(const char *filepath, int32_t height_in_pixels) {
     const int32_t atlas_h = 1024;
     uint8_t *atlas_bitmap = (uint8_t *)malloc(atlas_w * atlas_h);
     memset(atlas_bitmap, 0, atlas_w * atlas_h);
-    ASSERT(atlas_bitmap, "load_font_from_ttf_file: Failed to allocate memory.\n");
+    ASSERT(atlas_bitmap, "load_font_from_file: Failed to allocate memory.\n");
 
     /* Init stb rect pack stuff */
     const int32_t num_nodes = 1024;
     stbrp_node *rp_nodes = (stbrp_node *)malloc(num_nodes * sizeof(stbrp_node));
-    ASSERT(rp_nodes, "load_font_from_ttf_file: Failed to allocate memory.\n");
+    ASSERT(rp_nodes, "load_font_from_file: Failed to allocate memory.\n");
     stbrp_context rect_pack_context;
     stbrp_init_target(&rect_pack_context, atlas_w, atlas_h, rp_nodes, num_nodes);
 

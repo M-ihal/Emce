@@ -123,6 +123,9 @@ int SDL_main(int argc, char *argv[]) {
         return -1;
     }
 
+    /* Do not query text input by default */
+    SDL_StopTextInput();
+
     Window window;
     Input  input;
     
@@ -159,7 +162,7 @@ int SDL_main(int argc, char *argv[]) {
     sand_texture.set_filter_mag(TextureFilter::NEAREST);
 
     Font font;
-    font.load_from_ttf_file("C://dev//emce//data//CascadiaMono.ttf", 16);
+    font.load_from_file("C://dev//emce//data//CascadiaMono.ttf", 16);
     font.get_atlas().set_filter_min(TextureFilter::NEAREST);
     font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
@@ -183,8 +186,16 @@ int SDL_main(int argc, char *argv[]) {
         TextBatcher::hotload_shader();
         shader.hotload();
 
+        if(input.key_pressed(Key::T)) {
+            if(!Console::is_open()) {
+                Console::set_open_state(true);
+            }
+        }
+
         if(input.key_pressed(Key::ESCAPE)) {
-            window.should_quit();
+            if(!Console::is_open()) {
+                window.should_quit();
+            }
         }
 
         /* Calculate time delta */ {
@@ -195,7 +206,8 @@ int SDL_main(int argc, char *argv[]) {
             time_last = time_now;
         }
 
-        /* Update camera */ {
+        /* Update camera */ 
+        if(!Console::is_open()) {
             int32_t move_fw   = 0;
             int32_t move_side = 0;
 

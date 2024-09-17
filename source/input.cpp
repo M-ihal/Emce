@@ -1,7 +1,10 @@
 #include "input.h"
 
-#include <cstring>
 #include <SDL.h>
+
+// temp
+#include <cstring>
+#include <stdio.h>
 
 Input::Input(void) {
     //ZERO_ARRAY(m_key_state);
@@ -76,12 +79,17 @@ Button button_from_sdl_button(int32_t sdl_button) {
 }
 #undef DEFINE_BUTTON
 
+const char *const Input::get_text_input(void) const {
+    return m_text_input;
+}
 
 void Input::prepare_to_catch_input(void) {
     for(int32_t key_index = 0; key_index < (int32_t)Key::_COUNT; ++key_index) { m_key_state[key_index] &= ~(PRESSED | RELEASED | REPEAT); }
 
     m_mouse_rel_x = 0;
     m_mouse_rel_y = 0;
+
+    ZERO_ARRAY(m_text_input);
 }
 
 void Input::catch_input(const SDL_Event &event) {
@@ -136,6 +144,10 @@ void Input::catch_input(const SDL_Event &event) {
                 m_button_state[index] |= RELEASED;
                 m_button_state[index] &= ~IS_DOWN;
             }
+        } break;
+
+        case SDL_TEXTINPUT: {
+            strcpy_s(m_text_input, event.text.text);
         } break;
     }
 }

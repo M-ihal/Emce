@@ -28,7 +28,7 @@ void DebugUI::initialize(void) {
     const char *font_filepath = "C://dev//emce//data//CascadiaMono.ttf";
     // const char *font_filepath = "C://dev//emce//data//minecraftia-regular.ttf";
 
-    s_font.load_from_ttf_file(font_filepath, 16);
+    s_font.load_from_file(font_filepath, 16);
     s_font.get_atlas().set_filter_min(TextureFilter::NEAREST);
     s_font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 }

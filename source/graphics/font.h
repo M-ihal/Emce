@@ -26,7 +26,7 @@ public:
     
     Font(void);
 
-    bool load_from_ttf_file(const char *filepath, int32_t height_in_pixels);
+    bool load_from_file(const char *filepath, int32_t height_in_pixels);
     
     /* Deletes allocated structs and the atlas texture */
     void delete_font(void);

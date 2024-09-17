@@ -17,11 +17,14 @@ enum InputFlags : uint32_t {
     DEFINE_KEY(A,      SDLK_a)\
     DEFINE_KEY(S,      SDLK_s)\
     DEFINE_KEY(D,      SDLK_d)\
+    DEFINE_KEY(T,      SDLK_t)\
     DEFINE_KEY(LEFT,   SDLK_LEFT)\
     DEFINE_KEY(RIGHT,  SDLK_RIGHT)\
     DEFINE_KEY(UP,     SDLK_UP)\
     DEFINE_KEY(DOWN,   SDLK_DOWN)\
     DEFINE_KEY(ESCAPE, SDLK_ESCAPE)\
+    DEFINE_KEY(ENTER,  SDLK_RETURN)\
+    DEFINE_KEY(BACKSPACE,  SDLK_BACKSPACE)\
     DEFINE_KEY(LEFT_SHIFT, SDLK_LSHIFT)
 
 /* Enum class of the defined keys */
@@ -74,6 +77,8 @@ public:
 
     int32_t mouse_rel_y(void) const;
 
+    const char *const get_text_input(void) const;
+
 private:
     friend class Window;
 
@@ -90,6 +95,8 @@ private:
     int32_t m_mouse_y;
     int32_t m_mouse_rel_x;
     int32_t m_mouse_rel_y;
+
+    char m_text_input[32];
 };
 
 /* Static array of key names */
