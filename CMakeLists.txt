@@ -46,6 +46,8 @@ set(source_files
     source/world.h
     source/text_batcher.cpp
     source/text_batcher.h
+    source/debug_ui.cpp
+    source/debug_ui.h
 )
 
 set(source_files_external

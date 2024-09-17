@@ -20,6 +20,7 @@
 #include "world.h"
 #include "font.h"
 #include "text_batcher.h"
+#include "debug_ui.h"
 
 #define INIT_WINDOW_WIDTH  1280
 #define INIT_WINDOW_HEIGHT 720
@@ -28,7 +29,40 @@
 /*
     @todo: Game / GameManager / Game-Something class
     @todo: Better cleanup of reasorces... maybe make it explicit not in destructors
+    @todo: Maybe make window globally accesible
 */
+
+vec3i block_position_from_real(const vec3 &real) {
+    return {
+        (int32_t)floorf(real.x),
+        (int32_t)floorf(real.y),
+        (int32_t)floorf(real.z),
+    };
+}
+
+vec2i chunk_position_from_block(const vec3i &block) {
+    return {
+        (int32_t)floorf(float(block.x) / CHUNK_SIZE_X),
+        (int32_t)floorf(float(block.z) / CHUNK_SIZE_Z)
+    };
+}
+
+struct WorldPosition {
+    static WorldPosition from_real(const vec3 &real);
+    vec3  real;
+    vec3i block;
+    vec3i block_rel;
+    vec2i chunk;
+};
+
+WorldPosition WorldPosition::from_real(const vec3 &real) {
+    WorldPosition result = { };
+    result.real = real;
+    result.block = block_position_from_real(real);
+//    result.block_rel = block_relative_from_block(result.block)
+    result.chunk = chunk_position_from_block(result.block);
+    return result;
+}
 
 void render_random_thing_at_origin(const Camera &camera, float aspect) {
     /// @todo NOT DELETING THOSE....
@@ -107,11 +141,14 @@ int SDL_main(int argc, char *argv[]) {
         GL_CHECK(glDepthFunc(GL_LESS));
     }
 
+    TextBatcher::initialize();
+    DebugUI::initialize();
+
     Camera camera;
-    camera.set_position({ 0.0f, 128.0f, -5.0f });
+    camera.set_position({ 0.0f, 128.0f, 0.0f });
     camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
-    TextBatcher::initialize();
+    TextBatcher text_batcher;
 
     ShaderFile shader;
     shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
@@ -138,18 +175,23 @@ int SDL_main(int argc, char *argv[]) {
     Font font;
     // font.load_from_ttf_file("C://dev//emce//data//LiberationMono-Regular.ttf", 20);
     font.load_from_ttf_file("C://dev//emce//data//CascadiaMono.ttf", 16);
-    // font.load_from_ttf_file("C://dev//emce//data//font.ttf", 16);
+    // font.load_from_ttf_file("C://dev//emce//data//minecraft.ttf", 20);
+    // font.load_from_ttf_file("C://dev//emce//data//minecraftia-regular.ttf", 16);
     font.get_atlas().set_filter_min(TextureFilter::NEAREST);
     font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
     uint64_t time_last = SDL_GetPerformanceCounter();
-    double delta_time  = 0.0;
+    double elapsed_time = 0.0;
+    double delta_time   = 0.0;
 
     while(window.is_running()) {
         window.process_events(input);
 
+        DebugUI::begin_frame(window.width(), window.height());
+
+        TextBatcher::hotload_shader();
         shader.hotload();
 
         if(input.key_pressed(Key::ESCAPE)) {
@@ -160,6 +202,7 @@ int SDL_main(int argc, char *argv[]) {
             time_now = SDL_GetPerformanceCounter();
             const double delta = time_now - time_last;
             delta_time = delta / time_freq;
+            elapsed_time += delta_time;
             time_last = time_now;
         }
 
@@ -197,57 +240,48 @@ int SDL_main(int argc, char *argv[]) {
         shader.upload_mat4("u_proj", proj_m.e);
         shader.upload_mat4("u_view", view_m.e);
 
+        WorldPosition position = WorldPosition::from_real(camera.get_position());
+        
+        world.gen_chunk_at(position.chunk);
+
         world.render_chunks(shader, sand_texture);
 
         render_random_thing_at_origin(camera, aspect_ratio);
 
+
         /* Draw debug info */ {
-            const vec2 padding = { 4, 4 };
-            TextBatcher::begin();
+            static int32_t draw_fps = 0;
+            static int32_t frame_times_counter = 0;
+            static double frame_times[32] = { };
+            frame_times_counter++;
+            frame_times_counter %= ARRAY_COUNT(frame_times);
+            frame_times[frame_times_counter] = delta_time;
+            double average = 0.0f;
+            for(int32_t i = 0; i < ARRAY_COUNT(frame_times); ++i) {
+                average += frame_times[i];
+            }
+            const int32_t num_frames = ARRAY_COUNT(frame_times);
+            average /= double(num_frames);
+            int32_t fps = int32_t(1.0 / average);
+            if(frame_times_counter == ARRAY_COUNT(frame_times) - 1) {
+                draw_fps = fps;
+            }
 
-            float cursor_x = padding.x;
-            float cursor_y = window.height() - font.get_height() - padding.y;
+            DebugUI::push_text_left(" --- Frame ---");
+            DebugUI::push_text_left("elapsed time: %.3f", elapsed_time);
+            DebugUI::push_text_left("frame time: %.6f", delta_time);
+            DebugUI::push_text_left("fps: %d (%d frames sampled)", draw_fps, ARRAY_COUNT(frame_times));
+            DebugUI::push_text_left(NULL);
 
-#define SKIP_LINE()\
-            cursor_y -= font.get_height()
-#define PUSH_TEXT(format, ...)\
-            TextBatcher::push_text_formatted(vec2{ cursor_x, cursor_y }, font, format, __VA_ARGS__);\
-            SKIP_LINE()
-
-            PUSH_TEXT(" --- Frame ---");
-            PUSH_TEXT("frame time: %.6f", delta_time);
-            SKIP_LINE();
-            PUSH_TEXT(" --- Camera ---");
-            PUSH_TEXT("camera pos: %.2f, %.2f, %.2f", camera.get_position().x, camera.get_position().y, camera.get_position().z);
-
-#if 1
-SKIP_LINE();
-PUSH_TEXT("Architecto nisi accusantium nihil sunt est non provident.");
-PUSH_TEXT("Dolorem voluptatem maiores ut eveniet voluptatem doloribus velit aperiam.");
-PUSH_TEXT("Molestiae molestiae qui unde rerum ducimus illum aliquam.");
-PUSH_TEXT("Eum autem quo et magnam rem doloremque.");
-PUSH_TEXT("Dolor quo delectus eius cumque et qui.");
-PUSH_TEXT("Autem quidem debitis illo ea provident eos mollitia commodi.");
-PUSH_TEXT("Officia laboriosam dolor illum autem earum quidem ad.");
-PUSH_TEXT("Porro consequatur quia odio et atque autem deserunt.");
-PUSH_TEXT("Itaque eaque aut vero. Aut sunt cupiditate ipsa vitae quis et accusantium.");
-PUSH_TEXT("Maxime qui exercitationem velit est sint animi iure.");
-PUSH_TEXT("Et ipsam eum quia cupiditate. Sint eos occaecati rerum quo eveniet consequuntur expedita eligendi.");
-PUSH_TEXT("Corrupti consectetur nostrum temporibus.");
-PUSH_TEXT("Consequatur voluptas rerum atque ipsum quae porro quisquam at.");
-PUSH_TEXT("Quas dolores et quo. Quam aspernatur ea similique aspernatur.");
-PUSH_TEXT("Tempora dolor tempore corrupti. Molestias sed doloribus ea.");
-PUSH_TEXT("Aut tenetur repellendus voluptatum et libero suscipit.");
-PUSH_TEXT("Asperiores neque vel veniam et et. Odio sunt dignissimos esse autem cumque ratione optio.");
-PUSH_TEXT("Voluptatibus eos ullam aut aliquam est distinctio. Alias eius alias autem sequi atque rerum sint odio.");
-#endif
-
-#undef PUSH_TEXT
-#undef SKIP_LINE
-
-            TextBatcher::render(window.width(), window.height(), font, vec2i{ 3, -3 });
+            DebugUI::push_text_left(" --- Position ---");
+            DebugUI::push_text_left("real:     %+.2f, %+.2f, %+.2f", position.real.x, position.real.y, position.real.z);
+            DebugUI::push_text_left("block:    %+d, %+d, %+d", position.block.x, position.block.y, position.block.z);
+            DebugUI::push_text_left("blockrel: %+d, %+d, %+d", position.block_rel.x, position.block_rel.y, position.block_rel.z);
+            DebugUI::push_text_left("chunk:    %+d, %+d", position.chunk.x, position.chunk.y);
         }
 
+        DebugUI::render();
+        
         window.swap_buffers();
     }
 
@@ -256,6 +290,7 @@ PUSH_TEXT("Voluptatibus eos ullam aut aliquam est distinctio. Alias eius alias a
 
     shader.delete_shader_file();
 
+    DebugUI::destroy();
     TextBatcher::destroy();
 
     return 0;

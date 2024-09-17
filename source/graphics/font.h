@@ -64,6 +64,15 @@ public:
         return m_line_gap;
     }
 
+    int32_t get_descent(void) const {
+        return m_descent;
+    }
+
+    int32_t get_ascent(void) const {
+        return m_ascent;
+    }
+
+
 private:
     float   m_scale_for_pixel_height;
     int32_t m_height;

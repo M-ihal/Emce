@@ -52,3 +52,10 @@ void World::render_chunks(const Shader &shader, const Texture &sand_texture) {
         chunk->render({ x, 0, z }, shader, sand_texture);
     }
 }
+
+void World::gen_chunk_at(vec2i chunk) {
+    uint64_t packed = pack_2x_int32(chunk.x, chunk.y);
+    if(m_chunks.find(packed) == m_chunks.end()) {
+        m_chunks[packed] = new Chunk();
+    }
+}

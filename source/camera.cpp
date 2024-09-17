@@ -60,7 +60,7 @@ vec2 Camera::get_rotation(void) const {
 
 void Camera::update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, int32_t rotate_h, float delta_time, bool speed_up) {
     constexpr float SPEED_MOVE_FAST = 40.0f;
-    constexpr float SPEED_MOVE = 10.0f;
+    constexpr float SPEED_MOVE = 0.5f;
     constexpr float SPEED_ROTATE = 0.0075f;
 
     m_rotation.x += rotate_h * SPEED_ROTATE;

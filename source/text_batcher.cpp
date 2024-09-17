@@ -9,18 +9,10 @@
 
 #include <glew.h>
 
-struct TextQuadVertex {
-    vec2 position;
-    vec2 tex_coord;
-};
-
 namespace {
     bool        s_initialized = false;
     VertexArray s_vao;
     ShaderFile  s_shader;
-
-    TextQuadVertex *s_vertices;
-    uint32_t        s_chars_pushed;
 };
 
 void TextBatcher::initialize(void) {
@@ -35,8 +27,7 @@ void TextBatcher::initialize(void) {
     s_vao.create_vao(layout, ArrayBufferUsage::DYNAMIC);
     s_vao.apply_vao_attributes();
         
-    /* Allocate vertex memory */
-    s_vertices = (TextQuadVertex *)malloc(TEXT_BATCHER_QUAD_MAX * 4 * sizeof(TextQuadVertex));
+    /* Allocate vertex memory in the vao */
     s_vao.set_vbo_data(NULL, TEXT_BATCHER_QUAD_MAX * 4 * sizeof(TextQuadVertex));
 
     /* Set vao indices, those don't change ever */
@@ -60,10 +51,26 @@ void TextBatcher::destroy(void) {
     s_shader.delete_shader_file();
 }
 
-void TextBatcher::begin(void) {
-    /* For now try to hotload shader every begin() call */
+void TextBatcher::hotload_shader(void) {
     s_shader.hotload();
-    s_chars_pushed = 0;
+}
+
+TextBatcher::TextBatcher(void) {
+    const size_t size_in_bytes = TEXT_BATCHER_QUAD_MAX * 4 * sizeof(TextQuadVertex);
+    m_vertices = (TextQuadVertex *)malloc(size_in_bytes);
+    m_chars_pushed = 0;
+    ASSERT(m_vertices);
+    fprintf(stdout, "[info] TextBatcher: Allocated memory. %lld bytes.\n", size_in_bytes);
+}
+
+TextBatcher::~TextBatcher(void) {
+    free(m_vertices);
+    m_vertices = NULL;
+    fprintf(stdout, "[info] TextBatcher: Deallocated memory.\n");
+}
+
+void TextBatcher::begin(void) {
+    m_chars_pushed = 0;
 }
 
 void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec2i shadow_offset) {
@@ -78,19 +85,19 @@ void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec2i 
     font.get_atlas().bind_texture_unit(0);
 
     s_vao.bind_vao();
-    s_vao.upload_vbo_data(s_vertices, s_chars_pushed * 4 * sizeof(TextQuadVertex), 0);
+    s_vao.upload_vbo_data(m_vertices, m_chars_pushed * 4 * sizeof(TextQuadVertex), 0);
 
     /* Draw text shadow */
     if(shadow_offset.x != 0 || shadow_offset.y != 0) {
         s_shader.upload_vec2("u_offset", vec2::make(shadow_offset).e);
         s_shader.upload_vec3("u_color", vec3{ 0.0f, 0.0f, 0.0f }.e);
-        GL_CHECK(glDrawElements(GL_TRIANGLES, s_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
+        GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
     }
 
     /* Draw actual text */
     s_shader.upload_vec2("u_offset", vec2{ 0.0f, 0.0f }.e);
     s_shader.upload_vec3("u_color", vec3{ 1.0f, 1.0f, 1.0f }.e);
-    GL_CHECK(glDrawElements(GL_TRIANGLES, s_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
+    GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
 
 
     glDisable(GL_BLEND);
@@ -127,15 +134,15 @@ void TextBatcher::push_text(vec2 position, const Font &font, const char *string)
                 .y = text_cursor.y - glyph_size.y - glyph.offset_y
             };
 
-            ASSERT(s_chars_pushed + 1 <= TEXT_BATCHER_QUAD_MAX, "TextBatcher::push_text char limit exceeded.\n");
+            ASSERT(m_chars_pushed + 1 <= TEXT_BATCHER_QUAD_MAX, "TextBatcher::push_text char limit exceeded.\n");
 
-            TextQuadVertex *begintest = s_vertices;
-            TextQuadVertex *next_vertex = s_vertices + s_chars_pushed * 4;
+            TextQuadVertex *begintest = m_vertices;
+            TextQuadVertex *next_vertex = m_vertices + m_chars_pushed * 4;
             *next_vertex++ = { vec2{ glyph_pos.x,                glyph_pos.y },                vec2{ glyph.tex_coords[0].x, glyph.tex_coords[0].y } };
             *next_vertex++ = { vec2{ glyph_pos.x + glyph_size.x, glyph_pos.y },                vec2{ glyph.tex_coords[1].x, glyph.tex_coords[1].y } };
             *next_vertex++ = { vec2{ glyph_pos.x + glyph_size.x, glyph_pos.y + glyph_size.y }, vec2{ glyph.tex_coords[2].x, glyph.tex_coords[2].y } };
             *next_vertex++ = { vec2{ glyph_pos.x,                glyph_pos.y + glyph_size.y }, vec2{ glyph.tex_coords[3].x, glyph.tex_coords[3].y } };
-            s_chars_pushed += 1;
+            m_chars_pushed += 1;
         }
 
         const int32_t adv = glyph.advance + font.get_kerning_advance(_char, string[index + 1]);
@@ -147,11 +154,13 @@ void TextBatcher::push_text(vec2 position, const Font &font, const char *string)
 void TextBatcher::push_text_formatted(vec2 position, const Font &font, const char *format, ...) {
     va_list args;
     va_start(args, format);
+    this->push_text_va_args(position, font, format, args);
+    va_end(args);
+}
 
+void TextBatcher::push_text_va_args(vec2 position, const Font &font, const char *format, va_list args) {
     /* @todo Measure required space and allocate? For now statically alloc 1024 chars... */
     char buffer[1024];
     vsnprintf_s(buffer, ARRAY_COUNT(buffer), format, args);
     push_text(position, font, buffer);
-
-    va_end(args);
 }

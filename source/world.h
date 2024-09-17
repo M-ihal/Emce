@@ -21,6 +21,9 @@ public:
     ~World(void);
     
     void render_chunks(const Shader &shader, const Texture &sand_texture);
+    
+    // @temp
+    void gen_chunk_at(vec2i chunk);
 
 private:
     // Big @todo
