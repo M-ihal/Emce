@@ -45,10 +45,10 @@ World::~World(void) {
     }
 }
 
-void World::render_chunks(const Shader &shader, const Texture &sand_texture) {
+void World::render_chunks(const Shader &shader, const Texture &atlas) {
     shader.use_program();
     shader.upload_int("u_texture", 0);
-    sand_texture.bind_texture_unit(0);
+    atlas.bind_texture_unit(0);
 
     for(auto const &[key, chunk] : m_chunks) {
         int32_t x = 0;
@@ -76,6 +76,7 @@ Chunk *World::get_chunk(int32_t x, int32_t z, bool create_if_doesnt_exist) {
     return m_chunks[packed];
 }
 
+// @temp
 void World::gen_chunk_at(vec2i chunk) {
     if(this->get_chunk(chunk.x, chunk.y)) {
         /* Already exists */
@@ -89,7 +90,13 @@ void World::gen_chunk_at(vec2i chunk) {
             const int32_t height = (int32_t)roundf((sinf(float(x + chunk.x * CHUNK_SIZE_X) * 0.1f * float(z + chunk.y * CHUNK_SIZE_Z) * 0.1f * 0.01f) * 0.5f + 0.5f) * (CHUNK_SIZE_Y - 8) + 8);
             for(int32_t y = 0; y < height; ++y) {
                 Block &block = created->get_block(x, y, z);
-                block.set_type(BlockType::SAND);
+                if(y < height / 2) {
+                    block.set_type(BlockType::COBBLESTONE);
+                } else if(y < (height - 1)) {
+                    block.set_type(BlockType::DIRT);
+                } else {
+                    block.set_type(BlockType::SAND);
+                }
             }
         }
     }

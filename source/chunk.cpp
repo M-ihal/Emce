@@ -8,12 +8,16 @@ Block::Block(void) {
     this->set_type(BlockType::AIR);
 }
 
-bool Block::is_of_type(BlockType type) const {
-    return m_type == type;
-}
-
 void Block::set_type(BlockType type) {
     m_type = type;
+}
+
+BlockType Block::get_type(void) const {
+    return m_type;
+}
+
+bool Block::is_of_type(BlockType type) const {
+    return m_type == type;
 }
 
 Chunk::Chunk(void) {
@@ -54,104 +58,159 @@ bool Chunk::is_inside_chunk(int32_t rel_x, int32_t rel_y, int32_t rel_z) {
 
 #include <vector>
 
+enum class BlockSide {
+    Z_POS,
+    Z_NEG,
+    X_POS,
+    X_NEG,
+    Y_POS,
+    Y_NEG
+};
+
+struct BlockSideVertex {
+    vec3 position;
+    vec3 normal;
+    vec2 tex_coord;
+};
+
+void fill_positions_and_normals(BlockSide side, BlockSideVertex v[4]) {
+    switch(side) {
+        case BlockSide::Z_POS: {
+            v[0].position = vec3{ 0.0f, 0.0f, 1.0f };
+            v[1].position = vec3{ 1.0f, 0.0f, 1.0f };
+            v[2].position = vec3{ 1.0f, 1.0f, 1.0f };
+            v[3].position = vec3{ 0.0f, 1.0f, 1.0f };
+            v[0].normal = vec3{ 0.0f, 0.0f, 1.0f };
+            v[1].normal = vec3{ 0.0f, 0.0f, 1.0f };
+            v[2].normal = vec3{ 0.0f, 0.0f, 1.0f };
+            v[3].normal = vec3{ 0.0f, 0.0f, 1.0f };
+        } break;
+        case BlockSide::Z_NEG: {
+            v[0].position = vec3{ 1.0f, 0.0f, 0.0f };
+            v[1].position = vec3{ 0.0f, 0.0f, 0.0f };
+            v[2].position = vec3{ 0.0f, 1.0f, 0.0f };
+            v[3].position = vec3{ 1.0f, 1.0f, 0.0f };
+            v[0].normal = vec3{ 0.0f, 0.0f, -1.0f };
+            v[1].normal = vec3{ 0.0f, 0.0f, -1.0f };
+            v[2].normal = vec3{ 0.0f, 0.0f, -1.0f };
+            v[3].normal = vec3{ 0.0f, 0.0f, -1.0f };
+        } break;
+        case BlockSide::X_POS: {
+            v[0].position = vec3{ 1.0f, 0.0f, 1.0f };
+            v[1].position = vec3{ 1.0f, 0.0f, 0.0f };
+            v[2].position = vec3{ 1.0f, 1.0f, 0.0f };
+            v[3].position = vec3{ 1.0f, 1.0f, 1.0f };
+            v[0].normal = vec3{ 1.0f, 0.0f, 0.0f };
+            v[1].normal = vec3{ 1.0f, 0.0f, 0.0f };
+            v[2].normal = vec3{ 1.0f, 0.0f, 0.0f };
+            v[3].normal = vec3{ 1.0f, 0.0f, 0.0f };
+        } break;
+        case BlockSide::X_NEG: {
+            v[0].position = vec3{ 0.0f, 0.0f, 0.0f };
+            v[1].position = vec3{ 0.0f, 0.0f, 1.0f };
+            v[2].position = vec3{ 0.0f, 1.0f, 1.0f };
+            v[3].position = vec3{ 0.0f, 1.0f, 0.0f };
+            v[0].normal = vec3{ -1.0f, 0.0f, 0.0f };
+            v[1].normal = vec3{ -1.0f, 0.0f, 0.0f };
+            v[2].normal = vec3{ -1.0f, 0.0f, 0.0f };
+            v[3].normal = vec3{ -1.0f, 0.0f, 0.0f };
+        } break;
+        case BlockSide::Y_POS: {
+            v[0].position = vec3{ 0.0f, 1.0f, 1.0f };
+            v[1].position = vec3{ 1.0f, 1.0f, 1.0f };
+            v[2].position = vec3{ 1.0f, 1.0f, 0.0f };
+            v[3].position = vec3{ 0.0f, 1.0f, 0.0f };
+            v[0].normal = vec3{ 0.0f, 1.0f, 0.0f };
+            v[1].normal = vec3{ 0.0f, 1.0f, 0.0f };
+            v[2].normal = vec3{ 0.0f, 1.0f, 0.0f };
+            v[3].normal = vec3{ 0.0f, 1.0f, 0.0f };
+        } break;
+        case BlockSide::Y_NEG: {
+            v[0].position = vec3{ 0.0f, 0.0f, 0.0f };
+            v[1].position = vec3{ 1.0f, 0.0f, 0.0f };
+            v[2].position = vec3{ 1.0f, 0.0f, 1.0f };
+            v[3].position = vec3{ 0.0f, 0.0f, 1.0f };
+            v[0].normal = vec3{ 0.0f, -1.0f, 0.0f };
+            v[1].normal = vec3{ 0.0f, -1.0f, 0.0f };
+            v[2].normal = vec3{ 0.0f, -1.0f, 0.0f };
+            v[3].normal = vec3{ 0.0f, -1.0f, 0.0f };
+        } break;
+    };
+}
+
+// @todo Hardcoded atlas size
+void get_atlas_tex_coords(int32_t x, int32_t y, BlockSideVertex v[4]) {
+    v[0].tex_coord = vec2{ x * 16.0f / 512.0f, y * 16.0f / 512.0f };
+    v[1].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, y * 16.0f / 512.0f };
+    v[2].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
+    v[3].tex_coord = vec2{ x * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
+}
+
+void fill_tex_coords_for_block_type(BlockSide side, BlockType type, BlockSideVertex v[4]) {
+    switch(type) {
+        default:
+        case BlockType::SAND: {
+            get_atlas_tex_coords(0, 0, v);
+        } break;
+        case BlockType::DIRT: {
+            get_atlas_tex_coords(1, 0, v);
+        } break;
+        case BlockType::COBBLESTONE: {
+            get_atlas_tex_coords(2, 0, v);
+        } break;
+    }
+}
+
 VertexArray stupid_regen_chunk_vao(const Chunk &chunk) {
 
-    struct Vertex { vec3 position; vec3 normal; vec2 tex_coord; };
-
-    // Z negative normal
-    const Vertex v_z_n[] = {
-        { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f }, // Bottom-left
-        { 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f }, // top-right
-        { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f }, // bottom-right         
-        { 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f }, // top-right
-        { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f }, // bottom-left
-        { 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f }, // top-left
-    };
-    
-    const Vertex v_z_p[] = {
-        { 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f }, // bottom-left
-        { 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f }, // bottom-right
-        { 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f }, // top-right
-        { 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f }, // top-right
-        { 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f }, // top-left
-        { 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f }, // bottom-left
-    };
-
-    const Vertex v_x_n[] = {
-        { 0.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f }, // top-right
-        { 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f }, // top-left
-        { 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f }, // bottom-left
-        { 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f }, // bottom-left
-        { 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f }, // bottom-right
-        { 0.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f }, // top-right
-    };
-
-    const Vertex v_x_p[] = {
-        {1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f },   // top-left
-        {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f },   // bottom-right
-        {1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f },   // top-right         
-        {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f },   // bottom-right
-        {1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f },   // top-left
-        {1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f },   // bottom-left     
-    };
-
-    const Vertex v_y_n[] = {
-        { 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f }, // top-right
-        { 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f }, // top-left
-        { 1.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f }, // bottom-left
-        { 1.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f }, // bottom-left
-        { 0.0f, 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f }, // bottom-right
-        { 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f }, // top-right
-    };
-
-    const Vertex v_y_p[] = {
-        { 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,1.0f },  // top-left
-        { 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f },  // bottom-right
-        { 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,1.0f },  // top-right     
-        { 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f },  // bottom-right
-        { 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,1.0f },  // top-left
-        { 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f }   // bottom-left 
-    };
-
-    std::vector<Vertex>   vertices;
+    std::vector<BlockSideVertex> vertices;
     std::vector<uint32_t> indices;
 
-    auto push_quad = [&](const Vertex v[6], int32_t x, int32_t y, int32_t z) {
-        for(int32_t i = 0; i < 6; ++i) {
-            Vertex vert = v[i];
-            vert.position += vec3{ float(x), float(y), float(z) };
-            vertices.push_back(vert);
-        }
+    auto push_quad = [&](BlockSide side, BlockType type, int32_t x, int32_t y, int32_t z) {
+        BlockSideVertex v[4] = { };
+        fill_positions_and_normals(side, v);
+        fill_tex_coords_for_block_type(side, type, v);
+        v[0].position += vec3::make(x, y, z);
+        v[1].position += vec3::make(x, y, z);
+        v[2].position += vec3::make(x, y, z);
+        v[3].position += vec3::make(x, y, z);
 
-        const int32_t start = indices.size();
+        /* Starting index for indices */
+        const int32_t start = vertices.size();
+
+        vertices.push_back(v[0]);
+        vertices.push_back(v[1]);
+        vertices.push_back(v[2]);
+        vertices.push_back(v[3]);
+
         indices.push_back(start + 0);
         indices.push_back(start + 1);
         indices.push_back(start + 2);
+        indices.push_back(start + 2);
         indices.push_back(start + 3);
-        indices.push_back(start + 4);
-        indices.push_back(start + 5);
+        indices.push_back(start + 0);
     };
 
     for_every_block(x, y, z) {
         const Block &block = chunk.get_block(x, y, z);
-        if(block.is_of_type(BlockType::SAND)) {
-            if(!(Chunk::is_inside_chunk(x, y, z + 1) && chunk.get_block(x, y, z + 1).is_of_type(BlockType::SAND))) {
-                push_quad(v_z_p, x, y, z);
+        if(!block.is_of_type(BlockType::AIR)) {
+            if(!(Chunk::is_inside_chunk(x, y, z + 1) && !chunk.get_block(x, y, z + 1).is_of_type(BlockType::AIR))) {
+                push_quad(BlockSide::Z_POS, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x, y, z - 1) && chunk.get_block(x, y, z - 1).is_of_type(BlockType::SAND))) {
-                push_quad(v_z_n, x, y, z);
+            if(!(Chunk::is_inside_chunk(x, y, z - 1) && !chunk.get_block(x, y, z - 1).is_of_type(BlockType::AIR))) {
+                push_quad(BlockSide::Z_NEG, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x + 1, y, z) && chunk.get_block(x + 1, y, z).is_of_type(BlockType::SAND))) {
-                push_quad(v_x_p, x, y, z);
+            if(!(Chunk::is_inside_chunk(x + 1, y, z) && !chunk.get_block(x + 1, y, z).is_of_type(BlockType::AIR))) {
+                push_quad(BlockSide::X_POS, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x - 1, y, z) && chunk.get_block(x - 1, y, z).is_of_type(BlockType::SAND))) {
-                push_quad(v_x_n, x, y, z);
+            if(!(Chunk::is_inside_chunk(x - 1, y, z) && !chunk.get_block(x - 1, y, z).is_of_type(BlockType::AIR))) {
+                push_quad(BlockSide::X_NEG, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x, y + 1, z) && chunk.get_block(x, y + 1, z).is_of_type(BlockType::SAND))) {
-                push_quad(v_y_p, x, y, z);
+            if(!(Chunk::is_inside_chunk(x, y + 1, z) && !chunk.get_block(x, y + 1, z).is_of_type(BlockType::AIR))) {
+                push_quad(BlockSide::Y_POS, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x, y - 1, z) && chunk.get_block(x, y - 1, z).is_of_type(BlockType::SAND))) {
-                push_quad(v_y_n, x, y, z);
+            if(!(Chunk::is_inside_chunk(x, y - 1, z) && !chunk.get_block(x, y - 1, z).is_of_type(BlockType::AIR))) {
+                push_quad(BlockSide::Y_NEG, block.get_type(), x, y, z);
             }
         }
     }
@@ -163,7 +222,7 @@ VertexArray stupid_regen_chunk_vao(const Chunk &chunk) {
 
     VertexArray vao;
     vao.create_vao(layout, ArrayBufferUsage::STATIC);
-    vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(Vertex));
+    vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(BlockSideVertex));
     vao.set_ibo_data(indices.data(),  indices.size());
     vao.apply_vao_attributes();
     return vao;

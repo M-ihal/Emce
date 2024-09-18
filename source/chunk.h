@@ -17,7 +17,8 @@
 enum class BlockType : int32_t {
     AIR = 0, /* NONE */
     SAND,
-    DIRT
+    DIRT,
+    COBBLESTONE
 };
 
 class Block {
@@ -25,6 +26,8 @@ public:
     Block(void);
 
     void set_type(BlockType type);
+
+    BlockType get_type(void) const;
 
     bool is_of_type(BlockType type) const;
 

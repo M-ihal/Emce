@@ -39,4 +39,6 @@ void main() {
     vec3  diffuse = sun_diffuse * diff;
 
     final_color = vec4(diffuse, 1.0) * texture(u_texture, v_tex_coord);
+
+    // final_color = vec4(v_normal, 1.0);
 }

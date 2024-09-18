@@ -2,3 +2,4 @@ build/
 build_clang/
 external/
 .cache/
+data/textures/

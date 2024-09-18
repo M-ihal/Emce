@@ -4,20 +4,18 @@
 #include "vertex_array.h"
 #include "text_batcher.h"
 
-#include <string>
-
 // @temp
+#include <string>
 #include <glew.h>
 #include <SDL.h> // Start/StopTextInput
 
-#define CONSOLE_HISTORY_MAX 3
+#define CONSOLE_HISTORY_MAX 8
 #define CONSOLE_INPUT_BUFFER_MAX 64
 
 namespace {
     bool        s_initialized = false;
     Font        s_font;
     TextBatcher s_batcher;
-    // @todo Make QuadBatcher or something
     ShaderFile  s_quad_shader;
     VertexArray s_quad_vao;
 
@@ -32,16 +30,16 @@ void Console::initialize(void) {
     ASSERT(!s_initialized);
     s_initialized = true;
 
+    /* Load font */
     s_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 30);
     // s_font.load_from_file("C://dev//emce//data//CascadiaMono.ttf", 24);
     s_font.get_atlas().set_filter_min(TextureFilter::NEAREST);
     s_font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
+    /* Load the quad shader */
     s_quad_shader.set_filepath_and_load("C://dev//emce//source//shaders//simple_quad.glsl");
 
-    BufferLayout layout;
-    layout.push_attribute("a_position", 2, BufferDataType::FLOAT);
-
+    /* Initialize quad vertex array */
     const float vbo_data[] = {
         0.0f, 0.0f,
         1.0f, 0.0f,
@@ -49,30 +47,40 @@ void Console::initialize(void) {
         0.0f, 1.0f
     };
 
-    const uint32_t ibo_data[] = { 0, 1, 2, 2, 3, 0 };
+    const uint32_t ibo_data[] = {
+        0, 1, 2,
+        2, 3, 0 
+    };
+
+    BufferLayout layout;
+    layout.push_attribute("a_position", 2, BufferDataType::FLOAT);
 
     s_quad_vao.create_vao(layout, ArrayBufferUsage::STATIC);
     s_quad_vao.set_ibo_data(ibo_data, ARRAY_COUNT(ibo_data));
     s_quad_vao.set_vbo_data(vbo_data, ARRAY_COUNT(vbo_data) * sizeof(float));
     s_quad_vao.apply_vao_attributes();
-
+    
+    /* Initialize console */
+    s_is_open = false;
     s_input_buffer.clear();
+    s_commands.clear();
 }
 
 void Console::destroy(void) {
     s_initialized = false;
 
+    s_font.delete_font();
     s_quad_shader.delete_shader_file();
     s_quad_vao.delete_vao();
 }
 
-static void add_to_history(const std::string &string) {
+void Console::add_to_history(const char *string) {
     /* Push history */
     for(int32_t index = CONSOLE_HISTORY_MAX - 1; index >= 1; --index) {
         s_history[index] = s_history[index - 1];
     }
 
-    s_history[0] = string;
+    s_history[0] = std::string(string);
 }
 
 void Console::update(const Input &input, Window &window, Camera &camera) {
@@ -80,31 +88,33 @@ void Console::update(const Input &input, Window &window, Camera &camera) {
         return;
     }
 
+    /* Exit console */
     if(input.key_pressed(Key::ESCAPE)) {
         Console::set_open_state(false);
         return;
     }
 
-    s_quad_shader.hotload();
-
+    /* Query text input */
     if(strlen(input.get_text_input())) {
         s_input_buffer += input.get_text_input();
     }
 
+    /* Delete text */
     if(input.key_pressed_or_repeat(Key::BACKSPACE) && s_input_buffer.length()) {
         s_input_buffer.pop_back();
     }
 
+    /* Apply command */
     if(input.key_pressed(Key::ENTER)) {
         for(auto &command : s_commands) {
             if(s_input_buffer == command.command) {
+                Console::add_to_history(s_input_buffer.c_str());
                 command.proc(window, camera);
-                Console::set_open_state(false);
+                // Console::set_open_state(false);
                 break;
             }
         }
 
-        add_to_history(s_input_buffer);
         s_input_buffer.clear();
     }
 }
@@ -113,6 +123,8 @@ void Console::render(int32_t window_w, int32_t window_h) {
     if(!s_is_open) {
         return;
     }
+
+    s_quad_shader.hotload();
 
     const vec2 console_pos = { 32.0f, 32.0f };
     const vec2 console_text_padding = { 6.0f, 6.0f };
@@ -135,7 +147,7 @@ void Console::render(int32_t window_w, int32_t window_h) {
     s_batcher.begin();
     s_batcher.push_text_formatted(console_pos + console_text_padding, s_font, s_input_buffer.c_str());
 
-#if 0
+#if 1
     for(int32_t index = 0; index < CONSOLE_HISTORY_MAX; ++index) {
         s_batcher.push_text_formatted(console_pos + console_text_padding + vec2{ 0.0f, float(index + 1.0f) * float(s_font.get_height()) }, s_font, s_history[index].c_str());
     }

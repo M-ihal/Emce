@@ -172,13 +172,17 @@ int SDL_main(int argc, char *argv[]) {
         }
     });
 
-
     Camera camera;
     camera.set_position({ -54.0f, 128.0f, 37.0f });
     camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
     ShaderFile shader;
     shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
+
+    Texture atlas_texture;
+    atlas_texture.load_from_file("C://dev//emce//data//atlas.png", true);
+    atlas_texture.set_filter_min(TextureFilter::NEAREST);
+    atlas_texture.set_filter_mag(TextureFilter::NEAREST);
 
     Texture sand_texture;
     sand_texture.load_from_file("C://dev//emce//data//sand.png");
@@ -191,10 +195,11 @@ int SDL_main(int argc, char *argv[]) {
     font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
     World world;
-    
-    for(int32_t x = -8; x <= 8; ++x) 
-        for(int32_t z = -8; z <= 8; ++z) 
-            world.gen_chunk_at({ x, z });
+    world.gen_chunk_at({0,0});
+
+//    for(int32_t x = -8; x <= 8; ++x) 
+//        for(int32_t z = -8; z <= 8; ++z) 
+//            world.gen_chunk_at({ x, z });
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -269,7 +274,7 @@ int SDL_main(int argc, char *argv[]) {
 
         WorldPosition position = WorldPosition::from_real(camera.get_position());
 
-        world.render_chunks(shader, sand_texture);
+        world.render_chunks(shader, atlas_texture);
 
         render_random_thing_at_origin(camera, aspect_ratio);
 
@@ -304,6 +309,7 @@ int SDL_main(int argc, char *argv[]) {
             DebugUI::push_text_left("block:    %+d, %+d, %+d", position.block.x, position.block.y, position.block.z);
             DebugUI::push_text_left("blockrel: %+d, %+d, %+d", position.block_rel.x, position.block_rel.y, position.block_rel.z);
             DebugUI::push_text_left("chunk:    %+d, %+d", position.chunk.x, position.chunk.y);
+            DebugUI::push_text_left("direction: %.3f, %.3f, %.3f", camera.calc_direction().x, camera.calc_direction().y, camera.calc_direction().z);
             DebugUI::push_text_left("rotation H: %+.3f", RAD_TO_DEG(camera.get_rotation().x));
             DebugUI::push_text_left("rotation V: %+.3f", RAD_TO_DEG(camera.get_rotation().y));
 

@@ -14,13 +14,12 @@ struct ConsoleCommand {
     console_command_proc *proc;
 };
 
-// @todo Kinda rewrite
-
 namespace Console {
     void initialize(void);
     void destroy(void);
     void update(const Input &input, Window &window, Camera &camera);
     void render(int32_t window_w, int32_t window_h);
+    void add_to_history(const char *string);
     void set_open_state(bool open);
     bool is_open(void);
     void register_command(ConsoleCommand command);

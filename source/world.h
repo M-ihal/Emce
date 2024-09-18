@@ -20,7 +20,7 @@ public:
 
     ~World(void);
  
-    void render_chunks(const Shader &shader, const Texture &sand_texture);
+    void render_chunks(const Shader &shader, const Texture &atlas);
     
     Chunk *get_chunk(int32_t x, int32_t z, bool create_if_doesnt_exist = false);
 

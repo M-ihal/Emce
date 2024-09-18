@@ -214,6 +214,7 @@ void ShaderFile::hotload(void) {
     bool hotloaded = this->load_from_file(m_filepath);
     if(!hotloaded) {
         fprintf(stdout, "[error] Hotload: Failed to hotload the shader.\n");
+        return;
     }
 
     m_last_time = time_now;
