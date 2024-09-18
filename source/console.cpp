@@ -10,25 +10,23 @@
 #include <glew.h>
 #include <SDL.h> // Start/StopTextInput
 
-#define CONSOLE_HISTORY_MAX 8
+#define CONSOLE_HISTORY_MAX 3
 #define CONSOLE_INPUT_BUFFER_MAX 64
 
 namespace {
     bool        s_initialized = false;
+    Font        s_font;
     TextBatcher s_batcher;
-    std::string s_history[CONSOLE_HISTORY_MAX];
-
-    std::string s_input_buffer;
-
-    bool s_is_open = false;
-
-    Font s_font;
-
     // @todo Make QuadBatcher or something
     ShaderFile  s_quad_shader;
     VertexArray s_quad_vao;
-}
 
+    bool        s_is_open = false;
+    std::string s_history[CONSOLE_HISTORY_MAX];
+    std::string s_input_buffer;
+
+    std::vector<ConsoleCommand> s_commands;
+}
 
 void Console::initialize(void) {
     ASSERT(!s_initialized);
@@ -68,7 +66,16 @@ void Console::destroy(void) {
     s_quad_vao.delete_vao();
 }
 
-void Console::update(const Input &input) {
+static void add_to_history(const std::string &string) {
+    /* Push history */
+    for(int32_t index = CONSOLE_HISTORY_MAX - 1; index >= 1; --index) {
+        s_history[index] = s_history[index - 1];
+    }
+
+    s_history[0] = string;
+}
+
+void Console::update(const Input &input, Window &window, Camera &camera) {
     if(!s_is_open) {
         return;
     }
@@ -89,11 +96,15 @@ void Console::update(const Input &input) {
     }
 
     if(input.key_pressed(Key::ENTER)) {
-        // @temp
-        if(s_input_buffer == "/close") {
-            Console::set_open_state(false);
+        for(auto &command : s_commands) {
+            if(s_input_buffer == command.command) {
+                command.proc(window, camera);
+                Console::set_open_state(false);
+                break;
+            }
         }
 
+        add_to_history(s_input_buffer);
         s_input_buffer.clear();
     }
 }
@@ -123,6 +134,13 @@ void Console::render(int32_t window_w, int32_t window_h) {
 
     s_batcher.begin();
     s_batcher.push_text_formatted(console_pos + console_text_padding, s_font, s_input_buffer.c_str());
+
+#if 0
+    for(int32_t index = 0; index < CONSOLE_HISTORY_MAX; ++index) {
+        s_batcher.push_text_formatted(console_pos + console_text_padding + vec2{ 0.0f, float(index + 1.0f) * float(s_font.get_height()) }, s_font, s_history[index].c_str());
+    }
+#endif
+
     s_batcher.render(window_w, window_h, s_font);
 }
 
@@ -145,3 +163,6 @@ bool Console::is_open(void) {
     return s_is_open;
 }
 
+void Console::register_command(ConsoleCommand command) {
+    s_commands.push_back(command);
+}

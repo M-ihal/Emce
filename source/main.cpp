@@ -149,6 +149,30 @@ int SDL_main(int argc, char *argv[]) {
     DebugUI::initialize();
     Console::initialize();
 
+    Console::register_command({
+        .command = "quit", 
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            window.should_quit();
+        }
+    });
+
+    Console::register_command({
+        .command = "cam", 
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            camera.set_position({ -54.0f, 128.0f, 37.0f });
+            camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
+        }
+    });
+
+    Console::register_command({
+        .command = "dog", 
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            camera.set_position({ 0.63f, 129.88f, 5.57f });
+            camera.set_rotation({ DEG_TO_RAD(266.510f), DEG_TO_RAD(3.128f) });
+        }
+    });
+
+
     Camera camera;
     camera.set_position({ -54.0f, 128.0f, 37.0f });
     camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
@@ -227,7 +251,7 @@ int SDL_main(int argc, char *argv[]) {
             camera.update_free(move_fw, move_side, rotate_v, rotate_h, delta_time, input.key_is_down(Key::LEFT_SHIFT));
         }
 
-        Console::update(input);
+        Console::update(input, window, camera);
 
         float aspect_ratio = (float)window.width() / (float)window.height();
 
