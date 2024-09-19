@@ -51,21 +51,20 @@ Chunk *World::get_chunk(int32_t x, int32_t z, bool create_if_doesnt_exist) {
         return NULL;
     }
 
-    m_chunks[packed] = new Chunk();
-    return m_chunks[packed];
+    return this->gen_chunk(packed);
 }
 
-void World::gen_chunk_at(vec2i chunk) {
-    if(this->get_chunk(chunk.x, chunk.y)) {
-        /* Already exists */
-        return;
-    }
+Chunk *World::gen_chunk(uint64_t packed_xz) {
+    m_chunks[packed_xz] = new Chunk();
+    Chunk *created = m_chunks[packed_xz];
 
-    Chunk *const created = this->get_chunk(chunk.x, chunk.y, true);
+    int32_t chunk_x;
+    int32_t chunk_z;
+    unpack_2x_int32(packed_xz, &chunk_x, &chunk_z);
 
     for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
-            const int32_t height = (int32_t)roundf((sinf(float(x + chunk.x * CHUNK_SIZE_X) * 0.1f * float(z + chunk.y * CHUNK_SIZE_Z) * 0.1f * 0.01f) * 0.5f + 0.5f) * (CHUNK_SIZE_Y - 8) + 8);
+            const int32_t height = (int32_t)roundf((sinf(float(x + chunk_x * CHUNK_SIZE_X) * 0.3f * float(z + chunk_z * CHUNK_SIZE_Z) * 0.5f * 0.01f) * 0.5f + 0.5f) * (CHUNK_SIZE_Y - 8) + 8);
             for(int32_t y = 0; y < height; ++y) {
                 Block &block = created->get_block(x, y, z);
                 if(y < height / 2) {
@@ -80,4 +79,5 @@ void World::gen_chunk_at(vec2i chunk) {
     }
 
     created->update_chunk_vao();
+    return created;
 }

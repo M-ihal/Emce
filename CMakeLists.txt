@@ -50,6 +50,8 @@ set(source_files
     source/debug_ui.h
     source/console.cpp
     source/console.h
+    source/game.cpp
+    source/game.h
 )
 
 set(source_files_external

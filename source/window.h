@@ -28,6 +28,8 @@ public:
 
 	int32_t height(void) const;
 
+    float calc_aspect(void) const;
+
 private:
 	SDL_Window    *m_sdl_window;
 	SDL_GLContext  m_gl_context;

@@ -24,10 +24,9 @@ public:
     
     Chunk *get_chunk(int32_t x, int32_t z, bool create_if_doesnt_exist = false);
 
-    // @temp
-    void gen_chunk_at(vec2i chunk);
-
 private:
+    Chunk *gen_chunk(uint64_t packed_xz);
+
     // Big @todo
     std::unordered_map<uint64_t, Chunk *> m_chunks;
 };

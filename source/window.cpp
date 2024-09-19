@@ -116,3 +116,7 @@ int32_t Window::width(void) const {
 int32_t Window::height(void) const {
     return m_height;
 }
+
+float Window::calc_aspect(void) const {
+    return float(m_width) / float(m_height);
+}
