@@ -5,12 +5,16 @@
 #include "input.h"
 #include "camera.h"
 
-#define CONSOLE_COMMAND_PROC(proc) void proc(Window &window, Camera &camera)
+// Can forward declare to not include here?
+#include <vector>
+#include <string>
+
+#define CONSOLE_COMMAND_PROC(proc) void proc(const std::vector<std::string> &args, Window &window, Camera &camera)
 typedef CONSOLE_COMMAND_PROC(console_command_proc);
-#define CONSOLE_COMMAND_LAMBDA [](Window &window, Camera &camera) -> void
+#define CONSOLE_COMMAND_LAMBDA [](const std::vector<std::string> &args, Window &window, Camera &camera) -> void
 
 struct ConsoleCommand {
-    char command[32];
+    std::string command;
     console_command_proc *proc;
 };
 

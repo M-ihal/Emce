@@ -4,13 +4,11 @@
 #include "vertex_array.h"
 #include "text_batcher.h"
 
-// @temp
-#include <string>
 #include <glew.h>
 #include <SDL.h> // Start/StopTextInput
+#include <string_view.h>
 
-#define CONSOLE_HISTORY_MAX 8
-#define CONSOLE_INPUT_BUFFER_MAX 64
+#define CONSOLE_HISTORY_MAX 12
 
 namespace {
     bool        s_initialized = false;
@@ -31,8 +29,7 @@ void Console::initialize(void) {
     s_initialized = true;
 
     /* Load font */
-    s_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 30);
-    // s_font.load_from_file("C://dev//emce//data//CascadiaMono.ttf", 24);
+    s_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
     s_font.get_atlas().set_filter_min(TextureFilter::NEAREST);
     s_font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
@@ -104,13 +101,53 @@ void Console::update(const Input &input, Window &window, Camera &camera) {
         s_input_buffer.pop_back();
     }
 
-    /* Apply command */
-    if(input.key_pressed(Key::ENTER)) {
+    /* Apply command @todo Hacky */
+    string_view_t command_view = string_view((char *)s_input_buffer.c_str());
+    command_view = s_view_trim(command_view);
+    if(input.key_pressed(Key::ENTER) && s_input_buffer.length()) {
+        Console::add_to_history(s_input_buffer.c_str());
+
+        // @temp Parsing Command and args
+        string_view_t cmd;
+        string_view_t arg1 = { };
+        string_view_t arg2 = { };
+        string_view_t arg3 = { };
+        size_t space_idx = s_view_find_first(command_view, ' ');
+        if(space_idx != s_view_invalid_idx) {
+            string_view_t args;
+            s_view_split(command_view, space_idx, &cmd, &args);
+            args = s_view_trim(args);
+            space_idx = s_view_find_first(args, ' ');
+            if(space_idx != s_view_invalid_idx) {
+                s_view_split(args, space_idx, &arg1, &args);
+                args = s_view_trim(args);
+                space_idx = s_view_find_first(args, ' ');
+                if(space_idx != s_view_invalid_idx) {
+                    s_view_split(args, space_idx, &arg2, &args);
+                    args = s_view_trim(args);
+                    space_idx = s_view_find_first(args, ' ');
+                    if(space_idx != s_view_invalid_idx) {
+                        s_view_split(args, space_idx, &arg3, &args);
+                    } else {
+                        arg3 = args;
+                    }
+                } else {
+                    arg2 = args;
+                }
+            } else {
+                arg1 = args;
+            }
+        } else {
+            cmd = command_view;
+        }
+
         for(auto &command : s_commands) {
-            if(s_input_buffer == command.command) {
-                Console::add_to_history(s_input_buffer.c_str());
-                command.proc(window, camera);
-                // Console::set_open_state(false);
+            if(cmd == string_view((char *)command.command.c_str())) {
+                std::vector<std::string> args;
+                if(arg1.length) { std::string s; s.assign(arg1.pointer, arg1.length); args.push_back(s); }
+                if(arg2.length) { std::string s; s.assign(arg2.pointer, arg2.length); args.push_back(s); }
+                if(arg3.length) { std::string s; s.assign(arg3.pointer, arg3.length); args.push_back(s); }
+                command.proc(args, window, camera);
                 break;
             }
         }
@@ -126,33 +163,55 @@ void Console::render(int32_t window_w, int32_t window_h) {
 
     s_quad_shader.hotload();
 
-    const vec2 console_pos = { 32.0f, 32.0f };
     const vec2 console_text_padding = { 6.0f, 6.0f };
+    const vec2 console_pos = { 32.0f, 32.0f };
+    const vec2 console_size = { 480.0f, float(s_font.get_height() + console_text_padding.y) };
 
-    mat4 model_m = mat4::identity();
-    model_m *= mat4::scale(480.0f, 35.0f, 1.0f);
-    model_m *= mat4::translate(console_pos.x, console_pos.y, 0.0f);
-    
-    /* Render input quad */
+    /* Quad shader */
     s_quad_shader.use_program();
     s_quad_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(window_w), float(window_h), -1.0f, 1.0f).e);
-    s_quad_shader.upload_mat4("u_model", model_m.e);
-    s_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.65f }.e);
     s_quad_vao.bind_vao();
 
-    GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
-    GL_CHECK(glDisable(GL_BLEND));
-
     s_batcher.begin();
-    s_batcher.push_text_formatted(console_pos + console_text_padding, s_font, s_input_buffer.c_str());
 
-#if 1
-    for(int32_t index = 0; index < CONSOLE_HISTORY_MAX; ++index) {
-        s_batcher.push_text_formatted(console_pos + console_text_padding + vec2{ 0.0f, float(index + 1.0f) * float(s_font.get_height()) }, s_font, s_history[index].c_str());
+    /* Blend for quads, disabled before rendering text batch */
+    GL_CHECK(glEnable(GL_BLEND));
+
+    /* Draw console input region */ {
+        mat4 model_m = mat4::identity();
+        model_m *= mat4::scale(console_size.x, console_size.y, 1.0f);
+        model_m *= mat4::translate(console_pos.x, console_pos.y, 0.0f);
+
+        s_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.65f }.e);
+        s_quad_shader.upload_mat4("u_model", model_m.e);
+
+        GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
+
+        s_batcher.push_text_formatted(console_pos + console_text_padding, s_font, s_input_buffer.c_str());
     }
-#endif
 
+    /* Draw console history region */ {
+        const vec2 history_pos = console_pos + vec2{ 0.0f, console_size.y };
+        const vec2 history_size = { console_size.x, float(CONSOLE_HISTORY_MAX * s_font.get_height() + console_text_padding.y) };
+        const float history_text_x = console_pos.x + console_text_padding.x;
+        float history_text_y = history_pos.y + console_text_padding.y;
+
+        mat4 model_m = mat4::identity();
+        model_m *= mat4::scale(history_size.x, history_size.y, 1.0f);
+        model_m *= mat4::translate(history_pos.x, history_pos.y, 0.0f);
+
+        s_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.45f }.e);
+        s_quad_shader.upload_mat4("u_model", model_m.e);
+
+        GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
+
+        for(int32_t history_index = 0; history_index < CONSOLE_HISTORY_MAX; ++history_index) {
+            s_batcher.push_text({ history_text_x, history_text_y }, s_font, s_history[history_index].c_str());
+            history_text_y += s_font.get_height();
+        }
+    }
+
+    GL_CHECK(glDisable(GL_BLEND));
     s_batcher.render(window_w, window_h, s_font);
 }
 
@@ -175,6 +234,7 @@ bool Console::is_open(void) {
     return s_is_open;
 }
 
+// @todo Check on command name and stuff?
 void Console::register_command(ConsoleCommand command) {
     s_commands.push_back(command);
 }

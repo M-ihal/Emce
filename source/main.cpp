@@ -48,6 +48,23 @@ vec2i chunk_position_from_block(const vec3i &block) {
     };
 }
 
+vec3i block_relative_from_block(const vec3i &block) {
+    vec3i rel = {
+        block.x % CHUNK_SIZE_X,
+        block.y,
+        block.z % CHUNK_SIZE_Z,
+    };
+
+    if(block.x < 0) {
+        rel.x = CHUNK_SIZE_X + rel.x;
+    }
+    if(block.z < 0) {
+        rel.z = CHUNK_SIZE_Z + rel.z;
+    }
+
+    return rel;
+}
+
 struct WorldPosition {
     static WorldPosition from_real(const vec3 &real);
     vec3  real;
@@ -60,7 +77,7 @@ WorldPosition WorldPosition::from_real(const vec3 &real) {
     WorldPosition result = { };
     result.real = real;
     result.block = block_position_from_real(real);
-//    result.block_rel = block_relative_from_block(result.block)
+    result.block_rel = block_relative_from_block(result.block);
     result.chunk = chunk_position_from_block(result.block);
     return result;
 }
@@ -113,6 +130,50 @@ void render_random_thing_at_origin(const Camera &camera, float aspect) {
     glDrawElements(GL_TRIANGLES, s_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL);
 }
 
+CONSOLE_COMMAND_PROC(setpos) {
+    if(args.size() != 3) {
+        Console::add_to_history("> missing arguments");
+    } else {
+        float x = std::stof(args[0]);
+        float y = std::stof(args[1]);
+        float z = std::stof(args[2]);
+        camera.set_position({ x, y, z });
+        char buffer[128];
+        sprintf_s(buffer, ARRAY_COUNT(buffer), "> position set to (%.1f, %.1f, %.1f)", x, y, z);
+        Console::add_to_history(buffer);
+    }
+}
+
+void register_commands(void) {
+    Console::register_command({
+        .command = "quit", 
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            window.should_quit();
+        }
+    });
+
+    Console::register_command({
+        .command = "cam", 
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            camera.set_position({ -54.0f, 128.0f, 37.0f });
+            camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
+        }
+    });
+
+    Console::register_command({
+        .command = "dog", 
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            camera.set_position({ 0.63f, 129.88f, 5.57f });
+            camera.set_rotation({ DEG_TO_RAD(266.510f), DEG_TO_RAD(3.128f) });
+        }
+    });
+
+    Console::register_command({
+        .command = "setpos", 
+        .proc = setpos
+    });
+}
+
 int SDL_main(int argc, char *argv[]) {
     /* TEMP: init std randomizer */
     srand(time(NULL));
@@ -148,29 +209,7 @@ int SDL_main(int argc, char *argv[]) {
     TextBatcher::initialize();
     DebugUI::initialize();
     Console::initialize();
-
-    Console::register_command({
-        .command = "quit", 
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            window.should_quit();
-        }
-    });
-
-    Console::register_command({
-        .command = "cam", 
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            camera.set_position({ -54.0f, 128.0f, 37.0f });
-            camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
-        }
-    });
-
-    Console::register_command({
-        .command = "dog", 
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            camera.set_position({ 0.63f, 129.88f, 5.57f });
-            camera.set_rotation({ DEG_TO_RAD(266.510f), DEG_TO_RAD(3.128f) });
-        }
-    });
+    register_commands();
 
     Camera camera;
     camera.set_position({ -54.0f, 128.0f, 37.0f });
@@ -196,10 +235,10 @@ int SDL_main(int argc, char *argv[]) {
 
     World world;
     world.gen_chunk_at({0,0});
+    world.gen_chunk_at({-1,0});
+    world.gen_chunk_at({-1,1});
+    world.gen_chunk_at({0,1});
 
-//    for(int32_t x = -8; x <= 8; ++x) 
-//        for(int32_t z = -8; z <= 8; ++z) 
-//            world.gen_chunk_at({ x, z });
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();

@@ -18,7 +18,8 @@ enum class BlockType : int32_t {
     AIR = 0, /* NONE */
     SAND,
     DIRT,
-    COBBLESTONE
+    COBBLESTONE,
+    DIRT_WITH_GRASS /* Probably temporary */
 };
 
 class Block {

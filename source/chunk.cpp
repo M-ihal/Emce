@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 
 Block::Block(void) {
     this->set_type(BlockType::AIR);
@@ -56,8 +57,6 @@ bool Chunk::is_inside_chunk(int32_t rel_x, int32_t rel_y, int32_t rel_z) {
         && rel_z >= 0 && rel_z < CHUNK_SIZE_Z);
 }
 
-#include <vector>
-
 enum class BlockSide {
     Z_POS,
     Z_NEG,
@@ -73,7 +72,7 @@ struct BlockSideVertex {
     vec2 tex_coord;
 };
 
-void fill_positions_and_normals(BlockSide side, BlockSideVertex v[4]) {
+static constexpr void fill_positions_and_normals(BlockSide side, BlockSideVertex v[4]) {
     switch(side) {
         case BlockSide::Z_POS: {
             v[0].position = vec3{ 0.0f, 0.0f, 1.0f };
@@ -139,14 +138,14 @@ void fill_positions_and_normals(BlockSide side, BlockSideVertex v[4]) {
 }
 
 // @todo Hardcoded atlas size
-void get_atlas_tex_coords(int32_t x, int32_t y, BlockSideVertex v[4]) {
+static constexpr void get_atlas_tex_coords(int32_t x, int32_t y, BlockSideVertex v[4]) {
     v[0].tex_coord = vec2{ x * 16.0f / 512.0f, y * 16.0f / 512.0f };
     v[1].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, y * 16.0f / 512.0f };
     v[2].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
     v[3].tex_coord = vec2{ x * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
 }
 
-void fill_tex_coords_for_block_type(BlockSide side, BlockType type, BlockSideVertex v[4]) {
+static constexpr void fill_tex_coords_for_block_type(BlockSide side, BlockType type, BlockSideVertex v[4]) {
     switch(type) {
         default:
         case BlockType::SAND: {
@@ -157,6 +156,22 @@ void fill_tex_coords_for_block_type(BlockSide side, BlockType type, BlockSideVer
         } break;
         case BlockType::COBBLESTONE: {
             get_atlas_tex_coords(2, 0, v);
+        } break;
+        case BlockType::DIRT_WITH_GRASS: {
+            switch(side) {
+                case BlockSide::Y_NEG: {
+                    get_atlas_tex_coords(1, 0, v);
+                } break;
+                case BlockSide::Y_POS: {
+                    get_atlas_tex_coords(1, 2, v);
+                } break;
+                case BlockSide::X_POS:
+                case BlockSide::X_NEG:
+                case BlockSide::Z_POS:
+                case BlockSide::Z_NEG: {
+                    get_atlas_tex_coords(1, 1, v);
+                } break;
+            }
         } break;
     }
 }

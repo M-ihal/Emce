@@ -1,42 +1,17 @@
 #include "world.h"
 #include <glew.h>
 
-// @temp -> Pack 2 int values (x, z)[chunk coords] into one uint64_t value in order to use that value as the key in std::map
-// @todo / @check
-
-// @todo
-// struct PackedChunkCoords {
-//     union {
-//         uint64_t packed;
-//         struct {
-//             int32_t chunk_x;
-//             int32_t chunk_z;
-//         };
-//     };
-// };
-
-// @todo
 static inline uint64_t pack_2x_int32(int32_t x, int32_t z) {
     const uint64_t packed = uint64_t(*(uint32_t *)&x) | (uint64_t(*(uint32_t *)&z) << 32);
     return packed;
 }
 
-// @todo
 static inline void unpack_2x_int32(uint64_t packed, int32_t *x, int32_t *z) {
     *x = *(int32_t *)&packed;
     *z = *(int32_t *)((uint8_t *)&packed + 4);
 }
 
-#define PACK_2X_INT32(x, z) uint64_t(uint64_t(x) | uint64_t(z) << 32)
-#define UNPACK_2X_INT32(v, x, z) { x = int32_t((v << 32) >> 32); z = int32_t(v >> 32); }
-
 World::World(void) {
-//    for(int32_t x = -4; x < 4; ++x) {
-//        for(int32_t z = -4; z < 4; ++z) {
-//            uint64_t packed = pack_2x_int32(x, z);
-//            m_chunks[packed] = new Chunk();
-//        }
-//    }
 }
 
 World::~World(void) {
@@ -50,6 +25,8 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
     shader.upload_int("u_texture", 0);
     atlas.bind_texture_unit(0);
 
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
     for(auto const &[key, chunk] : m_chunks) {
         int32_t x = 0;
         int32_t z = 0;
@@ -59,6 +36,8 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
         chunk->m_chunk_vao.bind_vao();
         GL_CHECK(glDrawElements(GL_TRIANGLES, chunk->m_chunk_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
     }
+
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
 Chunk *World::get_chunk(int32_t x, int32_t z, bool create_if_doesnt_exist) {
@@ -76,7 +55,6 @@ Chunk *World::get_chunk(int32_t x, int32_t z, bool create_if_doesnt_exist) {
     return m_chunks[packed];
 }
 
-// @temp
 void World::gen_chunk_at(vec2i chunk) {
     if(this->get_chunk(chunk.x, chunk.y)) {
         /* Already exists */
@@ -95,7 +73,7 @@ void World::gen_chunk_at(vec2i chunk) {
                 } else if(y < (height - 1)) {
                     block.set_type(BlockType::DIRT);
                 } else {
-                    block.set_type(BlockType::SAND);
+                    block.set_type(BlockType::DIRT_WITH_GRASS);
                 }
             }
         }
