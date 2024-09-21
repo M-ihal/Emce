@@ -6,7 +6,7 @@
 #include <stb_image.h>
 
 /* Get equivalent opengl enums for custom enum classes */
-inline static constexpr int32_t gl_filter_from_texture_filter(TextureFilter param) {
+extern constexpr int32_t gl_filter_from_texture_filter(TextureFilter param) {
     switch(param) {
         default: INVALID_CODE_PATH;  return -1;
         case TextureFilter::NEAREST: return GL_NEAREST;
@@ -14,7 +14,7 @@ inline static constexpr int32_t gl_filter_from_texture_filter(TextureFilter para
     }
 }
 
-inline static constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
+extern constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
     switch(param) {
         default: INVALID_CODE_PATH; return -1;
         case TextureWrap::CLAMP:    return GL_CLAMP_TO_EDGE;
@@ -22,7 +22,7 @@ inline static constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
     }
 }
 
-inline static constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format) {
+inline constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format) {
     switch(format) {
         default: INVALID_CODE_PATH;   return -1;
         case TextureDataFormat::RED:  return GL_R8; // *8 or something?
@@ -31,7 +31,7 @@ inline static constexpr int32_t gl_internal_format_from_texture_data_format(Text
     }
 }
 
-inline static constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format) {
+inline constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format) {
     switch(format) {
         default: INVALID_CODE_PATH;   return -1;
         case TextureDataFormat::RED:  return GL_RED;

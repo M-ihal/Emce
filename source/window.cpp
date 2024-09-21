@@ -45,7 +45,7 @@ bool Window::initialize(int width, int height, const char *title) {
     const int x_pos = SDL_WINDOWPOS_UNDEFINED; 
     const int y_pos = SDL_WINDOWPOS_UNDEFINED; 
 
-    unsigned int window_flags = SDL_WINDOW_OPENGL;
+    unsigned int window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
 
     m_sdl_window = SDL_CreateWindow(title, x_pos, y_pos, width, height, window_flags);
     if(!m_sdl_window) {

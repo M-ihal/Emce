@@ -48,7 +48,7 @@ void DebugUI::begin_frame(int32_t window_w, int32_t window_h) {
 
     s_left_x = s_padding.x;
     s_left_y = baseline_y;
-    s_right_x = window_w - s_padding.x - 200.0f; // @temp 200
+    s_right_x = window_w - s_padding.x - 400.0f; // @temp
     s_right_y = baseline_y;
 }
 

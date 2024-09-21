@@ -15,6 +15,7 @@
 #include "vertex_array.h"
 #include "math_types.h"
 #include "texture.h"
+#include "cubemap.h"
 #include "font.h"
 #include "text_batcher.h"
 #include "debug_ui.h"
@@ -26,7 +27,6 @@
 #define INIT_WINDOW_TITLE  "emce"
 
 /*
-    @todo: Game / GameManager / Game-Something class
     @todo: Better cleanup of reasorces... maybe make it explicit not in destructors
     @todo: Maybe make window globally accesible
 
@@ -38,12 +38,13 @@ int32_t calc_average_fps(double delta_time);
 void render_random_thing_at_origin(const Camera &camera, float aspect);
 
 CONSOLE_COMMAND_PROC(setpos) {
-    if(args.size() != 3) {
+    if(args.size() < 3) {
         Console::add_to_history("> missing arguments");
     } else {
-        float x = std::stof(args[0]);
-        float y = std::stof(args[1]);
-        float z = std::stof(args[2]);
+        Camera &camera = game.get_camera();
+        float x = args[0] == "*" ? camera.get_position().x : std::stof(args[0]);
+        float y = args[1] == "*" ? camera.get_position().y : std::stof(args[1]);
+        float z = args[2] == "*" ? camera.get_position().z : std::stof(args[2]);
         camera.set_position({ x, y, z });
         char buffer[128];
         sprintf_s(buffer, ARRAY_COUNT(buffer), "> position set to (%.1f, %.1f, %.1f)", x, y, z);
@@ -62,6 +63,7 @@ void register_commands(void) {
     Console::register_command({
         .command = "cam", 
         .proc = CONSOLE_COMMAND_LAMBDA {
+            Camera &camera = game.get_camera();
             camera.set_position({ -54.0f, 128.0f, 37.0f });
             camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
         }
@@ -70,6 +72,7 @@ void register_commands(void) {
     Console::register_command({
         .command = "dog", 
         .proc = CONSOLE_COMMAND_LAMBDA {
+            Camera &camera = game.get_camera();
             camera.set_position({ 0.63f, 129.88f, 5.57f });
             camera.set_rotation({ DEG_TO_RAD(266.510f), DEG_TO_RAD(3.128f) });
         }
@@ -78,6 +81,18 @@ void register_commands(void) {
     Console::register_command({
         .command = "setpos", 
         .proc = setpos
+    });
+
+    Console::register_command({
+        .command = "fov",
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            if(args.size() < 1) {
+                Console::add_to_history("> missing argument");
+                return;
+            }
+            float fov = std::stof(args[0]);
+            game.get_camera().set_fov(DEG_TO_RAD(fov));
+        }
     });
 }
 
@@ -108,8 +123,8 @@ int SDL_main(int argc, char *argv[]) {
     }
 
     /* Initialize OpenGL state */ {
-        GL_CHECK(glEnable(GL_DEPTH_TEST));
-        GL_CHECK(glDepthFunc(GL_LESS));
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
     }
 
     /* Initialize global stuff */
@@ -120,6 +135,60 @@ int SDL_main(int argc, char *argv[]) {
 
     Input input;
     Game  game;
+
+    const std::string folder = "skybox_blue";
+    const std::string extension = ".jpg";
+    const std::string filepaths[6] = {
+        "C://dev//emce//data//" + folder + "//right" + extension,
+        "C://dev//emce//data//" + folder + "//left" + extension,
+        "C://dev//emce//data//" + folder + "//up" + extension,
+        "C://dev//emce//data//" + folder + "//down" + extension,
+        "C://dev//emce//data//" + folder + "//front" + extension,
+        "C://dev//emce//data//" + folder + "//back" + extension,
+    };
+
+    Cubemap skybox;
+    skybox.load_from_file(filepaths);
+    skybox.set_filter_min(TextureFilter::NEAREST);
+    skybox.set_filter_mag(TextureFilter::NEAREST);
+
+    ShaderFile skybox_shader;
+    skybox_shader.set_filepath_and_load("C://dev//emce//source//shaders//skybox.glsl");
+
+    const float sv_vertices[] = {
+        -0.5f, -0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+        -0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+        -0.5f,  0.5f, -0.5f 
+    };
+
+    const uint32_t sv_indices[] = {
+        0, 1, 2,
+        2, 3, 0,
+        4, 5, 6,
+        6, 7, 4,
+        4, 0, 3,
+        3, 7, 4,
+        1, 5, 6,
+        6, 2, 1,
+        3, 2, 6,
+        6, 7, 3,
+        0, 1, 5,
+        5, 4, 0
+    };
+
+    BufferLayout sv_layout;
+    sv_layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
+
+    VertexArray skybox_vao;
+    skybox_vao.create_vao(sv_layout, ArrayBufferUsage::STATIC);
+    skybox_vao.apply_vao_attributes();
+    skybox_vao.set_vbo_data(sv_vertices, ARRAY_COUNT(sv_vertices) * sizeof(float));
+    skybox_vao.set_ibo_data(sv_indices, ARRAY_COUNT(sv_indices));
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -148,6 +217,7 @@ int SDL_main(int argc, char *argv[]) {
         /* Hotload stuff here */
         TextBatcher::hotload_shader();
         game.hotload_stuff();
+        skybox_shader.hotload();
 
 
         /*        */
@@ -162,9 +232,8 @@ int SDL_main(int argc, char *argv[]) {
             window.should_quit();
         }
 
-        Console::update(input, window, game.get_camera());
+        Console::update(input, window, game);
         game.update(input, delta_time);
-
 
         /*        */
         /* Render */
@@ -174,11 +243,23 @@ int SDL_main(int argc, char *argv[]) {
         GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
+
         game.render(window);
         render_random_thing_at_origin(game.get_camera(), window.calc_aspect());
+
+        /* Render skybox */ {
+            glDepthFunc(GL_LEQUAL);
+            skybox_shader.use_program();
+            skybox_shader.upload_mat4("u_proj", game.get_camera().calc_proj(window.calc_aspect()).e);
+            skybox_shader.upload_mat4("u_view", game.get_camera().calc_view().e);
+            skybox_vao.bind_vao();
+            skybox.bind_cubemap();
+            GL_CHECK(glDrawElements(GL_TRIANGLES, skybox_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+            glDepthFunc(GL_LESS);
+        }
+
         Console::render(window.width(), window.height());
         DebugUI::render();
-
 
         window.swap_buffers();
     }
@@ -187,6 +268,8 @@ int SDL_main(int argc, char *argv[]) {
     Console::destroy();
     DebugUI::destroy();
     TextBatcher::destroy();
+
+    skybox.delete_cubemap();
 
     return 0;
 }

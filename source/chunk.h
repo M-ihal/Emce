@@ -6,7 +6,7 @@
 #include "texture.h"
 
 #define CHUNK_SIZE_X 16 
-#define CHUNK_SIZE_Y 64
+#define CHUNK_SIZE_Y 192
 #define CHUNK_SIZE_Z 16
 
 #define for_every_block(var_x, var_y, var_z)\
@@ -34,6 +34,12 @@ public:
 
 private:
     BlockType m_type;
+
+//    union {
+//        struct {
+//            bool has_grass;
+//        } dirt;
+//    };
 };
 
 class Chunk {
@@ -46,8 +52,7 @@ public:
 
     void update_chunk_vao(void);
 
-    Block &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z);
-
+    Block       &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z);
     const Block &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z) const;
 
     static bool is_inside_chunk(int32_t rel_x, int32_t rel_y, int32_t rel_z);

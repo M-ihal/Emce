@@ -24,11 +24,15 @@ public:
     void set_rotation(const vec2 &rotation);
 
     vec2 get_rotation(void) const;
+    
+    void set_fov(float fov);
+
+    float get_fov(void) const;
    
 private:
     vec3  m_position;
-    vec2  m_rotation;
-    float m_field_of_view;
+    vec2  m_rotation;      // In radians
+    float m_field_of_view; // In radians (fovy)
     float m_plane_near;
     float m_plane_far;
     vec3  m_up_vector;

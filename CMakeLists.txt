@@ -34,6 +34,8 @@ set(source_files
     source/graphics/vertex_array.h
     source/graphics/texture.cpp
     source/graphics/texture.h
+    source/graphics/cubemap.cpp
+    source/graphics/cubemap.h
     source/graphics/font.cpp
     source/graphics/font.h
     source/camera.cpp

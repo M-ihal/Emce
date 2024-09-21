@@ -20,6 +20,7 @@ namespace {
     bool        s_is_open = false;
     std::string s_history[CONSOLE_HISTORY_MAX];
     std::string s_input_buffer;
+    std::string s_last_valid_input;
 
     std::vector<ConsoleCommand> s_commands;
 }
@@ -60,6 +61,7 @@ void Console::initialize(void) {
     /* Initialize console */
     s_is_open = false;
     s_input_buffer.clear();
+    s_last_valid_input.clear();
     s_commands.clear();
 }
 
@@ -80,7 +82,7 @@ void Console::add_to_history(const char *string) {
     s_history[0] = std::string(string);
 }
 
-void Console::update(const Input &input, Window &window, Camera &camera) {
+void Console::update(const Input &input, Window &window, Game &game) {
     if(!s_is_open) {
         return;
     }
@@ -89,6 +91,11 @@ void Console::update(const Input &input, Window &window, Camera &camera) {
     if(input.key_pressed(Key::ESCAPE)) {
         Console::set_open_state(false);
         return;
+    }
+
+    /* Get last valid input */
+    if(input.key_pressed(Key::UP)) {
+        s_input_buffer = s_last_valid_input;
     }
 
     /* Query text input */
@@ -143,11 +150,13 @@ void Console::update(const Input &input, Window &window, Camera &camera) {
 
         for(auto &command : s_commands) {
             if(cmd == string_view((char *)command.command.c_str())) {
+                s_last_valid_input = s_input_buffer;
+
                 std::vector<std::string> args;
                 if(arg1.length) { std::string s; s.assign(arg1.pointer, arg1.length); args.push_back(s); }
                 if(arg2.length) { std::string s; s.assign(arg2.pointer, arg2.length); args.push_back(s); }
                 if(arg3.length) { std::string s; s.assign(arg3.pointer, arg3.length); args.push_back(s); }
-                command.proc(args, window, camera);
+                command.proc(args, window, game);
                 break;
             }
         }

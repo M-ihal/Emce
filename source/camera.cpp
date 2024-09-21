@@ -7,7 +7,7 @@ Camera::Camera(void) {
     m_rotation = { 0.0f, 0.0f };
     m_plane_near = 0.1f;
     m_plane_far = 1000.0f;
-    m_field_of_view = DEG_TO_RAD(50.0f); 
+    m_field_of_view = DEG_TO_RAD(55.0f); 
     m_up_vector = { 0.0f, 1.0f, 0.0f };
 }
 
@@ -56,6 +56,15 @@ void Camera::set_rotation(const vec2 &rotation) {
 
 vec2 Camera::get_rotation(void) const {
     return m_rotation;
+}
+
+void Camera::set_fov(float fov) {
+    ASSERT(fov > 0.0f);
+    m_field_of_view = fov;
+}
+
+float Camera::get_fov(void) const {
+    return m_field_of_view;
 }
 
 void Camera::update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, int32_t rotate_h, float delta_time, bool speed_up) {
