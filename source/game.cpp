@@ -2,11 +2,12 @@
 
 #include "console.h"
 #include "debug_ui.h"
+#include "simple_draw.h"
 
 #include <glew.h>
 
 namespace {
-    static int32_t s_load_radius = 2;
+    static int32_t s_load_radius = 0;
 }
 
 // @temp
@@ -31,10 +32,10 @@ Game::Game(void) {
     m_block_atlas.set_filter_min(TextureFilter::NEAREST);
     m_block_atlas.set_filter_mag(TextureFilter::NEAREST);
 
-    m_camera.set_position({ -54.0f, 128.0f, 37.0f });
+    m_camera.set_position({ 0.0f, 200.0f, 0.0f });
     m_camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
-    test_generate_world(m_world, 3, 3, rand() % RAND_MAX);
+    test_generate_world(m_world, 0, 0, rand() % RAND_MAX);
 
     Console::register_command({
         .command = "generate",
@@ -158,6 +159,17 @@ void Game::render(const Window &window) {
     m_block_shader.upload_mat4("u_proj", m_camera.calc_proj(window.calc_aspect()).e);
     m_block_shader.upload_mat4("u_view", m_camera.calc_view().e);
     m_world.render_chunks(m_block_shader, m_block_atlas);
+
+#if 0
+    for(auto const &[key, chunk] : m_world.get_chunk_map()) {
+        vec3 chunk_pos = { 
+            float(chunk->get_coords().x * CHUNK_SIZE_X),
+            0.0f,
+            float(chunk->get_coords().y * CHUNK_SIZE_Z)
+        };
+        SimpleDraw::draw_cube_outline(chunk_pos, { CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }, { 0.5f, 0.7f, 0.4f, 1.0f });
+    }
+#endif
 }
 
 void Game::hotload_stuff(void) {

@@ -47,6 +47,9 @@ public:
     Block       &get_block(const vec3i &rel);
     const Block &get_block(const vec3i &rel) const;
 
+    /* X and Z coordinate of the chunk, not the real position */
+    vec2i get_coords(void) const;
+
     static bool is_inside_chunk(const vec3i &rel);
 
 private:

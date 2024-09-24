@@ -21,6 +21,7 @@
 #include "debug_ui.h"
 #include "console.h"
 #include "game.h"
+#include "simple_draw.h"
 
 #define INIT_WINDOW_WIDTH  1280
 #define INIT_WINDOW_HEIGHT 720
@@ -130,6 +131,7 @@ int SDL_main(int argc, char *argv[]) {
     /* Initialize global stuff */
     TextBatcher::initialize();
     DebugUI::initialize();
+    SimpleDraw::initialize();
     Console::initialize();
     register_commands();
 
@@ -216,6 +218,7 @@ int SDL_main(int argc, char *argv[]) {
 
         /* Hotload stuff here */
         TextBatcher::hotload_shader();
+        SimpleDraw::hotload_shader();
         game.hotload_stuff();
         skybox_shader.hotload();
 
@@ -235,6 +238,8 @@ int SDL_main(int argc, char *argv[]) {
         Console::update(input, window, game);
         game.update(input, delta_time);
 
+        SimpleDraw::set_camera(game.get_camera(), window.calc_aspect());
+
         /*        */
         /* Render */
         /*        */
@@ -246,6 +251,8 @@ int SDL_main(int argc, char *argv[]) {
 
         game.render(window);
         render_random_thing_at_origin(game.get_camera(), window.calc_aspect());
+
+        SimpleDraw::draw_cube_outline({ 0.0f, 200.0f, 0.0f }, { 0.8f, 1.8f, 0.8f }, 0.1f, { 0.0f, 1.0f, 0.0f, 1.0f });
 
         /* Render skybox */ {
             glDepthFunc(GL_LEQUAL);
@@ -266,6 +273,7 @@ int SDL_main(int argc, char *argv[]) {
 
     /* Delete global stuff */
     Console::destroy();
+    SimpleDraw::destroy();
     DebugUI::destroy();
     TextBatcher::destroy();
 

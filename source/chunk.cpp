@@ -63,6 +63,10 @@ const Block &Chunk::get_block(const vec3i &rel) const {
     return m_blocks[rel.x][rel.y][rel.z];
 }
 
+vec2i Chunk::get_coords(void) const {
+    return m_chunk_xz;
+}
+
 bool Chunk::is_inside_chunk(const vec3i &rel) {
     return(rel.x >= 0 && rel.x < CHUNK_SIZE_X
         && rel.y >= 0 && rel.y < CHUNK_SIZE_Y
