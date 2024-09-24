@@ -65,6 +65,10 @@ vec2i vec2i::zero(void) {
     return vec2i{ 0, 0 };
 }
 
+vec2i operator + (const vec2i &l, const vec2i &r) {
+    return vec2i{ l.x + r.x, l.y + r.y };
+}
+
 /*
     --- vec3 ---
 */

@@ -26,38 +26,36 @@ class Block {
 public:
     Block(void);
 
-    void set_type(BlockType type);
-
+    void      set_type(BlockType type);
     BlockType get_type(void) const;
 
     bool is_of_type(BlockType type) const;
 
 private:
     BlockType m_type;
-
-//    union {
-//        struct {
-//            bool has_grass;
-//        } dirt;
-//    };
 };
 
 class Chunk {
 public:
     friend class World;
-
-    Chunk(void);
-
+    
+    explicit Chunk(class World *world, const vec2i &chunk_xz);
     ~Chunk(void);
 
-    void update_chunk_vao(void);
+    void update_vao(void);
 
-    Block       &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z);
-    const Block &get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z) const;
+    Block       &get_block(const vec3i &rel);
+    const Block &get_block(const vec3i &rel) const;
 
-    static bool is_inside_chunk(int32_t rel_x, int32_t rel_y, int32_t rel_z);
+    static bool is_inside_chunk(const vec3i &rel);
 
 private:
+    void regenerate_vao(void);
+
+    /* The owning world of this chunk, that allocated it */
+    class World *m_owner;
+    vec2i        m_chunk_xz;
+
     VertexArray m_chunk_vao;
     Block       m_blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
 };

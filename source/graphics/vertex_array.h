@@ -59,6 +59,9 @@ public:
     /* Delete IDs */
     void delete_vao(void);
     
+    /* */
+    bool has_been_created(void) const;
+
     /* Apply Attrib Pointers */
     void apply_vao_attributes(void) const;
 

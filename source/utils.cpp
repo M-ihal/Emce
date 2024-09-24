@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <malloc.h>
 
-bool read_entire_file(const char *filepath, FileContents &file, bool null_terminated) {
+bool read_entire_file_c(const char *filepath, FileContents &file, bool null_terminated) {
     file.data = NULL;
     file.size = 0;
 
@@ -36,6 +36,10 @@ bool read_entire_file(const char *filepath, FileContents &file, bool null_termin
     return true;
 }
 
+bool read_entire_file(const std::string &filepath, FileContents &file, bool null_terminated) {
+    return read_entire_file_c(filepath.c_str(), file, null_terminated);
+}
+
 void free_loaded_file(FileContents &file) {
     free(file.data);
     file.data = NULL;
@@ -57,7 +61,7 @@ inline static FileTime convert_SYSTEMTIME(const SYSTEMTIME *sys_time) {
     return time;
 }
 
-bool FileTime::get_times(char *filepath, FileTime *last_write_time, FileTime *last_access_time, FileTime *creation_time) {
+bool FileTime::get_times_c(const char *filepath, FileTime *last_write_time, FileTime *last_access_time, FileTime *creation_time) {
     HANDLE file_handle = CreateFile(filepath, 0, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     if(file_handle == INVALID_HANDLE_VALUE) {
         return false;
@@ -92,6 +96,10 @@ bool FileTime::get_times(char *filepath, FileTime *last_write_time, FileTime *la
     }
 
     return true;
+}
+
+bool FileTime::get_times(const std::string &filepath, FileTime *last_write_time, FileTime *last_access_time, FileTime *creation_time) {
+    return get_times_c(filepath.c_str(), last_write_time, last_access_time, creation_time);
 }
 #endif
 

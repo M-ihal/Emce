@@ -98,15 +98,15 @@ bool Texture::load_from_memory(uint8_t *data, int32_t width, int32_t height, Tex
     return true;
 }
 
-bool Texture::load_from_file(const char *filepath, bool flip_on_load, TextureLoadSpec spec) {
-    fprintf(stdout, "[info] Texture: Loading texture from file, path: %s\n", filepath);
+bool Texture::load_from_file(const std::string &filepath, bool flip_on_load, TextureLoadSpec spec) {
+    fprintf(stdout, "[info] Texture: Loading texture from file, path: %s\n", filepath.c_str());
 
     stbi_set_flip_vertically_on_load(flip_on_load);
 
     int32_t width;
     int32_t height;
     int32_t bpp;
-    uint8_t *pixels = stbi_load(filepath, &width, &height, &bpp, 0);
+    uint8_t *pixels = stbi_load(filepath.c_str(), &width, &height, &bpp, 0);
 
     if(!pixels) {
         fprintf(stderr, "[error] Texture: Failed to read texture file\n");

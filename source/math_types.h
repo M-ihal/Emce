@@ -43,6 +43,8 @@ struct vec2i {
     static vec2i zero(void);
 };
 
+vec2i operator + (const vec2i &l, const vec2i &r);
+
 struct vec3 {
     union {
         struct {

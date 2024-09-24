@@ -86,12 +86,12 @@ bool Shader::load_from_memory(const char *vs, size_t vs_len, const char *fs, siz
     return true;
 }
 
-bool Shader::load_from_file(const char *filepath) {
-    fprintf(stdout, "[info] Shader: Loading shader from file, path: %s\n", filepath);
+bool Shader::load_from_file(const std::string &filepath) {
+    fprintf(stdout, "[info] Shader: Loading shader from file, path: %s\n", filepath.c_str());
 
     FileContents file;
     if(!read_entire_file(filepath, file, true)) {
-        fprintf(stderr, "[error] Shader: Failed to read shader file, path: \"%s\"\n", filepath);
+        fprintf(stderr, "[error] Shader: Failed to read shader file, path: \"%s\"\n", filepath.c_str());
         return false;
     }
 
@@ -101,7 +101,7 @@ bool Shader::load_from_file(const char *filepath) {
     string_view_t gs;
     const bool parse_success = find_shader_sources(file.data, file.size, vs, fs, gs);
     if(!parse_success) {
-        fprintf(stderr, "[error] Shader: Failed to parse shader file, path: %s\n", filepath);
+        fprintf(stderr, "[error] Shader: Failed to parse shader file, path: %s\n", filepath.c_str());
         free_loaded_file(file);
         return false;
     }
@@ -176,24 +176,23 @@ bool Shader::is_valid_program(void) const {
 }
 
 ShaderFile::ShaderFile(void) {
-    ZERO_ARRAY(m_filepath);
+    m_filepath.clear();
 }
 
 void ShaderFile::delete_shader_file(void) {
     this->delete_shader();
-    ZERO_ARRAY(m_filepath);
+    m_filepath.clear();
     ZERO_STRUCT(m_last_time);
 }
 
-void ShaderFile::set_filepath_and_load(const char *filepath) {
-    strcpy_s(m_filepath, ARRAY_COUNT(m_filepath), filepath);
-
+void ShaderFile::set_filepath_and_load(const std::string &filepath) {
+    m_filepath = filepath;
     this->load_from_file(m_filepath);
     FileTime::get_times(m_filepath, &m_last_time, NULL, NULL);
 }
 
 void ShaderFile::hotload(void) {
-    if(strlen(m_filepath) == 0) {
+    if(m_filepath.size() == 0) {
         return;
     }
 

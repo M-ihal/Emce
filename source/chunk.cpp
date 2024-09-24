@@ -1,4 +1,5 @@
 #include "chunk.h"
+#include "world.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,40 +22,51 @@ bool Block::is_of_type(BlockType type) const {
     return m_type == type;
 }
 
-Chunk::Chunk(void) {
+Chunk::Chunk(class World *world, const vec2i &chunk_xz) {
+    ASSERT(world);
+    m_owner = world;
+    m_chunk_xz = chunk_xz;
     memset(m_blocks, 0, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block));
-    this->update_chunk_vao();
 }
 
 Chunk::~Chunk(void) {
     m_chunk_vao.delete_vao();
+    m_owner = NULL;
 }
 
-VertexArray stupid_regen_chunk_vao(const Chunk &chunk);
+void Chunk::update_vao(void) {
+    this->regenerate_vao();
 
-void Chunk::update_chunk_vao(void) {
-    m_chunk_vao.delete_vao();
-    m_chunk_vao = stupid_regen_chunk_vao(*this);
+    /* @todo regenerate neighbouring chunks, this is slow and stupid iguess */
+    Chunk *chunk = NULL;
+    chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 1, 0 }, false);
+    if(chunk) { chunk->regenerate_vao(); }
+    chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ -1, 0 }, false);
+    if(chunk) { chunk->regenerate_vao(); }
+    chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 0, 1 }, false);
+    if(chunk) { chunk->regenerate_vao(); }
+    chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 0, -1 }, false);
+    if(chunk) { chunk->regenerate_vao(); }
 }
 
-Block &Chunk::get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z) {
-    ASSERT(rel_x >= 0 && rel_x < CHUNK_SIZE_X);
-    ASSERT(rel_y >= 0 && rel_y < CHUNK_SIZE_Y);
-    ASSERT(rel_z >= 0 && rel_z < CHUNK_SIZE_Z);
-    return m_blocks[rel_x][rel_y][rel_z];
+Block &Chunk::get_block(const vec3i &rel) {
+    ASSERT(rel.x >= 0 && rel.x < CHUNK_SIZE_X);
+    ASSERT(rel.y >= 0 && rel.y < CHUNK_SIZE_Y);
+    ASSERT(rel.z >= 0 && rel.z < CHUNK_SIZE_Z);
+    return m_blocks[rel.x][rel.y][rel.z];
 }
 
-const Block &Chunk::get_block(int32_t rel_x, int32_t rel_y, int32_t rel_z) const {
-    ASSERT(rel_x >= 0 && rel_x < CHUNK_SIZE_X);
-    ASSERT(rel_y >= 0 && rel_y < CHUNK_SIZE_Y);
-    ASSERT(rel_z >= 0 && rel_z < CHUNK_SIZE_Z);
-    return m_blocks[rel_x][rel_y][rel_z];
+const Block &Chunk::get_block(const vec3i &rel) const {
+    ASSERT(rel.x >= 0 && rel.x < CHUNK_SIZE_X);
+    ASSERT(rel.y >= 0 && rel.y < CHUNK_SIZE_Y);
+    ASSERT(rel.z >= 0 && rel.z < CHUNK_SIZE_Z);
+    return m_blocks[rel.x][rel.y][rel.z];
 }
 
-bool Chunk::is_inside_chunk(int32_t rel_x, int32_t rel_y, int32_t rel_z) {
-    return(rel_x >= 0 && rel_x < CHUNK_SIZE_X
-        && rel_y >= 0 && rel_y < CHUNK_SIZE_Y
-        && rel_z >= 0 && rel_z < CHUNK_SIZE_Z);
+bool Chunk::is_inside_chunk(const vec3i &rel) {
+    return(rel.x >= 0 && rel.x < CHUNK_SIZE_X
+        && rel.y >= 0 && rel.y < CHUNK_SIZE_Y
+        && rel.z >= 0 && rel.z < CHUNK_SIZE_Z);
 }
 
 enum class BlockSide {
@@ -176,8 +188,7 @@ static constexpr void fill_tex_coords_for_block_type(BlockSide side, BlockType t
     }
 }
 
-VertexArray stupid_regen_chunk_vao(const Chunk &chunk) {
-
+void Chunk::regenerate_vao(void) {
     std::vector<BlockSideVertex> vertices;
     std::vector<uint32_t> indices;
 
@@ -206,25 +217,87 @@ VertexArray stupid_regen_chunk_vao(const Chunk &chunk) {
         indices.push_back(start + 0);
     };
 
+    auto is_relative_block_solid = [&] (const vec3i &other_rel) -> bool {
+        const Block *other = NULL;
+        if(Chunk::is_inside_chunk(other_rel)) {
+            other = &this->get_block(other_rel);
+        } else {
+            /* If on the edge in Y - always generate quad */
+            if(other_rel.y < 0 || other_rel.y >= CHUNK_SIZE_Y) {
+                return false;
+            }
+
+            /* Get neighbouring chunk */
+            vec2i chunk_offset = { };
+
+            if(other_rel.x < 0) {
+                chunk_offset.x = -1;
+            } else if(other_rel.x >= CHUNK_SIZE_X) {
+                chunk_offset.x = +1;
+            }
+
+            if(other_rel.z < 0) {
+                chunk_offset.y = -1;
+            } else if(other_rel.z >= CHUNK_SIZE_Z) {
+                chunk_offset.y = +1;
+            }
+
+            const Chunk *neighbour = m_owner->get_chunk(m_chunk_xz + chunk_offset, false);
+            if(!neighbour) {
+                return false;
+            }
+
+            vec3i block_xyz;
+            block_xyz.y = other_rel.y;
+
+            if(chunk_offset.x == -1) {
+                block_xyz.x = CHUNK_SIZE_X - 1;
+            } else if(chunk_offset.x == 1) {
+                block_xyz.x = 0;
+            } else {
+                block_xyz.x = other_rel.x;
+            }
+
+            if(chunk_offset.y == -1) {
+                block_xyz.z = CHUNK_SIZE_Z - 1;
+            } else if(chunk_offset.y == 1) {
+                block_xyz.z = 0;
+            } else {
+                block_xyz.z = other_rel.z;
+            }
+
+            other = &neighbour->get_block(block_xyz);
+        }
+        
+        /* If block is transparent, return true */
+        switch(other->get_type()) {
+            default: break;
+
+            case BlockType::AIR: return false;
+        }
+
+        return true;
+    };
+
     for_every_block(x, y, z) {
-        const Block &block = chunk.get_block(x, y, z);
+        const Block &block = this->get_block({ x, y, z });
         if(!block.is_of_type(BlockType::AIR)) {
-            if(!(Chunk::is_inside_chunk(x, y, z + 1) && !chunk.get_block(x, y, z + 1).is_of_type(BlockType::AIR))) {
+            if(!is_relative_block_solid({ x, y, z + 1 })) {
                 push_quad(BlockSide::Z_POS, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x, y, z - 1) && !chunk.get_block(x, y, z - 1).is_of_type(BlockType::AIR))) {
+            if(!is_relative_block_solid({ x, y, z - 1 })) {
                 push_quad(BlockSide::Z_NEG, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x + 1, y, z) && !chunk.get_block(x + 1, y, z).is_of_type(BlockType::AIR))) {
+            if(!is_relative_block_solid({ x + 1, y, z })) {
                 push_quad(BlockSide::X_POS, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x - 1, y, z) && !chunk.get_block(x - 1, y, z).is_of_type(BlockType::AIR))) {
+            if(!is_relative_block_solid({ x - 1, y, z })) {
                 push_quad(BlockSide::X_NEG, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x, y + 1, z) && !chunk.get_block(x, y + 1, z).is_of_type(BlockType::AIR))) {
+            if(!is_relative_block_solid({ x, y + 1, z })) {
                 push_quad(BlockSide::Y_POS, block.get_type(), x, y, z);
             }
-            if(!(Chunk::is_inside_chunk(x, y - 1, z) && !chunk.get_block(x, y - 1, z).is_of_type(BlockType::AIR))) {
+            if(!is_relative_block_solid({ x, y - 1, z })) {
                 push_quad(BlockSide::Y_NEG, block.get_type(), x, y, z);
             }
         }
@@ -235,10 +308,9 @@ VertexArray stupid_regen_chunk_vao(const Chunk &chunk) {
     layout.push_attribute("a_normal", 3, BufferDataType::FLOAT);
     layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
 
-    VertexArray vao;
-    vao.create_vao(layout, ArrayBufferUsage::STATIC);
-    vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(BlockSideVertex));
-    vao.set_ibo_data(indices.data(),  indices.size());
-    vao.apply_vao_attributes();
-    return vao;
+    m_chunk_vao.delete_vao();
+    m_chunk_vao.create_vao(layout, ArrayBufferUsage::STATIC);
+    m_chunk_vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(BlockSideVertex));
+    m_chunk_vao.set_ibo_data(indices.data(),  indices.size());
+    m_chunk_vao.apply_vao_attributes();
 }

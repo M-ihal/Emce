@@ -32,7 +32,7 @@ out vec4 final_color;
 
 void main() {
     const vec3 sun_diffuse = vec3(0.8, 0.8, 0.8);
-    const vec3 sun_dir = normalize(vec3(+0.3, -1.0, +0.4));
+    const vec3 sun_dir = normalize(vec3(+0.3, -0.5, +0.4));
     vec3 normal        = normalize(v_normal);
     vec3 dir_to_sun    = -sun_dir; 
     float diff = max(dot(normal, dir_to_sun), 0.3);

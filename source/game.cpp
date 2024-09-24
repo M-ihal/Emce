@@ -6,17 +6,21 @@
 #include <glew.h>
 
 namespace {
-    static int32_t s_load_radius = 8;
+    static int32_t s_load_radius = 2;
 }
 
 // @temp
 static void test_generate_world(World &world, int32_t size_half_x, int32_t size_half_z, int32_t seed) {
-    world.delete_chunks();
-    world.set_seed(seed);
+    world.initialize_world(seed);
+
     for(int32_t x = -size_half_x; x <= size_half_x; ++x) {
         for(int32_t z = -size_half_z; z <= size_half_z; ++z) {
-            world.get_chunk(x, z, true);
+            world.get_chunk({ x, z }, true);
         }
+    }
+
+    for(auto const &[key, chunk] : world.get_chunk_map()) { 
+        chunk->update_vao();
     }
 }
 
@@ -30,7 +34,7 @@ Game::Game(void) {
     m_camera.set_position({ -54.0f, 128.0f, 37.0f });
     m_camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
-    test_generate_world(m_world, 10, 10, 23155);
+    test_generate_world(m_world, 3, 3, rand() % RAND_MAX);
 
     Console::register_command({
         .command = "generate",
@@ -49,6 +53,14 @@ Game::Game(void) {
     });
 
     Console::register_command({
+        .command = "reset_world",
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            const int32_t seed = args.size() > 0 ? std::stoi(args[0]) : game.get_world().get_seed();
+            game.get_world().initialize_world(seed);
+        }
+    });
+
+    Console::register_command({
         .command = "setrad",
         .proc = CONSOLE_COMMAND_LAMBDA {
             if(args.size() != 1) {
@@ -61,6 +73,17 @@ Game::Game(void) {
                 sprintf_s(buffer, 32, "> radius set to %d", radius);
                 Console::add_to_history(buffer);
             }
+        }
+    });
+
+    Console::register_command({
+        .command = "toggle_fill",
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            World &world = game.get_world();
+            world._debug_render_not_fill = !world._debug_render_not_fill;
+            char buffer[32];
+            sprintf_s(buffer, 32, "> fill set to %s", BOOL_STR(world._debug_render_not_fill));
+            Console::add_to_history(buffer);
         }
     });
 }
@@ -113,9 +136,20 @@ void Game::update(const Input &input, double delta_time) {
     DebugUI::push_text_left("rotation H: %+.3f", RAD_TO_DEG(camera_rotation.x));
     DebugUI::push_text_left("rotation V: %+.3f", RAD_TO_DEG(camera_rotation.y));
 
-    DebugUI::push_text_right("number of chunks: %d", m_world.m_chunks.size());
+    DebugUI::push_text_right("world seed: %d", m_world.get_seed());
+    DebugUI::push_text_right("number of chunks: %d", m_world.get_chunk_map_size());
 
-    // m_world.get_chunk(camera_position.chunk.x, camera_position.chunk.y, true);
+    for(int32_t load_x = -s_load_radius; load_x <= s_load_radius; load_x += 1) {
+        for(int32_t load_z = -s_load_radius; load_z <= s_load_radius; load_z += 1) {
+            const vec2i load_xz = camera_position.chunk + vec2i{ load_x, load_z };
+            Chunk *generated = m_world.gen_chunk(load_xz);
+            if(generated) {
+                generated->update_vao();
+                goto break_loading;
+            }
+        }
+    }
+break_loading:;
 }
 
 void Game::render(const Window &window) {

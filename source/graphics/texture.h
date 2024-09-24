@@ -3,6 +3,8 @@
 #include "common.h"
 #include "math_types.h"
 
+#include <string>
+
 enum class TextureFilter : int8_t {
     LINEAR,
     NEAREST
@@ -46,7 +48,7 @@ public:
 
     bool load_from_memory(uint8_t *data, int32_t width, int32_t height, TextureLoadSpec spec);
 
-    bool load_from_file(const char *filepath, bool flip_on_load = false, TextureLoadSpec spec = { TextureDataFormat::INVALID, TextureDataFormat::INVALID, TextureDataType::INVALID });
+    bool load_from_file(const std::string &filepath, bool flip_on_load = false, TextureLoadSpec spec = { TextureDataFormat::INVALID, TextureDataFormat::INVALID, TextureDataType::INVALID });
 
     void bind_texture(void) const;
     void bind_texture_unit(int32_t unit) const;

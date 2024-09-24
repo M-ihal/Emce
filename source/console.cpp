@@ -8,7 +8,7 @@
 #include <SDL.h> // Start/StopTextInput
 #include <string_view.h>
 
-#define CONSOLE_HISTORY_MAX 12
+#define CONSOLE_HISTORY_MAX 32
 
 namespace {
     bool        s_initialized = false;
@@ -63,6 +63,25 @@ void Console::initialize(void) {
     s_input_buffer.clear();
     s_last_valid_input.clear();
     s_commands.clear();
+
+    Console::register_command({
+        .command = "commands",
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            Console::add_to_history("> registered commands:");
+            for(auto &command : s_commands) {
+                Console::add_to_history(command.command.c_str());
+            }
+        }
+    });
+
+    Console::register_command({
+        .command = "clear",
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            for(int32_t index = 0; index < CONSOLE_HISTORY_MAX; ++index) {
+                s_history[index].clear();
+            }
+        }
+    });
 }
 
 void Console::destroy(void) {

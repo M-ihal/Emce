@@ -3,3 +3,4 @@ build_clang/
 external/
 .cache/
 data/textures/
+*.mp4

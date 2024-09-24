@@ -106,6 +106,10 @@ void VertexArray::delete_vao(void) {
     }
 }
 
+bool VertexArray::has_been_created(void) const {
+    return m_vao_id != 0;
+}
+
 void VertexArray::apply_vao_attributes(void) const {
     this->bind_vao();
 

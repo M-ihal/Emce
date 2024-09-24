@@ -3,6 +3,8 @@
 #include "common.h"
 #include "utils.h"
 
+#include <string>
+
 /*
     TODO: Better logging when loading and hotloading shaders
 
@@ -24,7 +26,7 @@ public:
 
     bool load_from_memory(const char *vs, size_t vs_len, const char *fs, size_t fs_len, const char *gs = NULL, size_t gs_len = 0);
 
-    bool load_from_file(const char *filepath);
+    bool load_from_file(const std::string &filepath);
 
     void upload_int(const char *name, int32_t value) const;
 
@@ -54,11 +56,11 @@ public:
 
     void delete_shader_file(void);
 
-    void set_filepath_and_load(const char *filepath);
+    void set_filepath_and_load(const std::string &filepath);
     
     void hotload(void);
 
 private:
-    FileTime m_last_time;
-    char m_filepath[64];
+    FileTime    m_last_time;
+    std::string m_filepath;
 };
