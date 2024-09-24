@@ -25,6 +25,12 @@ static void test_generate_world(World &world, int32_t size_half_x, int32_t size_
     }
 }
 
+constexpr vec3 init_player_pos = { 
+    .x = CHUNK_SIZE_X * 0.5f,
+    .y = 152.0f,
+    .z = CHUNK_SIZE_Z * 0.5f
+};
+
 Game::Game(void) {
     /* init resources */
     m_block_shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
@@ -32,10 +38,24 @@ Game::Game(void) {
     m_block_atlas.set_filter_min(TextureFilter::NEAREST);
     m_block_atlas.set_filter_mag(TextureFilter::NEAREST);
 
-    m_camera.set_position({ 0.0f, 200.0f, 0.0f });
+    Console::register_command({
+        .command = "set_player",
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            if(args.size()) {
+                Console::add_to_history("> not implemented");
+            } else {
+                game.get_player().set_position(init_player_pos);
+            }
+        }
+    });
+
+    m_player.set_position(init_player_pos);
+
+    m_camera.set_position(m_player.get_position());
     m_camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
-    test_generate_world(m_world, 0, 0, rand() % RAND_MAX);
+    int32_t seed = 14; // rand() % RAND_MAX
+    test_generate_world(m_world, 0, 0, seed);
 
     Console::register_command({
         .command = "generate",
@@ -122,6 +142,9 @@ static void update_game_camera(Camera &camera, const Input &input, double delta_
 void Game::update(const Input &input, double delta_time) {
     update_game_camera(m_camera, input, delta_time);
 
+    m_player.update(*this, input, delta_time);
+    m_camera.set_position(m_player.get_position_head());
+
     WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
     const vec3 camera_direction = m_camera.calc_direction();
     const vec2 camera_rotation = m_camera.get_rotation();
@@ -139,6 +162,8 @@ void Game::update(const Input &input, double delta_time) {
 
     DebugUI::push_text_right("world seed: %d", m_world.get_seed());
     DebugUI::push_text_right("number of chunks: %d", m_world.get_chunk_map_size());
+
+    return;
 
     for(int32_t load_x = -s_load_radius; load_x <= s_load_radius; load_x += 1) {
         for(int32_t load_z = -s_load_radius; load_z <= s_load_radius; load_z += 1) {
@@ -159,6 +184,8 @@ void Game::render(const Window &window) {
     m_block_shader.upload_mat4("u_proj", m_camera.calc_proj(window.calc_aspect()).e);
     m_block_shader.upload_mat4("u_view", m_camera.calc_view().e);
     m_world.render_chunks(m_block_shader, m_block_atlas);
+
+    SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 0.05f, { 0.0f, 1.0f, 0.0f, 1.0f });
 
 #if 0
     for(auto const &[key, chunk] : m_world.get_chunk_map()) {
@@ -191,6 +218,15 @@ Camera &Game::get_camera(void) {
 const Camera &Game::get_camera(void) const {
     return m_camera;
 }
+
+Player &Game::get_player(void) {
+    return m_player;
+}
+
+const Player &Game::get_player(void) const {
+    return m_player;
+}
+
 
 vec3i block_position_from_real(const vec3 &real) {
     return {

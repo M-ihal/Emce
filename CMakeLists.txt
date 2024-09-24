@@ -40,6 +40,8 @@ set(source_files
     source/graphics/font.h
     source/graphics/simple_draw.cpp
     source/graphics/simple_draw.h
+    source/graphics/text_batcher.cpp
+    source/graphics/text_batcher.h
     source/camera.cpp
     source/camera.h
     source/utils.cpp
@@ -48,14 +50,14 @@ set(source_files
     source/chunk.h
     source/world.cpp
     source/world.h
-    source/text_batcher.cpp
-    source/text_batcher.h
     source/debug_ui.cpp
     source/debug_ui.h
     source/console.cpp
     source/console.h
     source/game.cpp
     source/game.h
+    source/player.cpp
+    source/player.h
 )
 
 set(source_files_external

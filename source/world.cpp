@@ -83,8 +83,6 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
     if(_debug_render_not_fill) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
-
-
 }
 
 Chunk *World::get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist) {

@@ -138,6 +138,8 @@ int SDL_main(int argc, char *argv[]) {
     Input input;
     Game  game;
 
+    bool show_debug_ui = true;
+
     const std::string folder = "skybox_blue";
     const std::string extension = ".jpg";
     const std::string filepaths[6] = {
@@ -227,6 +229,10 @@ int SDL_main(int argc, char *argv[]) {
         /* Update */
         /*        */
 
+        if(input.key_pressed(Key::F03)) {
+            show_debug_ui = !show_debug_ui;
+        }
+
         if(input.key_pressed(Key::T) && !Console::is_open()) {
             Console::set_open_state(true);
         }
@@ -252,7 +258,6 @@ int SDL_main(int argc, char *argv[]) {
         game.render(window);
         render_random_thing_at_origin(game.get_camera(), window.calc_aspect());
 
-        SimpleDraw::draw_cube_outline({ 0.0f, 200.0f, 0.0f }, { 0.8f, 1.8f, 0.8f }, 0.1f, { 0.0f, 1.0f, 0.0f, 1.0f });
 
         /* Render skybox */ {
             glDepthFunc(GL_LEQUAL);
@@ -266,7 +271,10 @@ int SDL_main(int argc, char *argv[]) {
         }
 
         Console::render(window.width(), window.height());
-        DebugUI::render();
+
+        if(show_debug_ui) {
+            DebugUI::render();
+        }
 
         window.swap_buffers();
     }

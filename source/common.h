@@ -5,6 +5,8 @@
 /* Typedefs */
 #include <stdint.h>
 
+#define IN_BOUNDS(val, min, max) ((val) >= (min) && (val) <= (max))
+
 /* @todo */
 #define ASSERT(cond, ...) assert(cond)
 #define INVALID_CODE_PATH { bool COMBINE(invalid_code_path, __LINE__) = false; ASSERT(COMBINE(invalid_code_path, __LINE__)); }

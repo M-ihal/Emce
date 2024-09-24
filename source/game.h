@@ -5,6 +5,7 @@
 #include "chunk.h"
 #include "camera.h"
 #include "input.h"
+#include "player.h"
 
 class Game {
 public:
@@ -23,10 +24,13 @@ public:
     const World  &get_world(void) const;
     Camera       &get_camera(void);
     const Camera &get_camera(void) const;
+    Player       &get_player(void);
+    const Player &get_player(void) const;
 
 private:
     Camera m_camera;
     World  m_world;
+    Player m_player;
     
     /* resources */
     ShaderFile m_block_shader;

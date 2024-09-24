@@ -71,6 +71,13 @@ struct vec3 {
     static float dot(const vec3 &a, const vec3 &b);
 };
 
+vec3 operator + (const vec3 &l, const vec3 r);
+vec3 operator - (const vec3 &l, const vec3 r);
+vec3 operator * (const vec3 &l, const float r);
+vec3 operator / (const vec3 &l, const float r);
+vec3 &operator += (vec3 &l, const vec3 &r);
+
+
 struct vec3i {
     union {
         struct {
@@ -83,11 +90,6 @@ struct vec3i {
 
     static vec3i make(const vec3 &v);
 };
-
-vec3 operator + (const vec3 &l, const vec3 r);
-vec3 operator - (const vec3 &l, const vec3 r);
-vec3 operator / (const vec3 &l, const float r);
-vec3 &operator += (vec3 &l, const vec3 &r);
 
 struct vec4 {
     union {
