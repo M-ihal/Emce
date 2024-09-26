@@ -2,6 +2,9 @@
 
 #include "debug_ui.h"
 
+// WorldPosition
+#include "game.h"
+
 #include <glew.h>
 
 #define STB_PERLIN_IMPLEMENTATION
@@ -119,6 +122,30 @@ Chunk *World::gen_chunk(const vec2i &chunk_xz) {
     return this->generate_chunk(packed);
 }
 
+Block *World::get_block(const vec3i &block) {
+    WorldPosition block_p = WorldPosition::from_block(block);
+
+    Chunk *chunk = this->get_chunk(block_p.chunk);
+    if(chunk == NULL) {
+        /* Chunk doesn't exist */
+        return NULL;
+    }
+
+    return chunk->get_block(block_p.block_rel);
+}
+
+const Block *World::get_block(const vec3i &block) const {
+    WorldPosition block_p = WorldPosition::from_block(block);
+
+    const Chunk *chunk = this->get_chunk(block_p.chunk);
+    if(chunk == NULL) {
+        /* Chunk doesn't exist */
+        return NULL;
+    }
+
+    return chunk->get_block(block_p.block_rel);
+}
+
 const std::unordered_map<uint64_t, Chunk *> &World::get_chunk_map(void) {
     return m_chunks;
 }
@@ -150,17 +177,17 @@ Chunk *World::generate_chunk(uint64_t packed_xz) {
             if(highest < height) highest = height;
 
             for(int32_t y = 0; y < height; ++y) {
-                Block &block = created->get_block({ x, y, z });
+                Block *block = created->get_block({ x, y, z });
                 if(y < height / 2) {
-                    block.set_type(BlockType::COBBLESTONE);
+                    block->set_type(BlockType::COBBLESTONE);
                 } else if(y >= height / 2 && y < CHUNK_SIZE_Y / 2 + 10) {
-                    block.set_type(BlockType::SAND);
+                    block->set_type(BlockType::SAND);
                 } else if(y > CHUNK_SIZE_Y - 40) {
-                    block.set_type(BlockType::COBBLESTONE);
+                    block->set_type(BlockType::COBBLESTONE);
                 } else if(y < (height - 1)) {
-                    block.set_type(BlockType::DIRT);
+                    block->set_type(BlockType::DIRT);
                 } else {
-                    block.set_type(BlockType::DIRT_WITH_GRASS);
+                    block->set_type(BlockType::DIRT_WITH_GRASS);
                 }
             }
         }

@@ -18,6 +18,10 @@ BlockType Block::get_type(void) const {
     return m_type;
 }
 
+bool Block::is_solid(void) const {
+    return m_type != BlockType::AIR;
+}
+
 bool Block::is_of_type(BlockType type) const {
     return m_type == type;
 }
@@ -49,18 +53,18 @@ void Chunk::update_vao(void) {
     if(chunk) { chunk->regenerate_vao(); }
 }
 
-Block &Chunk::get_block(const vec3i &rel) {
-    ASSERT(rel.x >= 0 && rel.x < CHUNK_SIZE_X);
-    ASSERT(rel.y >= 0 && rel.y < CHUNK_SIZE_Y);
-    ASSERT(rel.z >= 0 && rel.z < CHUNK_SIZE_Z);
-    return m_blocks[rel.x][rel.y][rel.z];
+Block *Chunk::get_block(const vec3i &rel) {
+    if(!Chunk::is_inside_chunk(rel)) {
+        return NULL;
+    }
+    return &m_blocks[rel.x][rel.y][rel.z];
 }
 
-const Block &Chunk::get_block(const vec3i &rel) const {
-    ASSERT(rel.x >= 0 && rel.x < CHUNK_SIZE_X);
-    ASSERT(rel.y >= 0 && rel.y < CHUNK_SIZE_Y);
-    ASSERT(rel.z >= 0 && rel.z < CHUNK_SIZE_Z);
-    return m_blocks[rel.x][rel.y][rel.z];
+const Block *Chunk::get_block(const vec3i &rel) const {
+    if(!Chunk::is_inside_chunk(rel)) {
+        return NULL;
+    }
+    return &m_blocks[rel.x][rel.y][rel.z];
 }
 
 vec2i Chunk::get_coords(void) const {
@@ -224,7 +228,7 @@ void Chunk::regenerate_vao(void) {
     auto is_relative_block_solid = [&] (const vec3i &other_rel) -> bool {
         const Block *other = NULL;
         if(Chunk::is_inside_chunk(other_rel)) {
-            other = &this->get_block(other_rel);
+            other = this->get_block(other_rel);
         } else {
             /* If on the edge in Y - always generate quad */
             if(other_rel.y < 0 || other_rel.y >= CHUNK_SIZE_Y) {
@@ -270,7 +274,7 @@ void Chunk::regenerate_vao(void) {
                 block_xyz.z = other_rel.z;
             }
 
-            other = &neighbour->get_block(block_xyz);
+            other = neighbour->get_block(block_xyz);
         }
         
         /* If block is transparent, return true */
@@ -284,25 +288,25 @@ void Chunk::regenerate_vao(void) {
     };
 
     for_every_block(x, y, z) {
-        const Block &block = this->get_block({ x, y, z });
-        if(!block.is_of_type(BlockType::AIR)) {
+        const Block *block = this->get_block({ x, y, z });
+        if(!block->is_of_type(BlockType::AIR)) {
             if(!is_relative_block_solid({ x, y, z + 1 })) {
-                push_quad(BlockSide::Z_POS, block.get_type(), x, y, z);
+                push_quad(BlockSide::Z_POS, block->get_type(), x, y, z);
             }
             if(!is_relative_block_solid({ x, y, z - 1 })) {
-                push_quad(BlockSide::Z_NEG, block.get_type(), x, y, z);
+                push_quad(BlockSide::Z_NEG, block->get_type(), x, y, z);
             }
             if(!is_relative_block_solid({ x + 1, y, z })) {
-                push_quad(BlockSide::X_POS, block.get_type(), x, y, z);
+                push_quad(BlockSide::X_POS, block->get_type(), x, y, z);
             }
             if(!is_relative_block_solid({ x - 1, y, z })) {
-                push_quad(BlockSide::X_NEG, block.get_type(), x, y, z);
+                push_quad(BlockSide::X_NEG, block->get_type(), x, y, z);
             }
             if(!is_relative_block_solid({ x, y + 1, z })) {
-                push_quad(BlockSide::Y_POS, block.get_type(), x, y, z);
+                push_quad(BlockSide::Y_POS, block->get_type(), x, y, z);
             }
             if(!is_relative_block_solid({ x, y - 1, z })) {
-                push_quad(BlockSide::Y_NEG, block.get_type(), x, y, z);
+                push_quad(BlockSide::Y_NEG, block->get_type(), x, y, z);
             }
         }
     }

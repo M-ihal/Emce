@@ -31,6 +31,10 @@ public:
     const Chunk *get_chunk(const vec2i &chunk_xz) const;
     Chunk       *gen_chunk(const vec2i &chunk_xz);
 
+    /* Get block from absolute block position (not relative to a chunk) */
+    Block       *get_block(const vec3i &block);
+    const Block *get_block(const vec3i &block) const;
+
     /* Reference to the map containing allocated chunks */
     const chunk_map &get_chunk_map(void);
     const size_t     get_chunk_map_size(void) const;

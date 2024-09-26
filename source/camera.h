@@ -9,9 +9,14 @@ public:
 
     void update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, int32_t rotate_h, float delta_time, bool speed_up);
 
+    void rotate_by(int32_t rotate_v, int32_t rotate_h, float delta_time);
+
     vec3 calc_direction(void) const;
 
     vec3 calc_direction_side(void) const;
+
+    /* @todo name */
+    vec3 calc_direction_xz(void) const;
 
     mat4 calc_proj(float aspect_ratio) const;
 

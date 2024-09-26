@@ -84,17 +84,6 @@ void register_commands(void) {
         .proc = setpos
     });
 
-    Console::register_command({
-        .command = "fov",
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            if(args.size() < 1) {
-                Console::add_to_history("> missing argument");
-                return;
-            }
-            float fov = std::stof(args[0]);
-            game.get_camera().set_fov(DEG_TO_RAD(fov));
-        }
-    });
 }
 
 int SDL_main(int argc, char *argv[]) {

@@ -31,6 +31,7 @@
 #define GL_CHECK(...) glGetError(); __VA_ARGS__; { auto COMBINE(error_code, __LINE__) = glGetError(); if(COMBINE(error_code, __LINE__) != GL_NO_ERROR) { fprintf(stderr, "[error] GL_CHECK: line:%d code:%d str:%s exp:%s\n", __LINE__, COMBINE(error_code, __LINE__), glewGetErrorString(COMBINE(error_code, __LINE__)), #__VA_ARGS__); } }
 
 #define BOOL_STR(var) ((var) ? "true" : "false")
+#define BOOL_TOGGLE(var) ((var) = !(var))
 
 /* requires: stdio.h */
 #define PRINT_INT(v) fprintf(stdout, "\"%s\" = %d\n", #v, v)

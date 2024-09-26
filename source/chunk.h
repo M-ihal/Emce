@@ -29,6 +29,9 @@ public:
     void      set_type(BlockType type);
     BlockType get_type(void) const;
 
+    /* If blocks movement */
+    bool is_solid(void) const;
+
     bool is_of_type(BlockType type) const;
 
 private:
@@ -44,8 +47,9 @@ public:
 
     void update_vao(void);
 
-    Block       &get_block(const vec3i &rel);
-    const Block &get_block(const vec3i &rel) const;
+    /* @todo Chgange to pointer */
+    Block       *get_block(const vec3i &rel);
+    const Block *get_block(const vec3i &rel) const;
 
     /* X and Z coordinate of the chunk, not the real position */
     vec2i get_coords(void) const;

@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "math_types.h"
+#include "camera.h"
 
 class Player {
 public:
@@ -17,9 +18,13 @@ public:
     vec3 get_position(void) const;
     vec3 get_position_center(void) const;
     vec3 get_position_head(void) const;
+    Camera       &get_head_camera(void);
+    const Camera &get_head_camera(void) const;
 
 private:
-    vec3 m_position;
+    vec3   m_velocity;
+    vec3   m_position;
+    Camera m_camera;
 };
 
 

@@ -8,6 +8,11 @@
 
 namespace {
     static int32_t s_load_radius = 0;
+
+    static bool s_debug_show_chunk_borders  = false;
+    static bool s_debug_show_player_collider = true;
+
+    static bool s_debug_third_person_camera = true;
 }
 
 // @temp
@@ -39,7 +44,7 @@ Game::Game(void) {
     m_block_atlas.set_filter_mag(TextureFilter::NEAREST);
 
     Console::register_command({
-        .command = "set_player",
+        .command = "p",
         .proc = CONSOLE_COMMAND_LAMBDA {
             if(args.size()) {
                 Console::add_to_history("> not implemented");
@@ -55,7 +60,7 @@ Game::Game(void) {
     m_camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
     int32_t seed = 14; // rand() % RAND_MAX
-    test_generate_world(m_world, 0, 0, seed);
+    test_generate_world(m_world, 2, 2, seed);
 
     Console::register_command({
         .command = "generate",
@@ -98,13 +103,43 @@ Game::Game(void) {
     });
 
     Console::register_command({
-        .command = "toggle_fill",
+        .command = "debug_toggle",
         .proc = CONSOLE_COMMAND_LAMBDA {
-            World &world = game.get_world();
-            world._debug_render_not_fill = !world._debug_render_not_fill;
-            char buffer[32];
-            sprintf_s(buffer, 32, "> fill set to %s", BOOL_STR(world._debug_render_not_fill));
+            if(args.size() < 1) {
+                Console::add_to_history("> Missing argument/s");
+                return;
+            }
+
+            bool set_to;
+            if(args[0] == "collider") {
+                BOOL_TOGGLE(s_debug_show_player_collider);
+                set_to = s_debug_show_player_collider;
+            } else if(args[0] == "chunks") {
+                BOOL_TOGGLE(s_debug_show_chunk_borders);
+                set_to = s_debug_show_chunk_borders;
+            } else if(args[0] == "wireframe") {
+                BOOL_TOGGLE(game.get_world()._debug_render_not_fill);
+                set_to = game.get_world()._debug_render_not_fill;
+            } else {
+                Console::add_to_history("> Invalid argument");
+                return;
+            }
+
+            char buffer[64];
+            sprintf_s(buffer, 64, "> Set to: %s", BOOL_STR(set_to));
             Console::add_to_history(buffer);
+        }
+    });
+
+    Console::register_command({
+        .command = "fov",
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            if(args.size() < 1) {
+                Console::add_to_history("> missing argument");
+                return;
+            }
+            float fov = std::stof(args[0]);
+            game.get_player().get_head_camera().set_fov(DEG_TO_RAD(fov));
         }
     });
 }
@@ -115,35 +150,19 @@ Game::~Game(void) {
     m_block_atlas.delete_texture_if_exists();
 }
 
-static void update_game_camera(Camera &camera, const Input &input, double delta_time) {
-    if(Console::is_open()) {
-        return;
-    }
-
-    int32_t move_fw   = 0;
-    int32_t move_side = 0;
-
-    if(input.key_is_down(Key::W)) { move_fw += 1; }
-    if(input.key_is_down(Key::S)) { move_fw -= 1; }
-    if(input.key_is_down(Key::A)) { move_side -= 1; }
-    if(input.key_is_down(Key::D)) { move_side += 1; }
-
-    int32_t rotate_h = 0;
-    int32_t rotate_v = 0;
-
-    if(input.button_is_down(Button::LEFT)) {
-        rotate_h =  input.mouse_rel_x();
-        rotate_v = -input.mouse_rel_y();
-    }
-
-    camera.update_free(move_fw, move_side, rotate_v, rotate_h, delta_time, input.key_is_down(Key::LEFT_SHIFT));
-}
-
 void Game::update(const Input &input, double delta_time) {
-    update_game_camera(m_camera, input, delta_time);
-
     m_player.update(*this, input, delta_time);
-    m_camera.set_position(m_player.get_position_head());
+    m_camera = m_player.get_head_camera();
+
+    if(!Console::is_open() && input.key_pressed(Key::F05)) {
+        BOOL_TOGGLE(s_debug_third_person_camera);
+    }
+
+    if(s_debug_third_person_camera) {
+        const float distance = 10.0f;
+        vec3 dir = m_camera.calc_direction();
+        m_camera.set_position(m_camera.get_position() - dir * distance);
+    }
 
     WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
     const vec3 camera_direction = m_camera.calc_direction();
@@ -185,18 +204,20 @@ void Game::render(const Window &window) {
     m_block_shader.upload_mat4("u_view", m_camera.calc_view().e);
     m_world.render_chunks(m_block_shader, m_block_atlas);
 
-    SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 0.05f, { 0.0f, 1.0f, 0.0f, 1.0f });
-
-#if 0
-    for(auto const &[key, chunk] : m_world.get_chunk_map()) {
-        vec3 chunk_pos = { 
-            float(chunk->get_coords().x * CHUNK_SIZE_X),
-            0.0f,
-            float(chunk->get_coords().y * CHUNK_SIZE_Z)
-        };
-        SimpleDraw::draw_cube_outline(chunk_pos, { CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }, { 0.5f, 0.7f, 0.4f, 1.0f });
+    if(s_debug_show_player_collider) {
+        SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 1.0f / 16.0f, { 0.0f, 1.0f, 0.0f, 1.0f });
     }
-#endif
+
+    if(s_debug_show_chunk_borders) {
+        for(auto const &[key, chunk] : m_world.get_chunk_map()) {
+            vec3 chunk_pos = { 
+                float(chunk->get_coords().x * CHUNK_SIZE_X),
+                0.0f,
+                float(chunk->get_coords().y * CHUNK_SIZE_Z)
+            };
+            SimpleDraw::draw_cube_outline(chunk_pos, { CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }, 8.0f / 16.0f, { 1.0f, 1.0f, 1.0f, 1.0f });
+        }
+    }
 }
 
 void Game::hotload_stuff(void) {
@@ -227,6 +248,13 @@ const Player &Game::get_player(void) const {
     return m_player;
 }
 
+vec3 real_position_from_block(const vec3i &block) {
+    return {
+        (float)block.x,
+        (float)block.y,
+        (float)block.z
+    };
+}
 
 vec3i block_position_from_real(const vec3 &real) {
     return {
@@ -266,5 +294,14 @@ WorldPosition WorldPosition::from_real(const vec3 &real) {
     result.block = block_position_from_real(real);
     result.block_rel = block_relative_from_block(result.block);
     result.chunk = chunk_position_from_block(result.block);
+    return result;
+}
+
+WorldPosition WorldPosition::from_block(const vec3i &block) {
+    WorldPosition result = { };
+    result.block = block;
+    result.block_rel = block_relative_from_block(block);
+    result.chunk = chunk_position_from_block(result.block);
+    result.real = real_position_from_block(block);
     return result;
 }

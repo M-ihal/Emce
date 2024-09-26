@@ -73,9 +73,13 @@ struct vec3 {
 
 vec3 operator + (const vec3 &l, const vec3 r);
 vec3 operator - (const vec3 &l, const vec3 r);
+vec3 operator * (const vec3 &l, const vec3 r);
 vec3 operator * (const vec3 &l, const float r);
+vec3 operator * (const float l, const vec3 &r);
 vec3 operator / (const vec3 &l, const float r);
 vec3 &operator += (vec3 &l, const vec3 &r);
+vec3 &operator *= (vec3 &l, const vec3 &r);
+vec3 &operator *= (vec3 &l, const float &r);
 
 
 struct vec3i {
