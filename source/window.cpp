@@ -2,18 +2,26 @@
 #include "input.h"
 
 #include <stdio.h>
+
 #include <SDL.h>
+#include <SDL_syswm.h>
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#endif
 
 namespace {
     static bool s_has_any_window_been_created = false;
 }
 
 Window::Window(void) {
-    m_sdl_window  = NULL;
-    m_gl_context  = NULL;
-    m_width       = 0;
-    m_height      = 0;
-    m_should_quit = false;
+    m_sdl_window   = NULL;
+    m_gl_context   = NULL;
+    m_width        = 0;
+    m_height       = 0;
+    m_should_close = false;
 }
 
 Window::~Window(void) {
@@ -78,7 +86,7 @@ void Window::process_events(Input &input) {
     while(SDL_PollEvent(&event)) {
         switch(event.type) {
             case SDL_QUIT: {
-                m_should_quit = true;
+                m_should_close = true;
             } continue;
 
             case SDL_WINDOWEVENT: {
@@ -97,26 +105,38 @@ void Window::process_events(Input &input) {
     }
 }
 
-void Window::swap_buffers(void) {
+void Window::swap_buffer(void) {
     SDL_GL_SwapWindow(m_sdl_window);
 }
 
-void Window::should_quit(void) {
-    m_should_quit = true;
+void Window::set_should_close(void) {
+    m_should_close = true;
 }
 
-bool Window::is_running(void) const {
-    return !m_should_quit;
+bool Window::get_should_close(void) const {
+    return !m_should_close;
 }
 
-int32_t Window::width(void) const {
+int32_t Window::get_width(void) const {
     return m_width;
 }
 
-int32_t Window::height(void) const {
+int32_t Window::get_height(void) const {
     return m_height;
 }
 
 float Window::calc_aspect(void) const {
     return float(m_width) / float(m_height);
 }
+
+void *Window::get_os_native_handle(void) {
+#if defined(_WIN32)
+    SDL_SysWMinfo sys_info;
+    SDL_VERSION(&sys_info.version);
+    SDL_GetWindowWMInfo(m_sdl_window, &sys_info);
+    return (void *)sys_info.info.win.window;
+#else
+    INVALID_CODE_PATH;
+#endif
+}
+

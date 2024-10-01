@@ -72,6 +72,7 @@ public:
         return m_ascent;
     }
 
+    float calc_text_width(const char *text) const;
 
 private:
     float   m_scale_for_pixel_height;

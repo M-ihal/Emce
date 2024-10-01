@@ -21,10 +21,12 @@ public:
     Camera       &get_head_camera(void);
     const Camera &get_head_camera(void) const;
 
+    /* @todo Slow procedure */
+    bool check_is_grounded(const class World &world);
+    void get_ground_collider_info(vec3 &pos, vec3 &size);
+
 private:
     vec3   m_velocity;
     vec3   m_position;
     Camera m_camera;
 };
-
-

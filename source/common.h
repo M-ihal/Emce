@@ -41,3 +41,4 @@
 #define PRINT_VEC2I(v) fprintf(stdout, "\"%s\" = { %d, %d }\n", #v, v.x, v.y)
 #define PRINT_VEC3(v) fprintf(stdout, "\"%s\" = { %f, %f, %f }\n", #v, v.x, v.y, v.z)
 #define PRINT_VEC3I(v) fprintf(stdout, "\"%s\" = { %d, %d, %d }\n", #v, v.x, v.y, v.z)
+#define PRINT_BOOL(v) fprintf(stdout, "\"%s\" = %s\n", #v, BOOL_STR(v))

@@ -169,6 +169,10 @@ void VertexArray::upload_ibo_data(const uint32_t *data, int32_t count, int32_t o
     GL_CHECK(glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, offset, count * sizeof(uint32_t), data));
 }
 
+uint32_t VertexArray::get_vao_id(void) const {
+    return m_vao_id;
+}
+
 int32_t VertexArray::get_vbo_size(void) const {
     return m_vbo_size;
 }

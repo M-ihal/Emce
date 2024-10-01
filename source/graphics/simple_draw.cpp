@@ -74,6 +74,10 @@ void SimpleDraw::set_camera(const Camera &camera, float aspect_ratio) {
 }
 
 void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float width, const Color &color) {
+    // @todo
+    // const bool was_enabled = glIsEnabled(GL_DEPTH_TEST);
+    // glDisable(GL_DEPTH_TEST);
+
     mat4 view = s_set_camera.calc_view();
     mat4 proj = s_set_camera.calc_proj(s_set_aspect);
     mat4 model = mat4::scale(size.x, size.y, size.z);
@@ -90,5 +94,9 @@ void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float
     s_cube_outline_vao.bind_vao();
 
     GL_CHECK(glDrawElements(GL_TRIANGLES, s_cube_outline_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+
+    // if(was_enabled) {
+    //     glEnable(GL_DEPTH_TEST);
+    // }
 }
 

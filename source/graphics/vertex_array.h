@@ -73,6 +73,9 @@ public:
     void upload_vbo_data(const void *data, size_t size, int32_t offset) const;
     void upload_ibo_data(const uint32_t *data, int32_t count, int32_t offset) const;
 
+    /* For debug */
+    uint32_t get_vao_id(void) const;
+
     /* Get buffers' sizes */
     int32_t get_vbo_size(void) const;
     int32_t get_ibo_count(void) const;

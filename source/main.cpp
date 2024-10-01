@@ -38,57 +38,22 @@
 int32_t calc_average_fps(double delta_time);
 void render_random_thing_at_origin(const Camera &camera, float aspect);
 
-CONSOLE_COMMAND_PROC(setpos) {
-    if(args.size() < 3) {
-        Console::add_to_history("> missing arguments");
-    } else {
-        Camera &camera = game.get_camera();
-        float x = args[0] == "*" ? camera.get_position().x : std::stof(args[0]);
-        float y = args[1] == "*" ? camera.get_position().y : std::stof(args[1]);
-        float z = args[2] == "*" ? camera.get_position().z : std::stof(args[2]);
-        camera.set_position({ x, y, z });
-        char buffer[128];
-        sprintf_s(buffer, ARRAY_COUNT(buffer), "> position set to (%.1f, %.1f, %.1f)", x, y, z);
-        Console::add_to_history(buffer);
+#include <windows.h>
+
+DWORD WINAPI chunk_gen_thread(void *param) {
+    Game *game = (Game *)param;
+    Sleep(100);
+    for(;;) {
+        Sleep(5);
+        game->get_world().process_load_queue();
     }
-}
-
-void register_commands(void) {
-    Console::register_command({
-        .command = "quit", 
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            window.should_quit();
-        }
-    });
-
-    Console::register_command({
-        .command = "cam", 
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            Camera &camera = game.get_camera();
-            camera.set_position({ -54.0f, 128.0f, 37.0f });
-            camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
-        }
-    });
-
-    Console::register_command({
-        .command = "dog", 
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            Camera &camera = game.get_camera();
-            camera.set_position({ 0.63f, 129.88f, 5.57f });
-            camera.set_rotation({ DEG_TO_RAD(266.510f), DEG_TO_RAD(3.128f) });
-        }
-    });
-
-    Console::register_command({
-        .command = "setpos", 
-        .proc = setpos
-    });
-
+    return 0;
 }
 
 int SDL_main(int argc, char *argv[]) {
     /* init std randomizer */
     srand(time(NULL));
+
 
     const bool sdl_success = SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) == 0;
     if(!sdl_success) {
@@ -122,7 +87,13 @@ int SDL_main(int argc, char *argv[]) {
     DebugUI::initialize();
     SimpleDraw::initialize();
     Console::initialize();
-    register_commands();
+
+    Console::register_command({
+        .command = "quit", 
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            window.set_should_close();
+        }
+    });
 
     Input input;
     Game  game;
@@ -189,10 +160,16 @@ int SDL_main(int argc, char *argv[]) {
     double elapsed_time = 0.0;
     double delta_time   = 0.0;
 
-    while(window.is_running()) {
+#if 0
+    DWORD thread_id;
+    HANDLE thread = CreateThread(0, 0, chunk_gen_thread, &game, 0, &thread_id);
+    CloseHandle(thread);
+#endif
+
+    while(window.get_should_close()) {
         window.process_events(input);
 
-        DebugUI::begin_frame(window.width(), window.height());
+        DebugUI::begin_frame(window.get_width(), window.get_height());
 
         /* Calculate time */ {
             time_now = SDL_GetPerformanceCounter();
@@ -227,10 +204,10 @@ int SDL_main(int argc, char *argv[]) {
         }
 
         if(input.key_pressed(Key::ESCAPE) && !Console::is_open()) {
-            window.should_quit();
+            window.set_should_close();
         }
 
-        Console::update(input, window, game);
+        Console::update(input, window, game, delta_time);
         game.update(input, delta_time);
 
         SimpleDraw::set_camera(game.get_camera(), window.calc_aspect());
@@ -239,14 +216,12 @@ int SDL_main(int argc, char *argv[]) {
         /* Render */
         /*        */
 
-        glViewport(0, 0, window.width(), window.height());
+        glViewport(0, 0, window.get_width(), window.get_height());
         GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
         GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
-
         game.render(window);
         render_random_thing_at_origin(game.get_camera(), window.calc_aspect());
-
 
         /* Render skybox */ {
             glDepthFunc(GL_LEQUAL);
@@ -259,13 +234,13 @@ int SDL_main(int argc, char *argv[]) {
             glDepthFunc(GL_LESS);
         }
 
-        Console::render(window.width(), window.height());
+        Console::render(window.get_width(), window.get_height());
 
         if(show_debug_ui) {
             DebugUI::render();
         }
 
-        window.swap_buffers();
+        window.swap_buffer();
     }
 
     /* Delete global stuff */

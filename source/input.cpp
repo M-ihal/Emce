@@ -59,6 +59,10 @@ int32_t Input::mouse_rel_y(void) const {
     return m_mouse_rel_y;
 }
 
+int32_t Input::scroll_move(void) const {
+    return m_scroll_move;
+}
+
 /* Function to get Key enum from SDL Keysym @todo Maybe do something better */
 #define DEFINE_KEY(name, sdlk) case sdlk: return Key::name;
 Key key_from_sdl_key_sym(int32_t sdl_key_sym) {
@@ -88,6 +92,7 @@ void Input::prepare_to_catch_input(void) {
 
     m_mouse_rel_x = 0;
     m_mouse_rel_y = 0;
+    m_scroll_move = 0;
 
     ZERO_ARRAY(m_text_input);
 }
@@ -144,6 +149,11 @@ void Input::catch_input(const SDL_Event &event) {
                 m_button_state[index] |= RELEASED;
                 m_button_state[index] &= ~IS_DOWN;
             }
+        } break;
+
+        case SDL_MOUSEWHEEL: {
+            const SDL_MouseWheelEvent &wheel_event = event.wheel;
+            m_scroll_move = wheel_event.y;
         } break;
 
         case SDL_TEXTINPUT: {

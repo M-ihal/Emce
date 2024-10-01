@@ -10,6 +10,17 @@
 
 #define CONSOLE_HISTORY_MAX 32
 
+/* 
+
+    @todo
+
+    - pasting
+    - moving through input buffer
+    - scissor
+    - max command length
+
+*/
+
 namespace {
     bool        s_initialized = false;
     Font        s_font;
@@ -21,8 +32,11 @@ namespace {
     std::string s_history[CONSOLE_HISTORY_MAX];
     std::string s_input_buffer;
     std::string s_last_valid_input;
-
     std::vector<ConsoleCommand> s_commands;
+
+    constexpr double s_cursor_blink_time = 0.5;
+    double s_cursor_blink_t = 0.0;
+    bool   s_cursor_blink   = false;
 }
 
 void Console::initialize(void) {
@@ -101,10 +115,13 @@ void Console::add_to_history(const char *string) {
     s_history[0] = std::string(string);
 }
 
-void Console::update(const Input &input, Window &window, Game &game) {
+void Console::update(const Input &input, Window &window, Game &game, double delta_time) {
     if(!s_is_open) {
         return;
     }
+
+    /* If changed reset cursor blink */
+    bool input_buffer_changed = false;
 
     /* Exit console */
     if(input.key_pressed(Key::ESCAPE)) {
@@ -115,16 +132,19 @@ void Console::update(const Input &input, Window &window, Game &game) {
     /* Get last valid input */
     if(input.key_pressed(Key::UP)) {
         s_input_buffer = s_last_valid_input;
+        input_buffer_changed = true;
     }
 
     /* Query text input */
     if(strlen(input.get_text_input())) {
         s_input_buffer += input.get_text_input();
+        input_buffer_changed = true;
     }
 
     /* Delete text */
     if(input.key_pressed_or_repeat(Key::BACKSPACE) && s_input_buffer.length()) {
         s_input_buffer.pop_back();
+        input_buffer_changed = true;
     }
 
     /* Apply command @todo Hacky */
@@ -181,6 +201,17 @@ void Console::update(const Input &input, Window &window, Game &game) {
         }
 
         s_input_buffer.clear();
+    }
+
+    if(input_buffer_changed) {
+        s_cursor_blink_t = 0.0;
+        s_cursor_blink = false;
+    } else {
+        s_cursor_blink_t += delta_time;
+        if(s_cursor_blink_t >= s_cursor_blink_time) {
+            s_cursor_blink_t = 0.0;
+            BOOL_TOGGLE(s_cursor_blink);
+        }
     }
 }
 
@@ -240,6 +271,28 @@ void Console::render(int32_t window_w, int32_t window_h) {
     }
 
     GL_CHECK(glDisable(GL_BLEND));
+
+    /* Draw cursor */ 
+    if(!s_cursor_blink) {
+        glDisable(GL_DEPTH_TEST);
+        const vec2 cursor_size = { 2.0f, console_size.y - console_text_padding.y };
+
+        vec2 cursor_pos = {
+            console_pos.x + console_text_padding.x + s_font.calc_text_width(s_input_buffer.c_str()),
+            console_pos.y + console_text_padding.y * 0.5f
+        };
+
+        mat4 model_m = mat4::identity();
+        model_m *= mat4::scale(cursor_size.x, cursor_size.y, 1.0f);
+        model_m *= mat4::translate(cursor_pos.x, cursor_pos.y, 0.0f);
+
+        s_quad_shader.upload_vec4("u_color", vec4{ 1.0f, 1.0f, 1.0f, 1.0f }.e);
+        s_quad_shader.upload_mat4("u_model", model_m.e);
+
+        GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
+        glEnable(GL_DEPTH_TEST);
+    }
+
     s_batcher.render(window_w, window_h, s_font);
 }
 

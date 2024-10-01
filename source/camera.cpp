@@ -103,7 +103,7 @@ void Camera::rotate_by(int32_t rotate_v, int32_t rotate_h, float delta_time) {
     m_rotation.x += rotate_h * SPEED_ROTATE;
     m_rotation.y += rotate_v * SPEED_ROTATE;
 
-    const float EPS = 0.01f;
+    const float EPS = 5.0f;
     m_rotation.y = clamp(m_rotation.y, DEG_TO_RAD(-90.0f + EPS), DEG_TO_RAD(90.0f - EPS));
     m_rotation.x = wrap(m_rotation.x, 0.0f, M_PI * 2.0f);
 }

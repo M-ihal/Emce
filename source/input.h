@@ -57,28 +57,21 @@ public:
     Input(void);
 
     bool key_check(Key key, uint32_t input_flags) const;
-    
     bool key_pressed(Key key) const;
-
     bool key_released(Key key) const;
-
     bool key_is_down(Key key) const;
-
     bool key_repeat(Key key) const;
-
     bool key_pressed_or_repeat(Key key) const;
 
     bool button_check(Button button, uint32_t input_flags) const;
-
     bool button_pressed(Button button) const;
-
     bool button_released(Button button) const;
-
     bool button_is_down(Button button) const;
 
     int32_t mouse_rel_x(void) const;
-
     int32_t mouse_rel_y(void) const;
+
+    int32_t scroll_move(void) const;
 
     const char *const get_text_input(void) const;
 
@@ -94,10 +87,11 @@ private:
     uint32_t m_key_state[(int32_t)Key::_COUNT];
 
     uint32_t m_button_state[(int32_t)Button::_COUNT];
-    int32_t m_mouse_x;
-    int32_t m_mouse_y;
-    int32_t m_mouse_rel_x;
-    int32_t m_mouse_rel_y;
+    int32_t  m_mouse_x;
+    int32_t  m_mouse_y;
+    int32_t  m_mouse_rel_x;
+    int32_t  m_mouse_rel_y;
+    int32_t  m_scroll_move;
 
     char m_text_input[32];
 };

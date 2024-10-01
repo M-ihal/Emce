@@ -8,32 +8,29 @@ typedef void *SDL_GLContext;
 
 class Window {
 public:
-	CLASS_COPY_DISABLE(Window);
+    CLASS_COPY_DISABLE(Window);
 
-	explicit Window(void);
+    explicit Window(void);
+    ~Window(void);
 
-	~Window(void);
+    bool initialize(int width, int height, const char *title);
+    void process_events(Input &input);
+    void swap_buffer(void);
 
-	bool initialize(int width, int height, const char *title);
+    void set_should_close(void);
+    bool get_should_close(void) const;
 
-	void process_events(Input &input);
+    float   calc_aspect(void) const;
+    int32_t get_width(void) const;
+    int32_t get_height(void) const;
 
-	void swap_buffers(void);
-
-	void should_quit(void);
-
-	bool is_running(void) const;
-
-	int32_t width(void) const;
-
-	int32_t height(void) const;
-
-    float calc_aspect(void) const;
+    /* Return OS handle i.e. on windows HWND */
+    void *get_os_native_handle(void);
 
 private:
-	SDL_Window    *m_sdl_window;
-	SDL_GLContext  m_gl_context;
-	int32_t        m_width;
-	int32_t        m_height;
-	bool           m_should_quit;
+    SDL_Window    *m_sdl_window;
+    SDL_GLContext  m_gl_context;
+    int32_t        m_width;
+    int32_t        m_height;
+    bool           m_should_close;
 };

@@ -7,13 +7,18 @@
 
 #include <unordered_map>
 
+class Game;
 typedef std::unordered_map<uint64_t, Chunk *> chunk_map;
+
 
 class World {
 public:
     CLASS_COPY_DISABLE(World);
+    
+    friend class Game;
 
-    World(void);
+    /* @temp */
+    explicit World(const Game *game);
     ~World(void);
 
     /* Resets world if exists, and sets the new seed */
@@ -23,7 +28,16 @@ public:
     /* Deletes every chunk from the m_chunks map */
     void delete_chunks(void);
 
-    /* */
+    /* Push chunk to vao loading queue */
+    void queue_chunk_vao_load(vec2i chunk_xz);
+
+    /* Generate data for VAO generation on main thread, called from different thread */
+    void process_load_queue(void);
+
+    /* Generate VAOs, called on main thread */
+    void process_gen_queue(void);
+
+    /* move out to GameRenderer or something */
     void render_chunks(const Shader &shader, const Texture &atlas);
 
     /* Get chunk or create if doesn't exist */
@@ -43,8 +57,19 @@ public:
     bool _debug_render_not_fill;
 
 private:
-    Chunk *generate_chunk(uint64_t packed_xz);
+    /* Allocates a chunk and generates terrain (Doesn't immediately generate VAO) */
+    Chunk *gen_chunk(uint64_t packed_xz);
 
-    int32_t   m_world_gen_seed;
-    chunk_map m_chunks;
+    // @todo move to Chunk
+
+    const Game *m_owner;
+    int32_t     m_world_gen_seed;
+    chunk_map   m_chunks;
+
+    /* Chunk VAO load queue */
+    std::vector<vec2i> m_load_queue;
+    bool m_should_sort_load_queue;
+
+    bool m_gen_queue_locked;
+    std::vector<ChunkVaoGenData> m_gen_queue;
 };

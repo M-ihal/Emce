@@ -5,6 +5,8 @@
 #include "shader.h"
 #include "texture.h"
 
+#include <vector>
+
 #define CHUNK_SIZE_X 16 
 #define CHUNK_SIZE_Y 192
 #define CHUNK_SIZE_Z 16
@@ -14,8 +16,20 @@
         for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)\
             for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)
 
+struct ChunkVaoVertex {
+    vec3 position;
+    vec3 normal;
+    vec2 tex_coord;
+};
+
+struct ChunkVaoGenData {
+    vec2i                       chunk;
+    std::vector<ChunkVaoVertex> vertices;
+    std::vector<uint32_t>       indices;
+};
+
 enum class BlockType : int32_t {
-    AIR = 0, /* NONE */
+    AIR = 0,
     SAND,
     DIRT,
     COBBLESTONE,
@@ -29,9 +43,7 @@ public:
     void      set_type(BlockType type);
     BlockType get_type(void) const;
 
-    /* If blocks movement */
     bool is_solid(void) const;
-
     bool is_of_type(BlockType type) const;
 
 private:
@@ -57,12 +69,14 @@ public:
     static bool is_inside_chunk(const vec3i &rel);
 
 private:
-    void regenerate_vao(void);
+    /* Re/Generates vao for this chunk based on gen data */
+    void gen_vao(const ChunkVaoGenData &gen_data);
 
-    /* The owning world of this chunk, that allocated it */
+    /* Generates data for creating VAO */
+    ChunkVaoGenData gen_vao_data(void);
+
     class World *m_owner;
     vec2i        m_chunk_xz;
-
-    VertexArray m_chunk_vao;
-    Block       m_blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
+    VertexArray  m_chunk_vao;
+    Block        m_blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
 };

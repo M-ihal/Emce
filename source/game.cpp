@@ -7,7 +7,8 @@
 #include <glew.h>
 
 namespace {
-    static int32_t s_load_radius = 0;
+    static int32_t s_load_radius = 8;
+    static float   s_third_person_distance = 10.0f;
 
     static bool s_debug_show_chunk_borders  = false;
     static bool s_debug_show_player_collider = true;
@@ -15,7 +16,6 @@ namespace {
     static bool s_debug_third_person_camera = true;
 }
 
-// @temp
 static void test_generate_world(World &world, int32_t size_half_x, int32_t size_half_z, int32_t seed) {
     world.initialize_world(seed);
 
@@ -23,10 +23,6 @@ static void test_generate_world(World &world, int32_t size_half_x, int32_t size_
         for(int32_t z = -size_half_z; z <= size_half_z; ++z) {
             world.get_chunk({ x, z }, true);
         }
-    }
-
-    for(auto const &[key, chunk] : world.get_chunk_map()) { 
-        chunk->update_vao();
     }
 }
 
@@ -36,7 +32,7 @@ constexpr vec3 init_player_pos = {
     .z = CHUNK_SIZE_Z * 0.5f
 };
 
-Game::Game(void) {
+Game::Game(void) : m_world(this) {
     /* init resources */
     m_block_shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
     m_block_atlas.load_from_file("C://dev//emce//data//atlas.png", true);
@@ -151,17 +147,30 @@ Game::~Game(void) {
 }
 
 void Game::update(const Input &input, double delta_time) {
+    const vec2i last_player_chunk = WorldPosition::from_real(m_player.get_position()).chunk;
     m_player.update(*this, input, delta_time);
+
+    if(last_player_chunk != WorldPosition::from_real(m_player.get_position()).chunk) {
+        m_world.m_should_sort_load_queue = true;
+    }
+
     m_camera = m_player.get_head_camera();
 
-    if(!Console::is_open() && input.key_pressed(Key::F05)) {
-        BOOL_TOGGLE(s_debug_third_person_camera);
+    if(!Console::is_open()) {
+
+        if(input.key_pressed(Key::F05)) {
+            BOOL_TOGGLE(s_debug_third_person_camera);
+        }
+
+        if(input.scroll_move()) {
+            s_third_person_distance -= input.scroll_move();
+            clamp_v(s_third_person_distance, 1.0f, 20.0f);
+        }
     }
 
     if(s_debug_third_person_camera) {
-        const float distance = 10.0f;
         vec3 dir = m_camera.calc_direction();
-        m_camera.set_position(m_camera.get_position() - dir * distance);
+        m_camera.set_position(m_camera.get_position() - dir * s_third_person_distance);
     }
 
     WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
@@ -182,30 +191,46 @@ void Game::update(const Input &input, double delta_time) {
     DebugUI::push_text_right("world seed: %d", m_world.get_seed());
     DebugUI::push_text_right("number of chunks: %d", m_world.get_chunk_map_size());
 
-    return;
-
-    for(int32_t load_x = -s_load_radius; load_x <= s_load_radius; load_x += 1) {
-        for(int32_t load_z = -s_load_radius; load_z <= s_load_radius; load_z += 1) {
-            const vec2i load_xz = camera_position.chunk + vec2i{ load_x, load_z };
-            Chunk *generated = m_world.gen_chunk(load_xz);
-            if(generated) {
-                generated->update_vao();
-                goto break_loading;
-            }
+    for(int32_t i = 0; i < s_load_radius; ++i) {
+        for(int32_t load_x = -i; load_x <= i; ++load_x) {
+            vec2i load_xz = camera_position.chunk + vec2i{ load_x, i };
+            m_world.gen_chunk(load_xz);
+            load_xz = camera_position.chunk + vec2i{ load_x, -i };
+            m_world.gen_chunk(load_xz);
+        }
+        for(int32_t load_z = -i + 1; load_z <= (i - 1); ++load_z) {
+            vec2i load_xz = camera_position.chunk + vec2i{ i, load_z };
+            m_world.gen_chunk(load_xz);
+            load_xz = camera_position.chunk + vec2i{ -i, load_z };
+            m_world.gen_chunk(load_xz);
         }
     }
-break_loading:;
+
+    m_world.process_load_queue();
+    m_world.process_gen_queue();
+
+    DebugUI::push_text_right("chunk load queue: %d", m_world.m_load_queue.size());
+    DebugUI::push_text_right("chunk gen  queue: %d", m_world.m_gen_queue.size());
 }
 
 void Game::render(const Window &window) {
-    GL_CHECK(glViewport(0, 0, window.width(), window.height()));
+    GL_CHECK(glViewport(0, 0, window.get_width(), window.get_height()));
     m_block_shader.use_program();
     m_block_shader.upload_mat4("u_proj", m_camera.calc_proj(window.calc_aspect()).e);
     m_block_shader.upload_mat4("u_view", m_camera.calc_view().e);
     m_world.render_chunks(m_block_shader, m_block_atlas);
 
     if(s_debug_show_player_collider) {
-        SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 1.0f / 16.0f, { 0.0f, 1.0f, 0.0f, 1.0f });
+        /* Player collider */
+        const Color collider_color = { 0.9f, 0.9f, 0.6f, 1.0f };
+        SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 1.0f / 32.0f, collider_color);
+
+        /* Ground check collider */
+        const Color ground_collider_color = m_player.check_is_grounded(m_world) ? Color{ 0.0f, 1.0f, 0.0f, 1.0f } : Color{ 1.0f, 0.0f, 0.0f, 1.0f };
+        vec3 ground_collider_pos;
+        vec3 ground_collider_size;
+        m_player.get_ground_collider_info(ground_collider_pos, ground_collider_size);
+        SimpleDraw::draw_cube_outline(ground_collider_pos, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
     }
 
     if(s_debug_show_chunk_borders) {

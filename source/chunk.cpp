@@ -39,18 +39,18 @@ Chunk::~Chunk(void) {
 }
 
 void Chunk::update_vao(void) {
-    this->regenerate_vao();
+    this->gen_vao(this->gen_vao_data());
 
     /* @todo regenerate neighbouring chunks, this is slow and stupid iguess */
     Chunk *chunk = NULL;
     chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 1, 0 }, false);
-    if(chunk) { chunk->regenerate_vao(); }
+    if(chunk) { chunk->gen_vao(chunk->gen_vao_data()); }
     chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ -1, 0 }, false);
-    if(chunk) { chunk->regenerate_vao(); }
+    if(chunk) { chunk->gen_vao(chunk->gen_vao_data()); }
     chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 0, 1 }, false);
-    if(chunk) { chunk->regenerate_vao(); }
+    if(chunk) { chunk->gen_vao(chunk->gen_vao_data()); }
     chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 0, -1 }, false);
-    if(chunk) { chunk->regenerate_vao(); }
+    if(chunk) { chunk->gen_vao(chunk->gen_vao_data()); }
 }
 
 Block *Chunk::get_block(const vec3i &rel) {
@@ -86,13 +86,7 @@ enum class BlockSide {
     Y_NEG
 };
 
-struct BlockSideVertex {
-    vec3 position;
-    vec3 normal;
-    vec2 tex_coord;
-};
-
-static constexpr void fill_positions_and_normals(BlockSide side, BlockSideVertex v[4]) {
+static constexpr void fill_positions_and_normals(BlockSide side, ChunkVaoVertex v[4]) {
     switch(side) {
         case BlockSide::Z_POS: {
             v[0].position = vec3{ 0.0f, 0.0f, 1.0f };
@@ -158,14 +152,14 @@ static constexpr void fill_positions_and_normals(BlockSide side, BlockSideVertex
 }
 
 // @todo Hardcoded atlas size
-static constexpr void get_atlas_tex_coords(int32_t x, int32_t y, BlockSideVertex v[4]) {
+static constexpr void get_atlas_tex_coords(int32_t x, int32_t y, ChunkVaoVertex v[4]) {
     v[0].tex_coord = vec2{ x * 16.0f / 512.0f, y * 16.0f / 512.0f };
     v[1].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, y * 16.0f / 512.0f };
     v[2].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
     v[3].tex_coord = vec2{ x * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
 }
 
-static constexpr void fill_tex_coords_for_block_type(BlockSide side, BlockType type, BlockSideVertex v[4]) {
+static constexpr void fill_tex_coords_for_block_type(BlockSide side, BlockType type, ChunkVaoVertex v[4]) {
     switch(type) {
         default:
         case BlockType::SAND: {
@@ -196,35 +190,49 @@ static constexpr void fill_tex_coords_for_block_type(BlockSide side, BlockType t
     }
 }
 
-void Chunk::regenerate_vao(void) {
-    std::vector<BlockSideVertex> vertices;
-    std::vector<uint32_t> indices;
+void Chunk::gen_vao(const ChunkVaoGenData &gen_data) {
+    BufferLayout layout;
+    layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
+    layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
+    layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
+
+    m_chunk_vao.delete_vao();
+    m_chunk_vao.create_vao(layout, ArrayBufferUsage::STATIC);
+    m_chunk_vao.set_vbo_data(gen_data.vertices.data(), gen_data.vertices.size() * sizeof(ChunkVaoVertex));
+    m_chunk_vao.set_ibo_data(gen_data.indices.data(),  gen_data.indices.size());
+    m_chunk_vao.apply_vao_attributes();
+}
+
+ChunkVaoGenData Chunk::gen_vao_data(void) {
+    ChunkVaoGenData gen_data = { };
 
     auto push_quad = [&](BlockSide side, BlockType type, int32_t x, int32_t y, int32_t z) {
-        BlockSideVertex v[4] = { };
+        ChunkVaoVertex v[4] = { };
         fill_positions_and_normals(side, v);
         fill_tex_coords_for_block_type(side, type, v);
+
         v[0].position += vec3::make(x, y, z);
         v[1].position += vec3::make(x, y, z);
         v[2].position += vec3::make(x, y, z);
         v[3].position += vec3::make(x, y, z);
 
         /* Starting index for indices */
-        const int32_t start = vertices.size();
+        const int32_t start = gen_data.vertices.size();
 
-        vertices.push_back(v[0]);
-        vertices.push_back(v[1]);
-        vertices.push_back(v[2]);
-        vertices.push_back(v[3]);
+        gen_data.vertices.push_back(v[0]);
+        gen_data.vertices.push_back(v[1]);
+        gen_data.vertices.push_back(v[2]);
+        gen_data.vertices.push_back(v[3]);
 
-        indices.push_back(start + 0);
-        indices.push_back(start + 1);
-        indices.push_back(start + 2);
-        indices.push_back(start + 2);
-        indices.push_back(start + 3);
-        indices.push_back(start + 0);
+        gen_data.indices.push_back(start + 0);
+        gen_data.indices.push_back(start + 1);
+        gen_data.indices.push_back(start + 2);
+        gen_data.indices.push_back(start + 2);
+        gen_data.indices.push_back(start + 3);
+        gen_data.indices.push_back(start + 0);
     };
 
+    // @todo Chunk::get_neighbouring_block(vec2i block, BlockSide side);
     auto is_relative_block_solid = [&] (const vec3i &other_rel) -> bool {
         const Block *other = NULL;
         if(Chunk::is_inside_chunk(other_rel)) {
@@ -283,7 +291,6 @@ void Chunk::regenerate_vao(void) {
 
             case BlockType::AIR: return false;
         }
-
         return true;
     };
 
@@ -311,14 +318,6 @@ void Chunk::regenerate_vao(void) {
         }
     }
 
-    BufferLayout layout;
-    layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
-    layout.push_attribute("a_normal", 3, BufferDataType::FLOAT);
-    layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
-
-    m_chunk_vao.delete_vao();
-    m_chunk_vao.create_vao(layout, ArrayBufferUsage::STATIC);
-    m_chunk_vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(BlockSideVertex));
-    m_chunk_vao.set_ibo_data(indices.data(),  indices.size());
-    m_chunk_vao.apply_vao_attributes();
+    gen_data.chunk = this->m_chunk_xz;
+    return gen_data;
 }

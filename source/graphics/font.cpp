@@ -133,3 +133,35 @@ void Font::delete_font(void) {
 int32_t Font::get_kerning_advance(int32_t codepoint_left, int32_t codepoint_right) const {
     return stbtt_GetGlyphKernAdvance((stbtt_fontinfo *)m_font_stb_info, codepoint_left, codepoint_right);
 }
+
+// @TODO: Copied!!!!
+float Font::calc_text_width(const char *text) const {
+    const char  *string = text;
+    const size_t length = strlen(string);
+
+    float text_width = 0.0f;
+    for(int32_t index = 0; index < length; ++index) {
+        const char _char = string[index];
+        Font::Glyph glyph;
+
+        /* @todo Special characters not handled... */
+        switch(_char) {
+            case '\n':
+            case '\r':
+            case '\t': {
+                INVALID_CODE_PATH;
+                continue;
+            };
+        }
+
+        if(!this->get_glyph(_char, glyph)) {
+            /* No glyph entry in the hash */
+            continue;
+        }
+
+        const int32_t adv = glyph.advance + this->get_kerning_advance(_char, string[index + 1]);
+        text_width += float(adv) * this->get_scale_for_pixel_height();
+    }
+
+    return text_width;
+}

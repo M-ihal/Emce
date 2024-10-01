@@ -5,14 +5,13 @@
 // WorldPosition
 #include "game.h"
 
+// std::sort
+#include <algorithm>
+
 #include <glew.h>
 
 #define STB_PERLIN_IMPLEMENTATION
 #include <stb_perlin.h>
-
-/*
-    @todo Flag chunks to regenerate vao at the end of a frame
-*/
 
 static inline uint64_t pack_2x_int32(int32_t x, int32_t z) {
     const uint64_t packed = uint64_t(*(uint32_t *)&x) | (uint64_t(*(uint32_t *)&z) << 32);
@@ -24,9 +23,13 @@ static inline void unpack_2x_int32(uint64_t packed, int32_t *x, int32_t *z) {
     *z = *(int32_t *)((uint8_t *)&packed + 4);
 }
 
-World::World(void) {
+World::World(const Game *game) {
+    m_owner = game;
     m_world_gen_seed = 2137;
     m_chunks.clear();
+    m_load_queue.clear();
+    m_gen_queue.clear();
+    m_gen_queue_locked = false;
     _debug_render_not_fill = false;
 }
 
@@ -52,6 +55,80 @@ void World::delete_chunks(void) {
         delete chunk;
     }
     m_chunks.clear();
+    m_load_queue.clear();
+}
+
+void World::queue_chunk_vao_load(vec2i chunk_xz) {
+    while(m_gen_queue_locked) { }
+
+    m_gen_queue_locked = true;
+    m_load_queue.push_back(chunk_xz);
+    m_should_sort_load_queue = true;
+    m_gen_queue_locked = false;
+}
+
+void World::process_load_queue(void) {
+    if(m_load_queue.empty()) {
+        return;
+    }
+
+    if(m_gen_queue_locked) {
+        return;
+    } else {
+        m_gen_queue_locked = true;
+    }
+
+    /* Sorting by distance for now */
+    auto sort_func = [&] (const vec2i &c1, const vec2i &c2) -> bool {
+        WorldPosition player_chunk_pos = WorldPosition::from_real(m_owner->get_player().get_position());
+        vec2i half_chunk_size = vec2i{ 16, 16 } / 2;
+        vec2i rel_dist_1 = vec2i::absolute(player_chunk_pos.chunk - c1);
+        vec2i rel_dist_2 = vec2i::absolute(player_chunk_pos.chunk - c2);
+        
+        // stupid
+        float dist_1 = vec2::length(vec2::make(rel_dist_1));
+        float dist_2 = vec2::length(vec2::make(rel_dist_2));
+
+        return dist_1 > dist_2; 
+    };
+
+    if(m_should_sort_load_queue) {
+        std::sort(m_load_queue.begin(), m_load_queue.end(), sort_func);
+        m_should_sort_load_queue = false;
+    }
+
+    
+    auto end = m_load_queue.back();
+    Chunk *chunk = this->get_chunk(end);
+    m_gen_queue_locked = false;
+
+    ChunkVaoGenData vao_data = chunk->gen_vao_data();
+
+
+    m_gen_queue_locked = true;
+    m_gen_queue.push_back(vao_data);
+    m_load_queue.pop_back();
+
+    m_gen_queue_locked = false;
+}
+
+void World::process_gen_queue(void) {
+    if(m_gen_queue.empty()) {
+        return;
+    }
+
+    if(m_gen_queue_locked) {
+        return;
+    } else {
+        m_gen_queue_locked = true;
+    }
+
+    ChunkVaoGenData &gen_data = m_gen_queue.back();
+    Chunk *chunk = this->get_chunk(gen_data.chunk);
+    chunk->gen_vao(gen_data);
+    m_gen_queue.pop_back();
+
+    m_gen_queue_locked = false;
 }
 
 void World::render_chunks(const Shader &shader, const Texture &atlas) {
@@ -74,7 +151,7 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
         int32_t z = 0;
         unpack_2x_int32(key, &x, &z);
         shader.upload_mat4("u_model", mat4::translate(vec3{ float(x * CHUNK_SIZE_X), 0.0f, float(z * CHUNK_SIZE_Z) }).e);
-        
+
         chunk->m_chunk_vao.bind_vao();
         GL_CHECK(glDrawElements(GL_TRIANGLES, chunk->m_chunk_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
 
@@ -99,7 +176,7 @@ Chunk *World::get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist) {
         return NULL;
     }
 
-    return this->generate_chunk(packed);
+    return this->gen_chunk(packed);
 }
 
 const Chunk *World::get_chunk(const vec2i &chunk_xz) const {
@@ -119,7 +196,7 @@ Chunk *World::gen_chunk(const vec2i &chunk_xz) {
         return NULL;
     }
 
-    return this->generate_chunk(packed);
+    return this->gen_chunk(packed);
 }
 
 Block *World::get_block(const vec3i &block) {
@@ -154,12 +231,13 @@ const size_t World::get_chunk_map_size(void) const {
     return m_chunks.size();
 }
 
-Chunk *World::generate_chunk(uint64_t packed_xz) {
+Chunk *World::gen_chunk(uint64_t packed_xz) {
     int32_t chunk_x;
     int32_t chunk_z;
     unpack_2x_int32(packed_xz, &chunk_x, &chunk_z);
+    const vec2i chunk_xz = { chunk_x, chunk_z };
 
-    m_chunks[packed_xz] = new Chunk(this, { chunk_x, chunk_z });
+    m_chunks[packed_xz] = new Chunk(this, chunk_xz);
     Chunk *created = m_chunks[packed_xz];
 
     int32_t lowest = INT32_MAX;
@@ -192,6 +270,8 @@ Chunk *World::generate_chunk(uint64_t packed_xz) {
             }
         }
     }
+
+    this->queue_chunk_vao_load(chunk_xz);
 
     return created;
 }

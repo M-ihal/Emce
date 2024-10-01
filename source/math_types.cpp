@@ -7,18 +7,6 @@
     --- Utils ---
 */
 
-float clamp(float value, float min, float max) {
-    ASSERT(min <= max);
-
-    if(value <= min) {
-        return min;
-    } else if(value >= max) {
-        return max;
-    } else {
-        return value;
-    }
-}
-
 // NOTE: Value must be between <left-range, max+range>, -range = right-left, to work fine
 // TODO: Make better version of this
 float wrap(float value, float left, float right) {
@@ -53,6 +41,14 @@ vec2 vec2::zero(void) {
     return vec2{ 0.0f, 0.0f };
 }
 
+float vec2::length_sq(const vec2 &v) {
+    return v.x * v.x + v.y * v.y;
+}
+
+float vec2::length(const vec2 &v) {
+    return sqrtf(vec2::length_sq(v));
+}
+
 vec2 operator + (const vec2 &l, const vec2 &r) {
     return vec2{ l.x + r.x, l.y + r.y };
 }
@@ -65,8 +61,28 @@ vec2i vec2i::zero(void) {
     return vec2i{ 0, 0 };
 }
 
+vec2i vec2i::absolute(const vec2i &v) {
+    return vec2i{ ABS(v.x), ABS(v.y) };
+}
+
 vec2i operator + (const vec2i &l, const vec2i &r) {
     return vec2i{ l.x + r.x, l.y + r.y };
+}
+
+vec2i operator - (const vec2i &l, const vec2i &r) {
+    return vec2i{ l.x - r.x, l.y - r.y };
+}
+
+vec2i operator / (const vec2i &l, int32_t r) {
+    return vec2i{ l.x / r, l.y / r };
+}
+
+bool operator == (const vec2i &l, const vec2i &r) {
+    return l.x == r.x && l.y == r.y;
+}
+
+bool operator != (const vec2i &l, const vec2i &r) {
+    return !(l == r);
 }
 
 /*
@@ -146,6 +162,11 @@ vec3 operator / (const vec3 &l, const float r) {
 
 vec3 &operator += (vec3 &l, const vec3 &r) {
     l = l + r;
+    return l;
+}
+
+vec3 &operator -= (vec3 &l, const vec3 &r) {
+    l = l - r;
     return l;
 }
 
