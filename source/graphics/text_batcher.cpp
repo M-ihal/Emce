@@ -10,25 +10,25 @@
 #include <glew.h>
 
 namespace {
-    bool        s_initialized = false;
-    VertexArray s_vao;
-    ShaderFile  s_shader;
+    bool        g_initialized = false;
+    VertexArray g_vao;
+    ShaderFile  g_shader;
 };
 
 void TextBatcher::initialize(void) {
-    ASSERT(!s_initialized, "TextBatcher already initialized.\n");
-    s_initialized = true;
+    ASSERT(!g_initialized, "TextBatcher already initialized.\n");
+    g_initialized = true;
 
-    s_shader.set_filepath_and_load("C://dev//emce//source//shaders//simple_text.glsl");
+    g_shader.set_filepath_and_load("C://dev//emce//source//shaders//simple_text.glsl");
 
     BufferLayout layout;
     layout.push_attribute("a_position", 2, BufferDataType::FLOAT);
     layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
-    s_vao.create_vao(layout, ArrayBufferUsage::DYNAMIC);
-    s_vao.apply_vao_attributes();
+    g_vao.create_vao(layout, ArrayBufferUsage::DYNAMIC);
+    g_vao.apply_vao_attributes();
         
     /* Allocate vertex memory in the vao */
-    s_vao.set_vbo_data(NULL, TEXT_BATCHER_QUAD_MAX * 4 * sizeof(TextQuadVertex));
+    g_vao.set_vbo_data(NULL, TEXT_BATCHER_QUAD_MAX * 4 * sizeof(TextQuadVertex));
 
     /* Set vao indices, those don't change ever */
     uint32_t *indices = (uint32_t *)malloc(TEXT_BATCHER_QUAD_MAX * 6 * sizeof(uint32_t));
@@ -42,17 +42,17 @@ void TextBatcher::initialize(void) {
         *cursor++ = begin_index + 3;
         *cursor++ = begin_index + 0;
     }
-    s_vao.set_ibo_data(indices, TEXT_BATCHER_QUAD_MAX * 6);
+    g_vao.set_ibo_data(indices, TEXT_BATCHER_QUAD_MAX * 6);
     free(indices);
 }
 
 void TextBatcher::destroy(void) {
-    s_vao.delete_vao();
-    s_shader.delete_shader_file();
+    g_vao.delete_vao();
+    g_shader.delete_shader_file();
 }
 
 void TextBatcher::hotload_shader(void) {
-    s_shader.hotload();
+    g_shader.hotload();
 }
 
 TextBatcher::TextBatcher(void) {
@@ -79,24 +79,24 @@ void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec2i 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
 
-    s_shader.use_program();
-    s_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(width), float(height), -1.0f, 1.0f).e);
-    s_shader.upload_int("u_font_atlas", 0);
+    g_shader.use_program();
+    g_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(width), float(height), -1.0f, 1.0f).e);
+    g_shader.upload_int("u_font_atlas", 0);
     font.get_atlas().bind_texture_unit(0);
 
-    s_vao.bind_vao();
-    s_vao.upload_vbo_data(m_vertices, m_chars_pushed * 4 * sizeof(TextQuadVertex), 0);
+    g_vao.bind_vao();
+    g_vao.upload_vbo_data(m_vertices, m_chars_pushed * 4 * sizeof(TextQuadVertex), 0);
 
     /* Draw text shadow */
     if(shadow_offset.x != 0 || shadow_offset.y != 0) {
-        s_shader.upload_vec2("u_offset", vec2::make(shadow_offset).e);
-        s_shader.upload_vec3("u_color", vec3{ 0.0f, 0.0f, 0.0f }.e);
+        g_shader.upload_vec2("u_offset", vec2::make(shadow_offset).e);
+        g_shader.upload_vec3("u_color", vec3{ 0.0f, 0.0f, 0.0f }.e);
         GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
     }
 
     /* Draw actual text */
-    s_shader.upload_vec2("u_offset", vec2{ 0.0f, 0.0f }.e);
-    s_shader.upload_vec3("u_color", vec3{ 1.0f, 1.0f, 1.0f }.e);
+    g_shader.upload_vec2("u_offset", vec2{ 0.0f, 0.0f }.e);
+    g_shader.upload_vec3("u_color", vec3{ 1.0f, 1.0f, 1.0f }.e);
     GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
 
 

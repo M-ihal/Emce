@@ -7,13 +7,13 @@
 #include <glew.h>
 
 namespace {
-    static int32_t s_load_radius = 8;
-    static float   s_third_person_distance = 10.0f;
+    static int32_t g_load_radius = 8;
+    static float   g_third_person_distance = 10.0f;
 
-    static bool s_debug_show_chunk_borders  = false;
-    static bool s_debug_show_player_collider = true;
+    static bool g_debug_show_chunk_borders  = false;
+    static bool g_debug_show_player_collider = true;
 
-    static bool s_debug_third_person_camera = true;
+    static bool g_debug_third_person_camera = true;
 }
 
 static void test_generate_world(World &world, int32_t size_half_x, int32_t size_half_z, int32_t seed) {
@@ -90,7 +90,7 @@ Game::Game(void) : m_world(this) {
             }
             int32_t radius = std::stoi(args[0]);
             if(radius) {
-                s_load_radius = radius;
+                g_load_radius = radius;
                 char buffer[32];
                 sprintf_s(buffer, 32, "> radius set to %d", radius);
                 Console::add_to_history(buffer);
@@ -108,11 +108,11 @@ Game::Game(void) : m_world(this) {
 
             bool set_to;
             if(args[0] == "collider") {
-                BOOL_TOGGLE(s_debug_show_player_collider);
-                set_to = s_debug_show_player_collider;
+                BOOL_TOGGLE(g_debug_show_player_collider);
+                set_to = g_debug_show_player_collider;
             } else if(args[0] == "chunks") {
-                BOOL_TOGGLE(s_debug_show_chunk_borders);
-                set_to = s_debug_show_chunk_borders;
+                BOOL_TOGGLE(g_debug_show_chunk_borders);
+                set_to = g_debug_show_chunk_borders;
             } else if(args[0] == "wireframe") {
                 BOOL_TOGGLE(game.get_world()._debug_render_not_fill);
                 set_to = game.get_world()._debug_render_not_fill;
@@ -159,18 +159,18 @@ void Game::update(const Input &input, double delta_time) {
     if(!Console::is_open()) {
 
         if(input.key_pressed(Key::F05)) {
-            BOOL_TOGGLE(s_debug_third_person_camera);
+            BOOL_TOGGLE(g_debug_third_person_camera);
         }
 
         if(input.scroll_move()) {
-            s_third_person_distance -= input.scroll_move();
-            clamp_v(s_third_person_distance, 1.0f, 20.0f);
+            g_third_person_distance -= input.scroll_move();
+            clamp_v(g_third_person_distance, 1.0f, 20.0f);
         }
     }
 
-    if(s_debug_third_person_camera) {
+    if(g_debug_third_person_camera) {
         vec3 dir = m_camera.calc_direction();
-        m_camera.set_position(m_camera.get_position() - dir * s_third_person_distance);
+        m_camera.set_position(m_camera.get_position() - dir * g_third_person_distance);
     }
 
     WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
@@ -191,7 +191,7 @@ void Game::update(const Input &input, double delta_time) {
     DebugUI::push_text_right("world seed: %d", m_world.get_seed());
     DebugUI::push_text_right("number of chunks: %d", m_world.get_chunk_map_size());
 
-    for(int32_t i = 0; i < s_load_radius; ++i) {
+    for(int32_t i = 0; i < g_load_radius; ++i) {
         for(int32_t load_x = -i; load_x <= i; ++load_x) {
             vec2i load_xz = camera_position.chunk + vec2i{ load_x, i };
             m_world.gen_chunk(load_xz);
@@ -220,7 +220,7 @@ void Game::render(const Window &window) {
     m_block_shader.upload_mat4("u_view", m_camera.calc_view().e);
     m_world.render_chunks(m_block_shader, m_block_atlas);
 
-    if(s_debug_show_player_collider) {
+    if(g_debug_show_player_collider) {
         /* Player collider */
         const Color collider_color = { 0.9f, 0.9f, 0.6f, 1.0f };
         SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 1.0f / 32.0f, collider_color);
@@ -233,7 +233,7 @@ void Game::render(const Window &window) {
         SimpleDraw::draw_cube_outline(ground_collider_pos, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
     }
 
-    if(s_debug_show_chunk_borders) {
+    if(g_debug_show_chunk_borders) {
         for(auto const &[key, chunk] : m_world.get_chunk_map()) {
             vec3 chunk_pos = { 
                 float(chunk->get_coords().x * CHUNK_SIZE_X),

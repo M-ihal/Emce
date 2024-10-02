@@ -7,9 +7,9 @@
 
 #include <vector>
 
-#define CHUNK_SIZE_X 16 
-#define CHUNK_SIZE_Y 192
-#define CHUNK_SIZE_Z 16
+inline constexpr int32_t CHUNK_SIZE_X = 16;
+inline constexpr int32_t CHUNK_SIZE_Y = 192;
+inline constexpr int32_t CHUNK_SIZE_Z = 16;
 
 #define for_every_block(var_x, var_y, var_z)\
     for(int32_t var_y = 0; var_y < CHUNK_SIZE_Y; ++var_y)\
@@ -28,12 +28,23 @@ struct ChunkVaoGenData {
     std::vector<uint32_t>       indices;
 };
 
-enum class BlockType : int32_t {
-    AIR = 0,
+enum class BlockType : uint8_t {
+    AIR,
     SAND,
     DIRT,
     COBBLESTONE,
-    DIRT_WITH_GRASS /* Probably temporary */
+};
+
+struct BlockInfo {
+    BlockType type;
+    union {
+        struct { } air;
+        struct { } sand;
+        struct {
+            bool has_grass;
+        } dirt;
+        struct { } cobblestone;
+    };
 };
 
 class Block {
@@ -43,28 +54,28 @@ public:
     void      set_type(BlockType type);
     BlockType get_type(void) const;
 
+    BlockInfo       &get_info(void);
+    const BlockInfo &get_info(void) const;
+
     bool is_solid(void) const;
     bool is_of_type(BlockType type) const;
 
 private:
-    BlockType m_type;
+    BlockInfo m_info;
 };
 
 class Chunk {
 public:
+    CLASS_COPY_DISABLE(Chunk);
+
     friend class World;
-    
+
     explicit Chunk(class World *world, const vec2i &chunk_xz);
     ~Chunk(void);
 
-    void update_vao(void);
-
-    /* @todo Chgange to pointer */
     Block       *get_block(const vec3i &rel);
     const Block *get_block(const vec3i &rel) const;
-
-    /* X and Z coordinate of the chunk, not the real position */
-    vec2i get_coords(void) const;
+    vec2i        get_coords(void) const;
 
     static bool is_inside_chunk(const vec3i &rel);
 

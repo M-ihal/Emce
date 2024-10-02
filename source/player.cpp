@@ -7,19 +7,18 @@
 #include "console.h"
 
 namespace {
-    constexpr vec3  s_player_size = vec3{ 0.6f, 1.85f, 0.6f };
-    constexpr float s_player_head_offset_perc = 0.1f; // Head offset from the top of player size in percents
-    static_assert(IN_BOUNDS(s_player_head_offset_perc, 0.0f, 1.0f));
+    constexpr float P_ACCELERATION = 8.0f;
+    constexpr float P_DECELERATION = 0.8f;
+    constexpr float P_MAX_SPEED = 10.0f;
+    constexpr float P_JUMP_FORCE = 10.0f;
+    constexpr float P_GRAVITY = -9.81f;
 
-    constexpr float s_ground_collider_height = 0.2f;
+    constexpr float P_GROUND_COLLIDER_HEIGHT = 0.2f;
+    constexpr vec3  P_COLLIDER_SIZE = vec3{ 0.6f, 1.85f, 0.6f };
+    constexpr float P_HEAD_OFFSET_PERC = 0.1f; // Head offset from the top of player size in percents
+    static_assert(IN_BOUNDS(P_HEAD_OFFSET_PERC, 0.0f, 1.0f));
 
-    constexpr float s_acceleration = 8.0f;
-    constexpr float s_deceleration = 0.8f;
-    constexpr float s_max_speed    = 10.0f;
-    constexpr float s_jump_force   = 10.0f;
-    constexpr float s_gravity      = -9.81f;
-
-    bool s_debug_infinite_jump = false;
+    bool g_debug_infinite_jump = false;
 }
 
 Player::Player(void) {
@@ -29,7 +28,7 @@ Player::Player(void) {
     Console::register_command({
         .command = "infjmp",
         .proc = CONSOLE_COMMAND_LAMBDA {
-            BOOL_TOGGLE(s_debug_infinite_jump);
+            BOOL_TOGGLE(g_debug_infinite_jump);
         }
     });
 }
@@ -41,18 +40,12 @@ static bool check_collision_with_any_block(vec3 position, vec3 size, const World
     WorldPosition min = WorldPosition::from_real(position);
     WorldPosition max = WorldPosition::from_real(position + size);
 
-//    DebugUI::push_text_right("--- Collision ---");
-//    DebugUI::push_text_right("min: %d %d %d", min.block.x, min.block.y, min.block.z);
-//    DebugUI::push_text_right("max: %d %d %d", max.block.x, max.block.y, max.block.z);
-
     for(int32_t block_y = min.block.y; block_y <= max.block.y; ++block_y) {
         for(int32_t block_x = min.block.x; block_x <= max.block.x; ++block_x) {
             for(int32_t block_z = min.block.z; block_z <= max.block.z; ++block_z) {
 
                 const vec3i   block_abs = { block_x, block_y, block_z };
                 WorldPosition block_p = WorldPosition::from_block(block_abs);
-
-//                DebugUI::push_text_right("checked block: %d %d %d", block_p.block.x, block_p.block.y, block_p.block.z);
 
                 const Block *block = world.get_block(block_abs);
                 if(block == NULL) {
@@ -79,11 +72,9 @@ void Player::update(Game &game, const Input &input, float delta_time) {
 
     const vec3 dir_xz   = m_camera.calc_direction_xz();
     const vec3 dir_side = m_camera.calc_direction_side();
-
-    int32_t move = 0, move_side = 0;
-    
     const bool is_grounded_now = this->check_is_grounded(world);
 
+    int32_t move = 0, move_side = 0;
     if(!Console::is_open()) {
         if(input.key_is_down(Key::W)) {
             move += 1;
@@ -97,10 +88,11 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         if(input.key_is_down(Key::A)) {
             move_side -= 1;
         }
-        if(input.key_pressed(Key::SPACE) && (is_grounded_now || s_debug_infinite_jump)) {
-            m_velocity.y += 10.0f;
+        if(input.key_pressed(Key::SPACE) && (is_grounded_now || g_debug_infinite_jump)) {
+            m_velocity.y += P_JUMP_FORCE;
         }
     }
+
     const bool move_input = move != 0 || move_side != 0;
     vec3 dir = move * dir_xz + move_side * dir_side;
     if(move_input) {
@@ -111,12 +103,12 @@ void Player::update(Game &game, const Input &input, float delta_time) {
 
     if(move_input) {
         m_velocity += vec3{ 
-            .x = dir.x * s_acceleration * delta_time,
-            .y = s_gravity * delta_time,
-            .z = dir.z * s_acceleration * delta_time,
+            .x = dir.x * P_ACCELERATION * delta_time,
+            .y = P_GRAVITY * delta_time,
+            .z = dir.z * P_ACCELERATION * delta_time,
         };
     } else {
-        const float deceleration = s_deceleration * delta_time;
+        const float deceleration = P_DECELERATION * delta_time;
         if(m_velocity.x) {
             m_velocity.x += deceleration - SIGN(m_velocity.x);
         } else {
@@ -134,7 +126,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     //
 
     vec3 new_position = m_position + vec3{ m_velocity.x, 0.0f, m_velocity.z } * delta_time;
-    bool collided = check_collision_with_any_block(new_position, s_player_size, world);
+    bool collided = check_collision_with_any_block(new_position, P_COLLIDER_SIZE, world);
     if(!collided) {
         m_position = new_position;
     } else {
@@ -147,14 +139,12 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     //
 
     new_position = m_position + vec3{ 0.0f, m_velocity.y, 0.0f } * delta_time;
-    collided = check_collision_with_any_block(new_position, s_player_size, world);
+    collided = check_collision_with_any_block(new_position, P_COLLIDER_SIZE, world);
     if(!collided) {
         m_position = new_position;
     } else {
         m_velocity.y = 0.0f;
     }
-
-    // m_velocity *= m_velocity * delta_time * 10.0f;
 
     DebugUI::push_text_left(" --- Player ---");
     DebugUI::push_text_left("position: %.2f, %.2f, %.2f", m_position.x, m_position.y, m_position.z);
@@ -165,7 +155,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
 }
 
 vec3 Player::get_size(void) const {
-    return s_player_size;
+    return P_COLLIDER_SIZE;
 }
 
 void Player::set_position(const vec3 &position) {
@@ -177,14 +167,14 @@ vec3 Player::get_position(void) const {
 }
 
 vec3 Player::get_position_center(void) const {
-    return m_position + s_player_size * 0.5f;
+    return m_position + P_COLLIDER_SIZE * 0.5f;
 }
 
 vec3 Player::get_position_head(void) const {
     return {
-        .x = m_position.x + s_player_size.x * 0.5f,
-        .y = m_position.y + s_player_size.y * (1.0f - s_player_head_offset_perc),
-        .z = m_position.z + s_player_size.z * 0.5f,
+        .x = m_position.x + P_COLLIDER_SIZE.x * 0.5f,
+        .y = m_position.y + P_COLLIDER_SIZE.y * (1.0f - P_HEAD_OFFSET_PERC),
+        .z = m_position.z + P_COLLIDER_SIZE.z * 0.5f,
     };
 }
 
@@ -204,6 +194,6 @@ bool Player::check_is_grounded(const class World &world) {
 }
 
 void Player::get_ground_collider_info(vec3 &pos, vec3 &size) {
-    pos = this->get_position() - vec3{ 0.0f, s_ground_collider_height * 0.5f, 0.0f  };
-    size = { s_player_size.x, s_ground_collider_height, s_player_size.z };
+    pos = this->get_position() - vec3{ 0.0f, P_GROUND_COLLIDER_HEIGHT * 0.5f, 0.0f  };
+    size = { P_COLLIDER_SIZE.x, P_GROUND_COLLIDER_HEIGHT, P_COLLIDER_SIZE.z };
 }

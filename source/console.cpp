@@ -8,48 +8,46 @@
 #include <SDL.h> // Start/StopTextInput
 #include <string_view.h>
 
-#define CONSOLE_HISTORY_MAX 32
-
 /* 
-
     @todo
-
     - pasting
     - moving through input buffer
     - scissor
     - max command length
-
 */
 
 namespace {
-    bool        s_initialized = false;
-    Font        s_font;
-    TextBatcher s_batcher;
-    ShaderFile  s_quad_shader;
-    VertexArray s_quad_vao;
+    constexpr int32_t CONSOLE_HISTORY_MAX = 32;
+    constexpr int32_t CONSOLE_INPUT_MAX   = 64;
 
-    bool        s_is_open = false;
-    std::string s_history[CONSOLE_HISTORY_MAX];
-    std::string s_input_buffer;
-    std::string s_last_valid_input;
-    std::vector<ConsoleCommand> s_commands;
+    bool        g_initialized = false;
+    Font        g_font;
+    TextBatcher g_batcher;
+    ShaderFile  g_quad_shader;
+    VertexArray g_quad_vao;
 
-    constexpr double s_cursor_blink_time = 0.5;
-    double s_cursor_blink_t = 0.0;
-    bool   s_cursor_blink   = false;
+    bool        g_is_open = false;
+    std::string g_history[CONSOLE_HISTORY_MAX];
+    std::string g_input_buffer;
+    std::string g_last_valid_input;
+    std::vector<ConsoleCommand> g_commands;
+
+    constexpr double CURSOR_BLINK_TIME = 0.5;
+    double g_cursor_blink_t = 0.0;
+    bool   g_cursor_blink   = false;
 }
 
 void Console::initialize(void) {
-    ASSERT(!s_initialized);
-    s_initialized = true;
+    ASSERT(!g_initialized);
+    g_initialized = true;
 
     /* Load font */
-    s_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
-    s_font.get_atlas().set_filter_min(TextureFilter::NEAREST);
-    s_font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
+    g_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
+    g_font.get_atlas().set_filter_min(TextureFilter::NEAREST);
+    g_font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
     /* Load the quad shader */
-    s_quad_shader.set_filepath_and_load("C://dev//emce//source//shaders//simple_quad.glsl");
+    g_quad_shader.set_filepath_and_load("C://dev//emce//source//shaders//simple_quad.glsl");
 
     /* Initialize quad vertex array */
     const float vbo_data[] = {
@@ -67,22 +65,22 @@ void Console::initialize(void) {
     BufferLayout layout;
     layout.push_attribute("a_position", 2, BufferDataType::FLOAT);
 
-    s_quad_vao.create_vao(layout, ArrayBufferUsage::STATIC);
-    s_quad_vao.set_ibo_data(ibo_data, ARRAY_COUNT(ibo_data));
-    s_quad_vao.set_vbo_data(vbo_data, ARRAY_COUNT(vbo_data) * sizeof(float));
-    s_quad_vao.apply_vao_attributes();
+    g_quad_vao.create_vao(layout, ArrayBufferUsage::STATIC);
+    g_quad_vao.set_ibo_data(ibo_data, ARRAY_COUNT(ibo_data));
+    g_quad_vao.set_vbo_data(vbo_data, ARRAY_COUNT(vbo_data) * sizeof(float));
+    g_quad_vao.apply_vao_attributes();
     
     /* Initialize console */
-    s_is_open = false;
-    s_input_buffer.clear();
-    s_last_valid_input.clear();
-    s_commands.clear();
+    g_is_open = false;
+    g_input_buffer.clear();
+    g_last_valid_input.clear();
+    g_commands.clear();
 
     Console::register_command({
         .command = "commands",
         .proc = CONSOLE_COMMAND_LAMBDA {
             Console::add_to_history("> registered commands:");
-            for(auto &command : s_commands) {
+            for(auto &command : g_commands) {
                 Console::add_to_history(command.command.c_str());
             }
         }
@@ -92,31 +90,31 @@ void Console::initialize(void) {
         .command = "clear",
         .proc = CONSOLE_COMMAND_LAMBDA {
             for(int32_t index = 0; index < CONSOLE_HISTORY_MAX; ++index) {
-                s_history[index].clear();
+                g_history[index].clear();
             }
         }
     });
 }
 
 void Console::destroy(void) {
-    s_initialized = false;
+    g_initialized = false;
 
-    s_font.delete_font();
-    s_quad_shader.delete_shader_file();
-    s_quad_vao.delete_vao();
+    g_font.delete_font();
+    g_quad_shader.delete_shader_file();
+    g_quad_vao.delete_vao();
 }
 
 void Console::add_to_history(const char *string) {
     /* Push history */
     for(int32_t index = CONSOLE_HISTORY_MAX - 1; index >= 1; --index) {
-        s_history[index] = s_history[index - 1];
+        g_history[index] = g_history[index - 1];
     }
 
-    s_history[0] = std::string(string);
+    g_history[0] = std::string(string);
 }
 
 void Console::update(const Input &input, Window &window, Game &game, double delta_time) {
-    if(!s_is_open) {
+    if(!g_is_open) {
         return;
     }
 
@@ -131,27 +129,33 @@ void Console::update(const Input &input, Window &window, Game &game, double delt
 
     /* Get last valid input */
     if(input.key_pressed(Key::UP)) {
-        s_input_buffer = s_last_valid_input;
+        g_input_buffer = g_last_valid_input;
         input_buffer_changed = true;
     }
 
     /* Query text input */
-    if(strlen(input.get_text_input())) {
-        s_input_buffer += input.get_text_input();
-        input_buffer_changed = true;
+    size_t input_len = strlen(input.get_text_input());
+    if(input_len) {
+        for(int32_t index = 0; index < input_len; ++index) {
+            if(g_input_buffer.length() >= CONSOLE_INPUT_MAX) {
+                break;
+            }
+            g_input_buffer += input.get_text_input();
+            input_buffer_changed = true;
+        }
     }
 
     /* Delete text */
-    if(input.key_pressed_or_repeat(Key::BACKSPACE) && s_input_buffer.length()) {
-        s_input_buffer.pop_back();
+    if(input.key_pressed_or_repeat(Key::BACKSPACE) && g_input_buffer.length()) {
+        g_input_buffer.pop_back();
         input_buffer_changed = true;
     }
 
     /* Apply command @todo Hacky */
-    string_view_t command_view = string_view((char *)s_input_buffer.c_str());
+    string_view_t command_view = string_view((char *)g_input_buffer.c_str());
     command_view = s_view_trim(command_view);
-    if(input.key_pressed(Key::ENTER) && s_input_buffer.length()) {
-        Console::add_to_history(s_input_buffer.c_str());
+    if(input.key_pressed(Key::ENTER) && g_input_buffer.length()) {
+        Console::add_to_history(g_input_buffer.c_str());
 
         // @temp Parsing Command and args
         string_view_t cmd;
@@ -187,9 +191,9 @@ void Console::update(const Input &input, Window &window, Game &game, double delt
             cmd = command_view;
         }
 
-        for(auto &command : s_commands) {
+        for(auto &command : g_commands) {
             if(cmd == string_view((char *)command.command.c_str())) {
-                s_last_valid_input = s_input_buffer;
+                g_last_valid_input = g_input_buffer;
 
                 std::vector<std::string> args;
                 if(arg1.length) { std::string s; s.assign(arg1.pointer, arg1.length); args.push_back(s); }
@@ -200,38 +204,38 @@ void Console::update(const Input &input, Window &window, Game &game, double delt
             }
         }
 
-        s_input_buffer.clear();
+        g_input_buffer.clear();
     }
 
     if(input_buffer_changed) {
-        s_cursor_blink_t = 0.0;
-        s_cursor_blink = false;
+        g_cursor_blink_t = 0.0;
+        g_cursor_blink = false;
     } else {
-        s_cursor_blink_t += delta_time;
-        if(s_cursor_blink_t >= s_cursor_blink_time) {
-            s_cursor_blink_t = 0.0;
-            BOOL_TOGGLE(s_cursor_blink);
+        g_cursor_blink_t += delta_time;
+        if(g_cursor_blink_t >= CURSOR_BLINK_TIME) {
+            g_cursor_blink_t = 0.0;
+            BOOL_TOGGLE(g_cursor_blink);
         }
     }
 }
 
 void Console::render(int32_t window_w, int32_t window_h) {
-    if(!s_is_open) {
+    if(!g_is_open) {
         return;
     }
 
-    s_quad_shader.hotload();
+    g_quad_shader.hotload();
 
     const vec2 console_text_padding = { 6.0f, 6.0f };
     const vec2 console_pos = { 32.0f, 32.0f };
-    const vec2 console_size = { 480.0f, float(s_font.get_height() + console_text_padding.y) };
+    const vec2 console_size = { 480.0f, float(g_font.get_height() + console_text_padding.y) };
 
     /* Quad shader */
-    s_quad_shader.use_program();
-    s_quad_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(window_w), float(window_h), -1.0f, 1.0f).e);
-    s_quad_vao.bind_vao();
+    g_quad_shader.use_program();
+    g_quad_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(window_w), float(window_h), -1.0f, 1.0f).e);
+    g_quad_vao.bind_vao();
 
-    s_batcher.begin();
+    g_batcher.begin();
 
     /* Blend for quads, disabled before rendering text batch */
     GL_CHECK(glEnable(GL_BLEND));
@@ -241,17 +245,17 @@ void Console::render(int32_t window_w, int32_t window_h) {
         model_m *= mat4::scale(console_size.x, console_size.y, 1.0f);
         model_m *= mat4::translate(console_pos.x, console_pos.y, 0.0f);
 
-        s_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.65f }.e);
-        s_quad_shader.upload_mat4("u_model", model_m.e);
+        g_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.65f }.e);
+        g_quad_shader.upload_mat4("u_model", model_m.e);
 
         GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
 
-        s_batcher.push_text_formatted(console_pos + console_text_padding, s_font, s_input_buffer.c_str());
+        g_batcher.push_text_formatted(console_pos + console_text_padding, g_font, g_input_buffer.c_str());
     }
 
     /* Draw console history region */ {
         const vec2 history_pos = console_pos + vec2{ 0.0f, console_size.y };
-        const vec2 history_size = { console_size.x, float(CONSOLE_HISTORY_MAX * s_font.get_height() + console_text_padding.y) };
+        const vec2 history_size = { console_size.x, float(CONSOLE_HISTORY_MAX * g_font.get_height() + console_text_padding.y) };
         const float history_text_x = console_pos.x + console_text_padding.x;
         float history_text_y = history_pos.y + console_text_padding.y;
 
@@ -259,26 +263,26 @@ void Console::render(int32_t window_w, int32_t window_h) {
         model_m *= mat4::scale(history_size.x, history_size.y, 1.0f);
         model_m *= mat4::translate(history_pos.x, history_pos.y, 0.0f);
 
-        s_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.45f }.e);
-        s_quad_shader.upload_mat4("u_model", model_m.e);
+        g_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.45f }.e);
+        g_quad_shader.upload_mat4("u_model", model_m.e);
 
         GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
 
         for(int32_t history_index = 0; history_index < CONSOLE_HISTORY_MAX; ++history_index) {
-            s_batcher.push_text({ history_text_x, history_text_y }, s_font, s_history[history_index].c_str());
-            history_text_y += s_font.get_height();
+            g_batcher.push_text({ history_text_x, history_text_y }, g_font, g_history[history_index].c_str());
+            history_text_y += g_font.get_height();
         }
     }
 
     GL_CHECK(glDisable(GL_BLEND));
 
     /* Draw cursor */ 
-    if(!s_cursor_blink) {
+    if(!g_cursor_blink) {
         glDisable(GL_DEPTH_TEST);
         const vec2 cursor_size = { 2.0f, console_size.y - console_text_padding.y };
 
         vec2 cursor_pos = {
-            console_pos.x + console_text_padding.x + s_font.calc_text_width(s_input_buffer.c_str()),
+            console_pos.x + console_text_padding.x + g_font.calc_text_width(g_input_buffer.c_str()),
             console_pos.y + console_text_padding.y * 0.5f
         };
 
@@ -286,36 +290,36 @@ void Console::render(int32_t window_w, int32_t window_h) {
         model_m *= mat4::scale(cursor_size.x, cursor_size.y, 1.0f);
         model_m *= mat4::translate(cursor_pos.x, cursor_pos.y, 0.0f);
 
-        s_quad_shader.upload_vec4("u_color", vec4{ 1.0f, 1.0f, 1.0f, 1.0f }.e);
-        s_quad_shader.upload_mat4("u_model", model_m.e);
+        g_quad_shader.upload_vec4("u_color", vec4{ 1.0f, 1.0f, 1.0f, 1.0f }.e);
+        g_quad_shader.upload_mat4("u_model", model_m.e);
 
         GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
         glEnable(GL_DEPTH_TEST);
     }
 
-    s_batcher.render(window_w, window_h, s_font);
+    g_batcher.render(window_w, window_h, g_font);
 }
 
 void Console::set_open_state(bool open) {
-    if(s_is_open == open) {
+    if(g_is_open == open) {
         return;
     }
 
     if(open) {
-        s_input_buffer.clear();
+        g_input_buffer.clear();
         SDL_StartTextInput();
     } else {
         SDL_StopTextInput();
     }
 
-    s_is_open = open;
+    g_is_open = open;
 }
 
 bool Console::is_open(void) {
-    return s_is_open;
+    return g_is_open;
 }
 
 // @todo Check on command name and stuff?
 void Console::register_command(ConsoleCommand command) {
-    s_commands.push_back(command);
+    g_commands.push_back(command);
 }

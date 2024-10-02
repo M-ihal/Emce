@@ -12,26 +12,19 @@ public:
     void rotate_by(int32_t rotate_v, int32_t rotate_h, float delta_time);
 
     vec3 calc_direction(void) const;
-
     vec3 calc_direction_side(void) const;
 
-    /* @todo name */
     vec3 calc_direction_xz(void) const;
-
     mat4 calc_proj(float aspect_ratio) const;
-
     mat4 calc_view(void) const;
 
     void set_position(const vec3 &position);
-
     vec3 get_position(void) const;
 
     void set_rotation(const vec2 &rotation);
-
     vec2 get_rotation(void) const;
     
-    void set_fov(float fov);
-
+    void  set_fov(float fov);
     float get_fov(void) const;
    
 private:

@@ -1,11 +1,8 @@
 #include "world.h"
 
+#include "game.h"
 #include "debug_ui.h"
 
-// WorldPosition
-#include "game.h"
-
-// std::sort
 #include <algorithm>
 
 #include <glew.h>
@@ -265,7 +262,11 @@ Chunk *World::gen_chunk(uint64_t packed_xz) {
                 } else if(y < (height - 1)) {
                     block->set_type(BlockType::DIRT);
                 } else {
-                    block->set_type(BlockType::DIRT_WITH_GRASS);
+                    block->set_type(BlockType::DIRT);
+                    BlockInfo &info = block->get_info();
+                    if(rand() % 2) {
+                        info.dirt.has_grass = true;
+                    }
                 }
             }
         }

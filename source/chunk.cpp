@@ -4,26 +4,34 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <vector>
 
 Block::Block(void) {
+    ZERO_STRUCT(m_info);
     this->set_type(BlockType::AIR);
 }
 
 void Block::set_type(BlockType type) {
-    m_type = type;
+    m_info.type = type;
 }
 
 BlockType Block::get_type(void) const {
-    return m_type;
+    return m_info.type;
+}
+
+BlockInfo &Block::get_info(void) {
+    return m_info;
+}
+
+const BlockInfo &Block::get_info(void) const {
+    return m_info;
 }
 
 bool Block::is_solid(void) const {
-    return m_type != BlockType::AIR;
+    return m_info.type != BlockType::AIR;
 }
 
 bool Block::is_of_type(BlockType type) const {
-    return m_type == type;
+    return m_info.type == type;
 }
 
 Chunk::Chunk(class World *world, const vec2i &chunk_xz) {
@@ -38,33 +46,18 @@ Chunk::~Chunk(void) {
     m_owner = NULL;
 }
 
-void Chunk::update_vao(void) {
-    this->gen_vao(this->gen_vao_data());
-
-    /* @todo regenerate neighbouring chunks, this is slow and stupid iguess */
-    Chunk *chunk = NULL;
-    chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 1, 0 }, false);
-    if(chunk) { chunk->gen_vao(chunk->gen_vao_data()); }
-    chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ -1, 0 }, false);
-    if(chunk) { chunk->gen_vao(chunk->gen_vao_data()); }
-    chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 0, 1 }, false);
-    if(chunk) { chunk->gen_vao(chunk->gen_vao_data()); }
-    chunk = m_owner->get_chunk(m_chunk_xz + vec2i{ 0, -1 }, false);
-    if(chunk) { chunk->gen_vao(chunk->gen_vao_data()); }
-}
-
 Block *Chunk::get_block(const vec3i &rel) {
-    if(!Chunk::is_inside_chunk(rel)) {
-        return NULL;
+    if(Chunk::is_inside_chunk(rel)) {
+        return &m_blocks[rel.x][rel.y][rel.z];
     }
-    return &m_blocks[rel.x][rel.y][rel.z];
+    return NULL;
 }
 
 const Block *Chunk::get_block(const vec3i &rel) const {
-    if(!Chunk::is_inside_chunk(rel)) {
-        return NULL;
+    if(Chunk::is_inside_chunk(rel)) {
+        return &m_blocks[rel.x][rel.y][rel.z];
     }
-    return &m_blocks[rel.x][rel.y][rel.z];
+    return NULL;
 }
 
 vec2i Chunk::get_coords(void) const {
@@ -159,33 +152,39 @@ static constexpr void get_atlas_tex_coords(int32_t x, int32_t y, ChunkVaoVertex 
     v[3].tex_coord = vec2{ x * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
 }
 
-static constexpr void fill_tex_coords_for_block_type(BlockSide side, BlockType type, ChunkVaoVertex v[4]) {
-    switch(type) {
-        default:
+static constexpr void fill_tex_coords_for_block(BlockSide side, const BlockInfo &info, ChunkVaoVertex v[4]) {
+    switch(info.type) {
+        default: {
+            get_atlas_tex_coords(0, 0, v);
+        } break;
+
         case BlockType::SAND: {
             get_atlas_tex_coords(0, 0, v);
         } break;
+
         case BlockType::DIRT: {
-            get_atlas_tex_coords(1, 0, v);
+            if(info.dirt.has_grass) {
+                switch(side) {
+                    case BlockSide::Y_NEG: {
+                        get_atlas_tex_coords(1, 0, v);
+                    } break;
+                    case BlockSide::Y_POS: {
+                        get_atlas_tex_coords(1, 2, v);
+                    } break;
+                    case BlockSide::X_POS:
+                    case BlockSide::X_NEG:
+                    case BlockSide::Z_POS:
+                    case BlockSide::Z_NEG: {
+                        get_atlas_tex_coords(1, 1, v);
+                    } break;
+                }
+            } else {
+                get_atlas_tex_coords(1, 0, v);
+            }
         } break;
+
         case BlockType::COBBLESTONE: {
             get_atlas_tex_coords(2, 0, v);
-        } break;
-        case BlockType::DIRT_WITH_GRASS: {
-            switch(side) {
-                case BlockSide::Y_NEG: {
-                    get_atlas_tex_coords(1, 0, v);
-                } break;
-                case BlockSide::Y_POS: {
-                    get_atlas_tex_coords(1, 2, v);
-                } break;
-                case BlockSide::X_POS:
-                case BlockSide::X_NEG:
-                case BlockSide::Z_POS:
-                case BlockSide::Z_NEG: {
-                    get_atlas_tex_coords(1, 1, v);
-                } break;
-            }
         } break;
     }
 }
@@ -206,10 +205,10 @@ void Chunk::gen_vao(const ChunkVaoGenData &gen_data) {
 ChunkVaoGenData Chunk::gen_vao_data(void) {
     ChunkVaoGenData gen_data = { };
 
-    auto push_quad = [&](BlockSide side, BlockType type, int32_t x, int32_t y, int32_t z) {
+    auto push_quad = [&](BlockSide side, const BlockInfo &info, int32_t x, int32_t y, int32_t z) {
         ChunkVaoVertex v[4] = { };
         fill_positions_and_normals(side, v);
-        fill_tex_coords_for_block_type(side, type, v);
+        fill_tex_coords_for_block(side, info, v);
 
         v[0].position += vec3::make(x, y, z);
         v[1].position += vec3::make(x, y, z);
@@ -284,7 +283,7 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
 
             other = neighbour->get_block(block_xyz);
         }
-        
+
         /* If block is transparent, return true */
         switch(other->get_type()) {
             default: break;
@@ -298,22 +297,22 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
         const Block *block = this->get_block({ x, y, z });
         if(!block->is_of_type(BlockType::AIR)) {
             if(!is_relative_block_solid({ x, y, z + 1 })) {
-                push_quad(BlockSide::Z_POS, block->get_type(), x, y, z);
+                push_quad(BlockSide::Z_POS, block->get_info(), x, y, z);
             }
             if(!is_relative_block_solid({ x, y, z - 1 })) {
-                push_quad(BlockSide::Z_NEG, block->get_type(), x, y, z);
+                push_quad(BlockSide::Z_NEG, block->get_info(), x, y, z);
             }
             if(!is_relative_block_solid({ x + 1, y, z })) {
-                push_quad(BlockSide::X_POS, block->get_type(), x, y, z);
+                push_quad(BlockSide::X_POS, block->get_info(), x, y, z);
             }
             if(!is_relative_block_solid({ x - 1, y, z })) {
-                push_quad(BlockSide::X_NEG, block->get_type(), x, y, z);
+                push_quad(BlockSide::X_NEG, block->get_info(), x, y, z);
             }
             if(!is_relative_block_solid({ x, y + 1, z })) {
-                push_quad(BlockSide::Y_POS, block->get_type(), x, y, z);
+                push_quad(BlockSide::Y_POS, block->get_info(), x, y, z);
             }
             if(!is_relative_block_solid({ x, y - 1, z })) {
-                push_quad(BlockSide::Y_NEG, block->get_type(), x, y, z);
+                push_quad(BlockSide::Y_NEG, block->get_info(), x, y, z);
             }
         }
     }

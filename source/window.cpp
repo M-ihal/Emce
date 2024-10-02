@@ -13,7 +13,7 @@
 #endif
 
 namespace {
-    static bool s_has_any_window_been_created = false;
+    static bool g_has_any_window_been_created = false;
 }
 
 Window::Window(void) {
@@ -43,7 +43,7 @@ Window::~Window(void) {
 }
 
 bool Window::initialize(int width, int height, const char *title) {
-    ASSERT(::s_has_any_window_been_created == false, "Only one window allowed.\n");
+    ASSERT(::g_has_any_window_been_created == false, "Only one window allowed.\n");
     ASSERT(!m_sdl_window);
     ASSERT(!m_gl_context);
 
@@ -68,7 +68,7 @@ bool Window::initialize(int width, int height, const char *title) {
     }
 
     fprintf(stdout, "[info] Window: Window created.\n");
-    ::s_has_any_window_been_created = true;
+    ::g_has_any_window_been_created = true;
 
     /* Initialize window size */
     SDL_GetWindowSize(m_sdl_window, &m_width, &m_height);

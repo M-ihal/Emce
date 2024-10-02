@@ -23,9 +23,11 @@
 #include "game.h"
 #include "simple_draw.h"
 
-#define INIT_WINDOW_WIDTH  1280
-#define INIT_WINDOW_HEIGHT 720
-#define INIT_WINDOW_TITLE  "emce"
+namespace {
+    constexpr int32_t INIT_WINDOW_WIDTH  = 1280;
+    constexpr int32_t INIT_WINDOW_HEIGHT = 720;
+    const char       *INIT_WINDOW_TITLE  = "emce";
+}
 
 /*
     @todo: Better cleanup of reasorces... maybe make it explicit not in destructors
@@ -178,7 +180,7 @@ int SDL_main(int argc, char *argv[]) {
             elapsed_time += delta_time;
             time_last = time_now;
         }
-        
+
         DebugUI::push_text_left(" --- Frame ---");
         DebugUI::push_text_left("elapsed time: %.3f", elapsed_time);
         DebugUI::push_text_left("frame time: %.6f", delta_time);
