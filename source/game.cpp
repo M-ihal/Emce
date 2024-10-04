@@ -231,6 +231,17 @@ void Game::render(const Window &window) {
         vec3 ground_collider_size;
         m_player.get_ground_collider_info(ground_collider_pos, ground_collider_size);
         SimpleDraw::draw_cube_outline(ground_collider_pos, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
+
+        const vec3 velocity = m_player.get_velocity();
+        SimpleDraw::draw_line(m_player.get_position_center(), m_player.get_position_center() + vec3{ velocity.x, 0.0f, velocity.z }, 2.0f, Color{ 1.0f, 0.0f, 1.0f, 1.0f });
+        SimpleDraw::draw_line(m_player.get_position_center(), m_player.get_position_center() + vec3{ 0.0f, velocity.y, 0.0f }, 2.0f, Color{ 0.0f, 1.0f, 0.0f, 1.0f });
+
+        const float _xyz_len = 4.0f;
+        const vec3  _xyz_off = { 5.0f, 0.0f, 0.05f };
+        const vec3  _xyz_base = _xyz_off + m_player.get_position_center();
+        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ _xyz_len, 0.0f, 0.0f }, 2.0f, Color{ 1.0f, 0.0f, 0.0f, 1.0f });
+        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ 0.0f, _xyz_len, 0.0f }, 2.0f, Color{ 0.0f, 1.0f, 0.0f, 1.0f });
+        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ 0.0f, 0.0f, _xyz_len }, 2.0f, Color{ 0.0f, 0.0f, 1.0f, 1.0f });
     }
 
     if(g_debug_show_chunk_borders) {

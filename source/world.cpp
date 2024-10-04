@@ -94,9 +94,28 @@ void World::process_load_queue(void) {
         m_should_sort_load_queue = false;
     }
 
+
+    while(true) {
+        if(!m_load_queue.size()) {
+            return;
+        }
+
+        auto end = m_load_queue.back();
+
+        WorldPosition player_chunk_pos = WorldPosition::from_real(m_owner->get_player().get_position());
+        vec2i rel_dist = vec2i::absolute(player_chunk_pos.chunk - end);
+        float dist = vec2::length(vec2::make(rel_dist));
+        if(dist > 32.0f) {
+            m_load_queue.pop_back();
+        } else {
+            break;
+        }
+    }
     
     auto end = m_load_queue.back();
     Chunk *chunk = this->get_chunk(end);
+
+
     m_gen_queue_locked = false;
 
     ChunkVaoGenData vao_data = chunk->gen_vao_data();
@@ -242,11 +261,17 @@ Chunk *World::gen_chunk(uint64_t packed_xz) {
 
     for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
-            const float smooth = 0.01f;
+            const float smooth = 0.05f;
             int32_t abs_x = x + CHUNK_SIZE_X * chunk_x;
             int32_t abs_z = z + CHUNK_SIZE_Z * chunk_z;
-            float perlin01 = SQUARE((stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f);
-            const int32_t height = perlin01 * (CHUNK_SIZE_Y * 0.5f) + CHUNK_SIZE_Y * 0.5f;
+            // float perlin01 = SQUARE((stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f);
+            // float perlin01 = (stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f;
+            float perlin01 = 0.5f;
+            int32_t height = perlin01 * (CHUNK_SIZE_Y * 0.5f) + CHUNK_SIZE_Y * 0.5f;
+
+            if(rand() % 8 == 0) {
+                height += 1;
+            }
 
             if(lowest > height) lowest = height;
             if(highest < height) highest = height;

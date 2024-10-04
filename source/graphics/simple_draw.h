@@ -53,4 +53,5 @@ namespace SimpleDraw {
     void hotload_shader(void);
     void set_camera(const Camera &camera, float aspect_ratio);
     void draw_cube_outline(const vec3 &position, const vec3 &size, float width, const Color &color);
+    void draw_line(const vec3 &point_a, const vec3 &point_b, float width, const Color &color);
 }

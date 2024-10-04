@@ -177,6 +177,11 @@ int SDL_main(int argc, char *argv[]) {
             time_now = SDL_GetPerformanceCounter();
             const double delta = time_now - time_last;
             delta_time = delta / time_freq;
+#if 1
+            if(input.key_is_down(Key::LEFT_CTRL)) {
+                delta_time *= 0.1;
+            }
+#endif
             elapsed_time += delta_time;
             time_last = time_now;
         }

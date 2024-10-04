@@ -7,18 +7,18 @@
 #include "console.h"
 
 namespace {
-    constexpr float P_ACCELERATION = 8.0f;
-    constexpr float P_DECELERATION = 0.8f;
-    constexpr float P_MAX_SPEED = 10.0f;
-    constexpr float P_JUMP_FORCE = 10.0f;
-    constexpr float P_GRAVITY = -9.81f;
+    constexpr float P_ACCELERATION = 35.0f;
+    constexpr float P_DECELERATION = 18.0f;
+    constexpr float P_MAX_SPEED    = 5.0f;
+    constexpr float P_JUMP_FORCE   = 8.5f;
+    constexpr float P_GRAVITY      = -9.81f * 2.0f;
 
     constexpr float P_GROUND_COLLIDER_HEIGHT = 0.2f;
     constexpr vec3  P_COLLIDER_SIZE = vec3{ 0.6f, 1.85f, 0.6f };
     constexpr float P_HEAD_OFFSET_PERC = 0.1f; // Head offset from the top of player size in percents
     static_assert(IN_BOUNDS(P_HEAD_OFFSET_PERC, 0.0f, 1.0f));
 
-    bool g_debug_infinite_jump = false;
+    bool g_debug_infinite_jump = true;
 }
 
 Player::Player(void) {
@@ -89,7 +89,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
             move_side -= 1;
         }
         if(input.key_pressed(Key::SPACE) && (is_grounded_now || g_debug_infinite_jump)) {
-            m_velocity.y += P_JUMP_FORCE;
+            m_velocity.y = P_JUMP_FORCE;
         }
     }
 
@@ -101,24 +101,49 @@ void Player::update(Game &game, const Input &input, float delta_time) {
 
     DebugUI::push_text_right("dir: %.3f, %.3f, %.3f", dir.x, dir.y, dir.z);
 
+    m_velocity.y += P_GRAVITY * delta_time;
+
     if(move_input) {
         m_velocity += vec3{ 
             .x = dir.x * P_ACCELERATION * delta_time,
-            .y = P_GRAVITY * delta_time,
             .z = dir.z * P_ACCELERATION * delta_time,
         };
     } else {
         const float deceleration = P_DECELERATION * delta_time;
-        if(m_velocity.x) {
-            m_velocity.x += deceleration - SIGN(m_velocity.x);
+        const float epsilon = 0.1f;
+
+        vec2 vel_xz = { m_velocity.x, m_velocity.z };
+
+        vec2 unit_v = vec2::normalize(vel_xz);
+
+        float vel_len = vec2::length(vel_xz);
+
+        if(vel_len > epsilon) {
+            m_velocity.x -= deceleration * unit_v.x;
+            m_velocity.z -= deceleration * unit_v.y;
         } else {
             m_velocity.x = 0.0f;
-        }
-        if(m_velocity.z) {
-            m_velocity.z += deceleration - SIGN(m_velocity.z);
-        } else {
             m_velocity.z = 0.0f;
         }
+
+        if(vec2::dot(vel_xz, m_velocity.get_xz()) < 0.0f) {
+            m_velocity.x = 0.0f;
+            m_velocity.z = 0.0f;
+        }
+    }
+
+    vec2  velocity_xz = { m_velocity.x, m_velocity.z };
+    float velocity_xz_len = vec2::length(velocity_xz);
+    if(velocity_xz_len && move_input) {
+#if 0
+        vec2 velocity_xz_unit = vec2::normalize({ dir.x, dir.z });
+#else
+        vec2 velocity_xz_unit = vec2::normalize(velocity_xz);
+#endif
+        clamp_max_v(velocity_xz_len, P_MAX_SPEED);
+        velocity_xz = velocity_xz_unit * velocity_xz_len;
+        m_velocity.x = velocity_xz.x;
+        m_velocity.z = velocity_xz.y;
     }
 
     //
@@ -149,6 +174,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     DebugUI::push_text_left(" --- Player ---");
     DebugUI::push_text_left("position: %.2f, %.2f, %.2f", m_position.x, m_position.y, m_position.z);
     DebugUI::push_text_left("velocity: %.2f, %.2f, %.2f", m_velocity.x, m_velocity.y, m_velocity.z);
+    DebugUI::push_text_left("xz speed: %.3f", vec2::length(m_velocity.get_xz()));
     DebugUI::push_text_left("is_grounded: %s", BOOL_STR(this->check_is_grounded(world)));
 
     m_camera.set_position(this->get_position_head());
@@ -184,6 +210,10 @@ Camera &Player::get_head_camera(void) {
 
 const Camera &Player::get_head_camera(void) const {
     return m_camera;
+}
+
+vec3 Player::get_velocity(void) const {
+    return m_velocity;
 }
 
 bool Player::check_is_grounded(const class World &world) {

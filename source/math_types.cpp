@@ -41,17 +41,43 @@ vec2 vec2::zero(void) {
     return vec2{ 0.0f, 0.0f };
 }
 
+vec2 vec2::absolute(const vec2 &v) {
+    return vec2{ ABS(v.x), ABS(v.y) };
+}
+
 float vec2::length_sq(const vec2 &v) {
-    return v.x * v.x + v.y * v.y;
+    return vec2::dot(v, v);
 }
 
 float vec2::length(const vec2 &v) {
     return sqrtf(vec2::length_sq(v));
 }
 
+float vec2::dot(const vec2 &a, const vec2 &b) {
+    return a.x * b.x + a.y * b.y;
+}
+
+vec2 vec2::normalize(const vec2 &v) {
+    const float length = vec2::length(v);
+    return vec2{
+        .x = v.x / length,
+        .y = v.y / length
+    };
+}
+
 vec2 operator + (const vec2 &l, const vec2 &r) {
     return vec2{ l.x + r.x, l.y + r.y };
 }
+
+vec2 operator * (const vec2 &l, float r) {
+    return vec2{ l.x * r, l.y * r };
+}
+
+vec2 &operator *= (vec2 &l, float r) {
+    l = l * r;
+    return l;
+}
+
 
 /*
     --- vec2i ---
@@ -89,6 +115,14 @@ bool operator != (const vec2i &l, const vec2i &r) {
     --- vec3 ---
 */
 
+vec3 vec3::zero(void) {
+    return vec3{ 0.0f, 0.0f, 0.0f, };
+}
+
+vec2 vec3::get_xz(void) const {
+    return vec2{ x, z };
+}
+
 vec3 vec3::make(float x, float y, float z) {
     return vec3{ x, y, z };
 }
@@ -103,10 +137,6 @@ vec3 vec3::make(const vec2 &v, float z) {
 
 vec3 vec3::make(const vec3i &v) {
     return vec3{ float(v.x), float(v.y), float(v.z) };
-}
-
-vec3 vec3::zero(void) {
-    return vec3{ 0.0f, 0.0f, 0.0f, };
 }
 
 float vec3::length_sq(const vec3 &vec) {

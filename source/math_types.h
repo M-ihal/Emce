@@ -38,11 +38,16 @@ struct vec2 {
     static vec2 make(const struct vec2i &v);
     static vec2 zero(void);
 
+    static vec2  absolute(const vec2 &v);
     static float length_sq(const vec2 &v);
     static float length(const vec2 &v);
+    static float dot(const vec2 &a, const vec2 &b);
+    static vec2  normalize(const vec2 &v);
 };
 
 vec2 operator + (const vec2 &l, const vec2 &r);
+vec2 operator * (const vec2 &l, float r);
+vec2 &operator *= (vec2 &l, float r);
 
 struct vec2i {
     union {
@@ -76,11 +81,13 @@ struct vec3 {
         float e[3];
     };
 
+    vec2 get_xz(void) const;
+
+    static vec3 zero(void);
     static vec3 make(float x, float y, float z);
     static vec3 make(float xyz);
     static vec3 make(const vec2 &v, float z);
     static vec3 make(const struct vec3i &v);
-    static vec3 zero(void);
 
     static float length_sq(const vec3 &vec);
     static float length(const vec3 &vec);
