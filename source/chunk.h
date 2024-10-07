@@ -47,6 +47,7 @@ struct BlockInfo {
     };
 };
 
+
 class Block {
 public:
     Block(void);

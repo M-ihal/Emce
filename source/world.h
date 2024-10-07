@@ -8,8 +8,8 @@
 #include <unordered_map>
 
 class Game;
-typedef std::unordered_map<uint64_t, Chunk *> chunk_map;
 
+typedef std::unordered_map<uint64_t, Chunk *> chunk_map;
 
 class World {
 public:
@@ -57,10 +57,8 @@ public:
     bool _debug_render_not_fill;
 
 private:
-    /* Allocates a chunk and generates terrain (Doesn't immediately generate VAO) */
-    Chunk *gen_chunk(uint64_t packed_xz);
-
-    // @todo move to Chunk
+    /* Allocates a chunk and generates terrain for given key (Queues the generation of VAO) */
+    Chunk *gen_chunk(uint64_t key);
 
     const Game *m_owner;
     int32_t     m_world_gen_seed;
@@ -70,6 +68,21 @@ private:
     std::vector<vec2i> m_load_queue;
     bool m_should_sort_load_queue;
 
-    bool m_gen_queue_locked;
     std::vector<ChunkVaoGenData> m_gen_queue;
 };
+
+struct WorldPosition {
+    static WorldPosition from_real(const vec3 &real);
+    static WorldPosition from_block(const vec3i &block);
+    vec3  real;
+    vec3i block;
+    vec3i block_rel;
+    vec2i chunk;
+};
+
+/* block's real position is it's origin (0,0,0 corner) */
+vec3  real_position_from_block(const vec3i &block);
+vec3i block_position_from_real(const vec3 &real);
+vec2i chunk_position_from_block(const vec3i &block);
+vec3i block_relative_from_block(const vec3i &block);
+void  calc_overlapping_blocks(vec3 pos, vec3 size, WorldPosition &min, WorldPosition &max);

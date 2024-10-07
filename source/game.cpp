@@ -242,6 +242,8 @@ void Game::render(const Window &window) {
         SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ _xyz_len, 0.0f, 0.0f }, 2.0f, Color{ 1.0f, 0.0f, 0.0f, 1.0f });
         SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ 0.0f, _xyz_len, 0.0f }, 2.0f, Color{ 0.0f, 1.0f, 0.0f, 1.0f });
         SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ 0.0f, 0.0f, _xyz_len }, 2.0f, Color{ 0.0f, 0.0f, 1.0f, 1.0f });
+
+        m_player.debug_render(*this);
     }
 
     if(g_debug_show_chunk_borders) {
@@ -284,60 +286,3 @@ const Player &Game::get_player(void) const {
     return m_player;
 }
 
-vec3 real_position_from_block(const vec3i &block) {
-    return {
-        (float)block.x,
-        (float)block.y,
-        (float)block.z
-    };
-}
-
-vec3i block_position_from_real(const vec3 &real) {
-    return {
-        (int32_t)floorf(real.x),
-        (int32_t)floorf(real.y),
-        (int32_t)floorf(real.z),
-    };
-}
-
-vec2i chunk_position_from_block(const vec3i &block) {
-    return {
-        (int32_t)floorf(float(block.x) / CHUNK_SIZE_X),
-        (int32_t)floorf(float(block.z) / CHUNK_SIZE_Z)
-    };
-}
-
-vec3i block_relative_from_block(const vec3i &block) {
-    vec3i rel = {
-        block.x % CHUNK_SIZE_X,
-        block.y,
-        block.z % CHUNK_SIZE_Z,
-    };
-
-    if(block.x < 0) {
-        rel.x = CHUNK_SIZE_X + rel.x;
-    }
-    if(block.z < 0) {
-        rel.z = CHUNK_SIZE_Z + rel.z;
-    }
-
-    return rel;
-}
-
-WorldPosition WorldPosition::from_real(const vec3 &real) {
-    WorldPosition result = { };
-    result.real = real;
-    result.block = block_position_from_real(real);
-    result.block_rel = block_relative_from_block(result.block);
-    result.chunk = chunk_position_from_block(result.block);
-    return result;
-}
-
-WorldPosition WorldPosition::from_block(const vec3i &block) {
-    WorldPosition result = { };
-    result.block = block;
-    result.block_rel = block_relative_from_block(block);
-    result.chunk = chunk_position_from_block(result.block);
-    result.real = real_position_from_block(block);
-    return result;
-}

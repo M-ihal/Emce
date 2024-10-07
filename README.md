@@ -1,1 +1,3 @@
 # Emce
+
+Minecraft-like game.

@@ -10,15 +10,21 @@
 #define STB_PERLIN_IMPLEMENTATION
 #include <stb_perlin.h>
 
-static inline uint64_t pack_2x_int32(int32_t x, int32_t z) {
-    const uint64_t packed = uint64_t(*(uint32_t *)&x) | (uint64_t(*(uint32_t *)&z) << 32);
-    return packed;
-}
+union ChunkKeyInfo {
+    uint64_t key;
+    struct {
+        int32_t x;
+        int32_t z;
+    };
 
-static inline void unpack_2x_int32(uint64_t packed, int32_t *x, int32_t *z) {
-    *x = *(int32_t *)&packed;
-    *z = *(int32_t *)((uint8_t *)&packed + 4);
-}
+    static ChunkKeyInfo from_xz(const vec2i &chunk_xz) {
+        return { .x = chunk_xz.x, .z = chunk_xz.y };
+    }
+
+    static ChunkKeyInfo from_key(uint64_t key) {
+        return { .key = key };
+    }
+};
 
 World::World(const Game *game) {
     m_owner = game;
@@ -26,7 +32,6 @@ World::World(const Game *game) {
     m_chunks.clear();
     m_load_queue.clear();
     m_gen_queue.clear();
-    m_gen_queue_locked = false;
     _debug_render_not_fill = false;
 }
 
@@ -35,8 +40,8 @@ World::~World(void) {
 }
 
 void World::initialize_world(int32_t seed) {
-    if(get_chunk_map_size()) {
-        delete_chunks();
+    if(this->get_chunk_map_size()) {
+        this->delete_chunks();
     }
 
     m_world_gen_seed = seed;
@@ -56,23 +61,13 @@ void World::delete_chunks(void) {
 }
 
 void World::queue_chunk_vao_load(vec2i chunk_xz) {
-    while(m_gen_queue_locked) { }
-
-    m_gen_queue_locked = true;
     m_load_queue.push_back(chunk_xz);
     m_should_sort_load_queue = true;
-    m_gen_queue_locked = false;
 }
 
 void World::process_load_queue(void) {
     if(m_load_queue.empty()) {
         return;
-    }
-
-    if(m_gen_queue_locked) {
-        return;
-    } else {
-        m_gen_queue_locked = true;
     }
 
     /* Sorting by distance for now */
@@ -94,7 +89,6 @@ void World::process_load_queue(void) {
         m_should_sort_load_queue = false;
     }
 
-
     while(true) {
         if(!m_load_queue.size()) {
             return;
@@ -115,17 +109,10 @@ void World::process_load_queue(void) {
     auto end = m_load_queue.back();
     Chunk *chunk = this->get_chunk(end);
 
-
-    m_gen_queue_locked = false;
-
     ChunkVaoGenData vao_data = chunk->gen_vao_data();
 
-
-    m_gen_queue_locked = true;
     m_gen_queue.push_back(vao_data);
     m_load_queue.pop_back();
-
-    m_gen_queue_locked = false;
 }
 
 void World::process_gen_queue(void) {
@@ -133,18 +120,10 @@ void World::process_gen_queue(void) {
         return;
     }
 
-    if(m_gen_queue_locked) {
-        return;
-    } else {
-        m_gen_queue_locked = true;
-    }
-
     ChunkVaoGenData &gen_data = m_gen_queue.back();
     Chunk *chunk = this->get_chunk(gen_data.chunk);
     chunk->gen_vao(gen_data);
     m_gen_queue.pop_back();
-
-    m_gen_queue_locked = false;
 }
 
 void World::render_chunks(const Shader &shader, const Texture &atlas) {
@@ -163,9 +142,10 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
             continue;
         }
 
-        int32_t x = 0;
-        int32_t z = 0;
-        unpack_2x_int32(key, &x, &z);
+        const ChunkKeyInfo key_info = ChunkKeyInfo::from_key(key);
+        const int32_t z = key_info.z;
+        const int32_t x = key_info.x;
+
         shader.upload_mat4("u_model", mat4::translate(vec3{ float(x * CHUNK_SIZE_X), 0.0f, float(z * CHUNK_SIZE_Z) }).e);
 
         chunk->m_chunk_vao.bind_vao();
@@ -182,8 +162,9 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
 }
 
 Chunk *World::get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist) {
-    const uint64_t packed = pack_2x_int32(chunk_xz.x, chunk_xz.y);
-    const auto hash = m_chunks.find(packed);
+    ChunkKeyInfo key_info = ChunkKeyInfo::from_xz(chunk_xz);
+
+    const auto hash = m_chunks.find(key_info.key);
     if(hash != m_chunks.end()) {
         return hash->second;
     }
@@ -192,13 +173,13 @@ Chunk *World::get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist) {
         return NULL;
     }
 
-    return this->gen_chunk(packed);
+    return this->gen_chunk(chunk_xz);
 }
 
 const Chunk *World::get_chunk(const vec2i &chunk_xz) const {
-    const uint64_t packed = pack_2x_int32(chunk_xz.x, chunk_xz.y);
-    const auto hash = m_chunks.find(packed);
+    ChunkKeyInfo key_info = ChunkKeyInfo::from_xz(chunk_xz);
 
+    const auto hash = m_chunks.find(key_info.key);
     if(hash != m_chunks.end()) {
         return hash->second;
     } else {
@@ -207,12 +188,13 @@ const Chunk *World::get_chunk(const vec2i &chunk_xz) const {
 }
 
 Chunk *World::gen_chunk(const vec2i &chunk_xz) {
-    const uint64_t packed = pack_2x_int32(chunk_xz.x, chunk_xz.y);
-    if(m_chunks.find(packed) != m_chunks.end()) {
+    ChunkKeyInfo key_info = ChunkKeyInfo::from_xz(chunk_xz);
+
+    if(m_chunks.find(key_info.key) != m_chunks.end()) {
         return NULL;
     }
 
-    return this->gen_chunk(packed);
+    return this->gen_chunk(key_info.key);
 }
 
 Block *World::get_block(const vec3i &block) {
@@ -247,31 +229,37 @@ const size_t World::get_chunk_map_size(void) const {
     return m_chunks.size();
 }
 
-Chunk *World::gen_chunk(uint64_t packed_xz) {
-    int32_t chunk_x;
-    int32_t chunk_z;
-    unpack_2x_int32(packed_xz, &chunk_x, &chunk_z);
-    const vec2i chunk_xz = { chunk_x, chunk_z };
+Chunk *World::gen_chunk(uint64_t key) {
+    ChunkKeyInfo key_info = ChunkKeyInfo::from_key(key);
 
-    m_chunks[packed_xz] = new Chunk(this, chunk_xz);
-    Chunk *created = m_chunks[packed_xz];
+    ASSERT(m_chunks.find(key_info.key) == m_chunks.end(), "Error: Chunk already allocated!\n");
 
-    int32_t lowest = INT32_MAX;
+    const vec2i chunk_xz = {
+        .x = key_info.x, 
+        .y = key_info.z 
+    };
+
+    m_chunks[key_info.key] = new Chunk(this, chunk_xz);
+    Chunk *created = m_chunks[key_info.key];
+
+    int32_t lowest  = INT32_MAX;
     int32_t highest = INT32_MIN;
 
     for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
-            const float smooth = 0.05f;
-            int32_t abs_x = x + CHUNK_SIZE_X * chunk_x;
-            int32_t abs_z = z + CHUNK_SIZE_Z * chunk_z;
-            // float perlin01 = SQUARE((stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f);
+            const float smooth = 0.015f;
+            int32_t abs_x = x + CHUNK_SIZE_X * chunk_xz.x;
+            int32_t abs_z = z + CHUNK_SIZE_Z * chunk_xz.y;
+            float perlin01 = SQUARE((stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f);
             // float perlin01 = (stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f;
-            float perlin01 = 0.5f;
+ //           float perlin01 = 0.5f;
             int32_t height = perlin01 * (CHUNK_SIZE_Y * 0.5f) + CHUNK_SIZE_Y * 0.5f;
 
+            /*
             if(rand() % 8 == 0) {
                 height += 1;
             }
+            */
 
             if(lowest > height) lowest = height;
             if(highest < height) highest = height;
@@ -300,4 +288,60 @@ Chunk *World::gen_chunk(uint64_t packed_xz) {
     this->queue_chunk_vao_load(chunk_xz);
 
     return created;
+}
+
+vec3 real_position_from_block(const vec3i &block) {
+    return {
+        (float)block.x,
+        (float)block.y,
+        (float)block.z
+    };
+}
+
+vec3i block_position_from_real(const vec3 &real) {
+    return {
+        (int32_t)floorf(real.x),
+        (int32_t)floorf(real.y),
+        (int32_t)floorf(real.z),
+    };
+}
+
+vec2i chunk_position_from_block(const vec3i &block) {
+    return {
+        (int32_t)floorf(float(block.x) / CHUNK_SIZE_X),
+        (int32_t)floorf(float(block.z) / CHUNK_SIZE_Z)
+    };
+}
+
+vec3i block_relative_from_block(const vec3i &block) {
+    return { 
+        .x = block.x >= 0 ? block.x % CHUNK_SIZE_X : (block.x + 1) % CHUNK_SIZE_X + CHUNK_SIZE_X - 1,
+        .y = block.y,
+        .z = block.z >= 0 ? block.z % CHUNK_SIZE_Z : (block.z + 1) % CHUNK_SIZE_Z + CHUNK_SIZE_Z - 1,
+    };
+}
+
+void calc_overlapping_blocks(vec3 pos, vec3 size, WorldPosition &min, WorldPosition &max) {
+    vec3i block_min_p = block_position_from_real(pos);
+    vec3i block_max_p = block_position_from_real(pos + size);
+    min = WorldPosition::from_block(block_min_p);
+    max = WorldPosition::from_block(block_max_p);
+}
+
+WorldPosition WorldPosition::from_real(const vec3 &real) {
+    WorldPosition result;
+    result.real = real;
+    result.block = block_position_from_real(real);
+    result.block_rel = block_relative_from_block(result.block);
+    result.chunk = chunk_position_from_block(result.block);
+    return result;
+}
+
+WorldPosition WorldPosition::from_block(const vec3i &block) {
+    WorldPosition result;
+    result.block = block;
+    result.block_rel = block_relative_from_block(block);
+    result.chunk = chunk_position_from_block(result.block);
+    result.real = real_position_from_block(block);
+    return result;
 }

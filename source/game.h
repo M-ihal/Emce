@@ -37,17 +37,3 @@ private:
     Texture    m_block_atlas;
 };
 
-struct WorldPosition {
-    static WorldPosition from_real(const vec3 &real);
-    static WorldPosition from_block(const vec3i &block);
-    vec3  real;
-    vec3i block;
-    vec3i block_rel;
-    vec2i chunk;
-};
-
-/* block's real position is it's origin (0,0,0 corner) */
-vec3 real_position_from_block(const vec3i &block);
-vec3i block_position_from_real(const vec3 &real);
-vec2i chunk_position_from_block(const vec3i &block);
-vec3i block_relative_from_block(const vec3i &block);
