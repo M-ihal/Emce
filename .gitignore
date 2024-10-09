@@ -1,6 +1,11 @@
 build/
 build_clang/
-external/
 .cache/
 data/textures/
 *.mp4
+external/glew
+external/linmath
+external/SDL2
+external/stb
+external/string_view
+external/string_viu

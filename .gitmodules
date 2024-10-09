@@ -1,0 +1,3 @@
+[submodule "external/meh_hash"]
+	path = external/meh_hash
+	url = https://github.com/M-ihal/meh_hash.git
