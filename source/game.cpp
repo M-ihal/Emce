@@ -7,12 +7,11 @@
 #include <glew.h>
 
 namespace {
-    static int32_t g_load_radius = 8;
+    static int32_t g_load_radius = 32;
     static float   g_third_person_distance = 10.0f;
 
     static bool g_debug_show_chunk_borders  = false;
     static bool g_debug_show_player_collider = true;
-
     static bool g_debug_third_person_camera = true;
 }
 
@@ -51,7 +50,6 @@ Game::Game(void) : m_world(this) {
     });
 
     m_player.set_position(init_player_pos);
-
     m_camera.set_position(m_player.get_position());
     m_camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
 
@@ -189,7 +187,9 @@ void Game::update(const Input &input, double delta_time) {
     DebugUI::push_text_left("rotation V: %+.3f", RAD_TO_DEG(camera_rotation.y));
 
     DebugUI::push_text_right("world seed: %d", m_world.get_seed());
-    DebugUI::push_text_right("number of chunks: %d", m_world.get_chunk_map_size());
+    DebugUI::push_text_right("load radius: %d", g_load_radius);
+    DebugUI::push_text_right("number of chunks: %u", m_world.m_chunk_table.get_count());
+    DebugUI::push_text_right("number of chunk buckets available: %u", m_world.m_chunk_table.get_size());
 
     for(int32_t i = 0; i < g_load_radius; ++i) {
         for(int32_t load_x = -i; load_x <= i; ++load_x) {
@@ -247,7 +247,9 @@ void Game::render(const Window &window) {
     }
 
     if(g_debug_show_chunk_borders) {
-        for(auto const &[key, chunk] : m_world.get_chunk_map()) {
+        ChunkHashTable::Iterator iter;
+        while(m_world.m_chunk_table.iterate_all(iter)) {
+            Chunk *chunk = *iter.value;
             vec3 chunk_pos = { 
                 float(chunk->get_coords().x * CHUNK_SIZE_X),
                 0.0f,

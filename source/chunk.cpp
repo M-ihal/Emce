@@ -186,6 +186,26 @@ static constexpr void fill_tex_coords_for_block(BlockSide side, const BlockInfo 
         case BlockType::COBBLESTONE: {
             get_atlas_tex_coords(2, 0, v);
         } break;
+
+        case BlockType::TREE_LOG: {
+            switch(side) {
+                case BlockSide::Y_POS:
+                case BlockSide::Y_NEG: {
+                    get_atlas_tex_coords(7, 0, v);
+                } break;
+
+                case BlockSide::X_POS:
+                case BlockSide::X_NEG:
+                case BlockSide::Z_POS:
+                case BlockSide::Z_NEG: {
+                    get_atlas_tex_coords(7, 1, v);
+                } break;
+            };
+        } break;
+
+        case BlockType::TREE_LEAVES: {
+            get_atlas_tex_coords(7, 2, v);
+        } break;
     }
 }
 

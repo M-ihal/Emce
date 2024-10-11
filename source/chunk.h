@@ -8,7 +8,7 @@
 #include <vector>
 
 inline constexpr int32_t CHUNK_SIZE_X = 16;
-inline constexpr int32_t CHUNK_SIZE_Y = 192;
+inline constexpr int32_t CHUNK_SIZE_Y = 256;
 inline constexpr int32_t CHUNK_SIZE_Z = 16;
 
 #define for_every_block(var_x, var_y, var_z)\
@@ -33,6 +33,8 @@ enum class BlockType : uint8_t {
     SAND,
     DIRT,
     COBBLESTONE,
+    TREE_LOG,
+    TREE_LEAVES,
 };
 
 struct BlockInfo {
@@ -44,9 +46,10 @@ struct BlockInfo {
             bool has_grass;
         } dirt;
         struct { } cobblestone;
+        struct { } tree_log;
+        struct { } tree_leaves;
     };
 };
-
 
 class Block {
 public:

@@ -12,7 +12,7 @@ namespace {
     constexpr float P_ACCELERATION = 35.0f;
     constexpr float P_DECELERATION = 18.0f;
     constexpr float P_MAX_SPEED        = 5.0f;
-    constexpr float P_SPRINT_MAX_SPEED = 12.0f; // @todo
+    constexpr float P_SPRINT_MAX_SPEED = 212.0f; // @todo
     constexpr float P_JUMP_FORCE   = 8.5f;
     constexpr float P_GRAVITY      = -9.81f * 2.0f;
 
@@ -21,8 +21,8 @@ namespace {
     constexpr float P_HEAD_OFFSET_PERC = 0.1f; // Head offset from the top of player size in percents
     static_assert(IN_BOUNDS(P_HEAD_OFFSET_PERC, 0.0f, 1.0f));
 
-    bool g_debug_infinite_jump = true;
-    bool g_debug_flying = true;
+    bool g_debug_infinite_jump = false;
+    bool g_debug_flying = false;
 }
 
 Player::Player(void) {
@@ -125,10 +125,15 @@ void Player::update(Game &game, const Input &input, float delta_time) {
             if(input.key_is_down(Key::LEFT_SHIFT)) {
                 m_velocity.y = -100.0f;
             }
+            if(input.key_is_down(Key::LEFT_CTRL)) {
+                m_is_sprinting = true;
+            }
+
         } else {
         if(input.key_pressed(Key::SPACE) && (is_grounded_now || g_debug_infinite_jump)) {
             m_velocity.y = P_JUMP_FORCE;
         }
+
         }
         /*if(input.key_is_down(Key::LEFT_SHIFT)) {
             m_is_sprinting = true;

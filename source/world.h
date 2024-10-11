@@ -5,11 +5,15 @@
 #include "texture.h"
 #include "chunk.h"
 
-#include <unordered_map>
+#include "meh_hash.h"
 
 class Game;
 
-typedef std::unordered_map<uint64_t, Chunk *> chunk_map;
+inline static uint64_t func_hash_chunk_key(const vec2i &key);
+inline static bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
+
+// @todo Should probably preallocate Chunks or just insert values? new'ing is slow
+typedef meh::Table<vec2i, Chunk *, func_hash_chunk_key, func_compare_chunk_key> ChunkHashTable;
 
 class World {
 public:
@@ -49,27 +53,37 @@ public:
     Block       *get_block(const vec3i &block);
     const Block *get_block(const vec3i &block) const;
 
-    /* Reference to the map containing allocated chunks */
-    const chunk_map &get_chunk_map(void);
-    const size_t     get_chunk_map_size(void) const;
-
     /* debug @temp */
     bool _debug_render_not_fill;
 
 private:
     /* Allocates a chunk and generates terrain for given key (Queues the generation of VAO) */
-    Chunk *gen_chunk(uint64_t key);
+    Chunk *gen_chunk_really(const vec2i &chunk_xz);
 
-    const Game *m_owner;
-    int32_t     m_world_gen_seed;
-    chunk_map   m_chunks;
+    const Game    *m_owner;
+    int32_t        m_world_gen_seed;
+    ChunkHashTable m_chunk_table;
 
     /* Chunk VAO load queue */
     std::vector<vec2i> m_load_queue;
     bool m_should_sort_load_queue;
-
     std::vector<ChunkVaoGenData> m_gen_queue;
 };
+
+inline static uint64_t func_hash_chunk_key(const vec2i &key) {
+    vec2i x = key;
+    x.x += 0;
+    x.y += 0;
+    x.x *= 11;
+    x.y *= 31;
+    uint64_t hash = (*(uint64_t *)&x.x) | ((*(uint64_t *)&x.y) << 32);
+    return hash;
+}
+
+inline static bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b) {
+    bool equal = key_a.x == key_b.x && key_a.y == key_b.y;
+    return equal;
+}
 
 struct WorldPosition {
     static WorldPosition from_real(const vec3 &real);

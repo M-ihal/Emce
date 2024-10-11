@@ -10,26 +10,9 @@
 #define STB_PERLIN_IMPLEMENTATION
 #include <stb_perlin.h>
 
-union ChunkKeyInfo {
-    uint64_t key;
-    struct {
-        int32_t x;
-        int32_t z;
-    };
-
-    static ChunkKeyInfo from_xz(const vec2i &chunk_xz) {
-        return { .x = chunk_xz.x, .z = chunk_xz.y };
-    }
-
-    static ChunkKeyInfo from_key(uint64_t key) {
-        return { .key = key };
-    }
-};
-
-World::World(const Game *game) {
+World::World(const Game *game) : m_chunk_table(10000) {
     m_owner = game;
     m_world_gen_seed = 2137;
-    m_chunks.clear();
     m_load_queue.clear();
     m_gen_queue.clear();
     _debug_render_not_fill = false;
@@ -40,10 +23,7 @@ World::~World(void) {
 }
 
 void World::initialize_world(int32_t seed) {
-    if(this->get_chunk_map_size()) {
-        this->delete_chunks();
-    }
-
+    this->delete_chunks();
     m_world_gen_seed = seed;
 }
 
@@ -52,11 +32,14 @@ int32_t World::get_seed(void) const {
 }
 
 void World::delete_chunks(void) {
-    for(auto const &[key, chunk] : m_chunks) {
+    ChunkHashTable::Iterator iter;
+    while(m_chunk_table.iterate_all(iter)) {
+        Chunk *chunk = *iter.value;
         chunk->m_chunk_vao.delete_vao();
         delete chunk;
     }
-    m_chunks.clear();
+
+    m_chunk_table.clear_table();
     m_load_queue.clear();
 }
 
@@ -137,14 +120,16 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
 
-    for(auto const &[key, chunk] : m_chunks) {
+    ChunkHashTable::Iterator iter;
+    while(m_chunk_table.iterate_all(iter)) {
+        Chunk *chunk = *iter.value;
+
         if(!chunk->m_chunk_vao.has_been_created()) {
             continue;
         }
 
-        const ChunkKeyInfo key_info = ChunkKeyInfo::from_key(key);
-        const int32_t z = key_info.z;
-        const int32_t x = key_info.x;
+        const int32_t z = iter.key.y;
+        const int32_t x = iter.key.x;
 
         shader.upload_mat4("u_model", mat4::translate(vec3{ float(x * CHUNK_SIZE_X), 0.0f, float(z * CHUNK_SIZE_Z) }).e);
 
@@ -152,6 +137,7 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
         GL_CHECK(glDrawElements(GL_TRIANGLES, chunk->m_chunk_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
 
         num_of_triangles += chunk->m_chunk_vao.get_ibo_count() / 3;
+
     }
 
     DebugUI::push_text_right("triangles rendered: %d", num_of_triangles);
@@ -162,11 +148,9 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
 }
 
 Chunk *World::get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist) {
-    ChunkKeyInfo key_info = ChunkKeyInfo::from_xz(chunk_xz);
-
-    const auto hash = m_chunks.find(key_info.key);
-    if(hash != m_chunks.end()) {
-        return hash->second;
+    Chunk **chunk = m_chunk_table.find(chunk_xz);
+    if(chunk != NULL) {
+        return *chunk;
     }
 
     if(!create_if_doesnt_exist) {
@@ -177,24 +161,20 @@ Chunk *World::get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist) {
 }
 
 const Chunk *World::get_chunk(const vec2i &chunk_xz) const {
-    ChunkKeyInfo key_info = ChunkKeyInfo::from_xz(chunk_xz);
-
-    const auto hash = m_chunks.find(key_info.key);
-    if(hash != m_chunks.end()) {
-        return hash->second;
+    Chunk *const *chunk = m_chunk_table.find(chunk_xz);
+    if(chunk != NULL) {
+        return *chunk;
     } else {
         return NULL;
     }
 }
 
 Chunk *World::gen_chunk(const vec2i &chunk_xz) {
-    ChunkKeyInfo key_info = ChunkKeyInfo::from_xz(chunk_xz);
-
-    if(m_chunks.find(key_info.key) != m_chunks.end()) {
+    if(m_chunk_table.find(chunk_xz)) {
         return NULL;
     }
 
-    return this->gen_chunk(key_info.key);
+    return this->gen_chunk_really(chunk_xz);
 }
 
 Block *World::get_block(const vec3i &block) {
@@ -221,45 +201,53 @@ const Block *World::get_block(const vec3i &block) const {
     return chunk->get_block(block_p.block_rel);
 }
 
-const std::unordered_map<uint64_t, Chunk *> &World::get_chunk_map(void) {
-    return m_chunks;
-}
+Chunk *World::gen_chunk_really(const vec2i &chunk_xz) {
+    ASSERT(m_chunk_table.find(chunk_xz) == NULL, "Error: Chunk already allocated!\n");
 
-const size_t World::get_chunk_map_size(void) const {
-    return m_chunks.size();
-}
+    Chunk *created = new Chunk(this, chunk_xz);
 
-Chunk *World::gen_chunk(uint64_t key) {
-    ChunkKeyInfo key_info = ChunkKeyInfo::from_key(key);
-
-    ASSERT(m_chunks.find(key_info.key) == m_chunks.end(), "Error: Chunk already allocated!\n");
-
-    const vec2i chunk_xz = {
-        .x = key_info.x, 
-        .y = key_info.z 
-    };
-
-    m_chunks[key_info.key] = new Chunk(this, chunk_xz);
-    Chunk *created = m_chunks[key_info.key];
-
+    m_chunk_table._insert_collisions = 0;
+    m_chunk_table.insert(chunk_xz, created);
+    
     int32_t lowest  = INT32_MAX;
     int32_t highest = INT32_MIN;
 
     for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
-            const float smooth = 0.015f;
+            const float smooth = 0.009f;
             int32_t abs_x = x + CHUNK_SIZE_X * chunk_xz.x;
             int32_t abs_z = z + CHUNK_SIZE_Z * chunk_xz.y;
             float perlin01 = SQUARE((stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f);
-            // float perlin01 = (stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f;
- //           float perlin01 = 0.5f;
-            int32_t height = perlin01 * (CHUNK_SIZE_Y * 0.5f) + CHUNK_SIZE_Y * 0.5f;
+            int32_t height = perlin01 * (CHUNK_SIZE_Y * 0.5f) + CHUNK_SIZE_Y * 0.4f;
 
-            /*
-            if(rand() % 8 == 0) {
-                height += 1;
+            if(rand() % 1244 == 0) {
+                int32_t y_min = height;
+                int32_t y_max = y_min + 4;
+                if(y_max < CHUNK_SIZE_Y) {
+                    for(int32_t y = y_min; y <= y_max; ++y) {
+                        Block *block = created->get_block({ x, y, z });
+                        block->set_type(BlockType::TREE_LOG);
+                    }
+
+                    Block *l1 = created->get_block({x+1, y_max, z}); 
+                    if(l1) {
+                        l1->set_type(BlockType::TREE_LEAVES);
+                    }
+                    Block *l2 = created->get_block({x-1, y_max, z}); 
+                    if(l2) {
+                        l2->set_type(BlockType::TREE_LEAVES);
+                    }
+                    Block *l3 = created->get_block({x, y_max, z+1}); 
+                    if(l3) {
+                        l3->set_type(BlockType::TREE_LEAVES);
+                    }
+                    Block *l4 = created->get_block({x, y_max, z-1}); 
+                    if(l4) {
+                        l4->set_type(BlockType::TREE_LEAVES);
+                    }
+
+                }
             }
-            */
 
             if(lowest > height) lowest = height;
             if(highest < height) highest = height;
