@@ -20,12 +20,9 @@ public:
 
     void hotload_stuff(void);
 
-    World        &get_world(void);
-    const World  &get_world(void) const;
-    Camera       &get_camera(void);
-    const Camera &get_camera(void) const;
-    Player       &get_player(void);
-    const Player &get_player(void) const;
+    World  &get_world(void);
+    Camera &get_camera(void);
+    Player &get_player(void);
 
 private:
     Camera m_camera;

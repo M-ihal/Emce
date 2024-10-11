@@ -37,6 +37,8 @@ enum class BlockType : uint8_t {
     TREE_LEAVES,
 };
 
+class World;
+
 struct BlockInfo {
     BlockType type;
     union {
@@ -55,14 +57,13 @@ class Block {
 public:
     Block(void);
 
-    void      set_type(BlockType type);
-    BlockType get_type(void) const;
+    void set_type(BlockType type);
 
-    BlockInfo       &get_info(void);
-    const BlockInfo &get_info(void) const;
+    BlockType  get_type(void);
+    BlockInfo &get_info(void);
 
-    bool is_solid(void) const;
-    bool is_of_type(BlockType type) const;
+    bool is_solid(void);
+    bool is_of_type(BlockType type);
 
 private:
     BlockInfo m_info;
@@ -72,14 +73,13 @@ class Chunk {
 public:
     CLASS_COPY_DISABLE(Chunk);
 
-    friend class World;
+    friend World;
 
-    explicit Chunk(class World *world, const vec2i &chunk_xz);
+    explicit Chunk(World *world, vec2i chunk_xz);
     ~Chunk(void);
 
-    Block       *get_block(const vec3i &rel);
-    const Block *get_block(const vec3i &rel) const;
-    vec2i        get_coords(void) const;
+    Block *get_block(const vec3i &rel);
+    vec2i  get_coords(void);
 
     static bool is_inside_chunk(const vec3i &rel);
 

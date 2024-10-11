@@ -14,7 +14,7 @@ void Block::set_type(BlockType type) {
     m_info.type = type;
 }
 
-BlockType Block::get_type(void) const {
+BlockType Block::get_type(void) {
     return m_info.type;
 }
 
@@ -22,19 +22,15 @@ BlockInfo &Block::get_info(void) {
     return m_info;
 }
 
-const BlockInfo &Block::get_info(void) const {
-    return m_info;
-}
-
-bool Block::is_solid(void) const {
+bool Block::is_solid(void) {
     return m_info.type != BlockType::AIR;
 }
 
-bool Block::is_of_type(BlockType type) const {
+bool Block::is_of_type(BlockType type) {
     return m_info.type == type;
 }
 
-Chunk::Chunk(class World *world, const vec2i &chunk_xz) {
+Chunk::Chunk(class World *world, vec2i chunk_xz) {
     ASSERT(world);
     m_owner = world;
     m_chunk_xz = chunk_xz;
@@ -53,14 +49,7 @@ Block *Chunk::get_block(const vec3i &rel) {
     return NULL;
 }
 
-const Block *Chunk::get_block(const vec3i &rel) const {
-    if(Chunk::is_inside_chunk(rel)) {
-        return &m_blocks[rel.x][rel.y][rel.z];
-    }
-    return NULL;
-}
-
-vec2i Chunk::get_coords(void) const {
+vec2i Chunk::get_coords(void) {
     return m_chunk_xz;
 }
 
@@ -253,7 +242,7 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
 
     // @todo Chunk::get_neighbouring_block(vec2i block, BlockSide side);
     auto is_relative_block_solid = [&] (const vec3i &other_rel) -> bool {
-        const Block *other = NULL;
+        Block *other = NULL;
         if(Chunk::is_inside_chunk(other_rel)) {
             other = this->get_block(other_rel);
         } else {
@@ -277,7 +266,7 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
                 chunk_offset.y = +1;
             }
 
-            const Chunk *neighbour = m_owner->get_chunk(m_chunk_xz + chunk_offset, false);
+            Chunk *neighbour = m_owner->get_chunk(m_chunk_xz + chunk_offset, false);
             if(!neighbour) {
                 return false;
             }
@@ -314,7 +303,7 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
     };
 
     for_every_block(x, y, z) {
-        const Block *block = this->get_block({ x, y, z });
+        Block *block = this->get_block({ x, y, z });
         if(!block->is_of_type(BlockType::AIR)) {
             if(!is_relative_block_solid({ x, y, z + 1 })) {
                 push_quad(BlockSide::Z_POS, block->get_info(), x, y, z);

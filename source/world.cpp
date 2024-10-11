@@ -10,7 +10,7 @@
 #define STB_PERLIN_IMPLEMENTATION
 #include <stb_perlin.h>
 
-World::World(const Game *game) : m_chunk_table(10000) {
+World::World(Game *game) : m_chunk_table(10000) {
     m_owner = game;
     m_world_gen_seed = 2137;
     m_load_queue.clear();
@@ -27,7 +27,7 @@ void World::initialize_world(int32_t seed) {
     m_world_gen_seed = seed;
 }
 
-int32_t World::get_seed(void) const {
+int32_t World::get_seed(void) {
     return m_world_gen_seed;
 }
 
@@ -147,7 +147,7 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
     }
 }
 
-Chunk *World::get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist) {
+Chunk *World::get_chunk(vec2i chunk_xz, bool create_if_doesnt_exist) {
     Chunk **chunk = m_chunk_table.find(chunk_xz);
     if(chunk != NULL) {
         return *chunk;
@@ -160,16 +160,7 @@ Chunk *World::get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist) {
     return this->gen_chunk(chunk_xz);
 }
 
-const Chunk *World::get_chunk(const vec2i &chunk_xz) const {
-    Chunk *const *chunk = m_chunk_table.find(chunk_xz);
-    if(chunk != NULL) {
-        return *chunk;
-    } else {
-        return NULL;
-    }
-}
-
-Chunk *World::gen_chunk(const vec2i &chunk_xz) {
+Chunk *World::gen_chunk(vec2i chunk_xz) {
     if(m_chunk_table.find(chunk_xz)) {
         return NULL;
     }
@@ -189,19 +180,7 @@ Block *World::get_block(const vec3i &block) {
     return chunk->get_block(block_p.block_rel);
 }
 
-const Block *World::get_block(const vec3i &block) const {
-    WorldPosition block_p = WorldPosition::from_block(block);
-
-    const Chunk *chunk = this->get_chunk(block_p.chunk);
-    if(chunk == NULL) {
-        /* Chunk doesn't exist */
-        return NULL;
-    }
-
-    return chunk->get_block(block_p.block_rel);
-}
-
-Chunk *World::gen_chunk_really(const vec2i &chunk_xz) {
+Chunk *World::gen_chunk_really(vec2i chunk_xz) {
     ASSERT(m_chunk_table.find(chunk_xz) == NULL, "Error: Chunk already allocated!\n");
 
     Chunk *created = new Chunk(this, chunk_xz);
@@ -209,6 +188,12 @@ Chunk *World::gen_chunk_really(const vec2i &chunk_xz) {
     m_chunk_table._insert_collisions = 0;
     m_chunk_table.insert(chunk_xz, created);
     
+#if 1
+    if(m_chunk_table._insert_collisions) {
+        fprintf(stdout, "%u collisions while inserting new chunk\n", m_chunk_table._insert_collisions);
+    }
+#endif
+
     int32_t lowest  = INT32_MAX;
     int32_t highest = INT32_MIN;
 
@@ -218,6 +203,8 @@ Chunk *World::gen_chunk_really(const vec2i &chunk_xz) {
             int32_t abs_x = x + CHUNK_SIZE_X * chunk_xz.x;
             int32_t abs_z = z + CHUNK_SIZE_Z * chunk_xz.y;
             float perlin01 = SQUARE((stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f);
+            // float perlin01 = (stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f;
+ //           float perlin01 = 0.5f;
             int32_t height = perlin01 * (CHUNK_SIZE_Y * 0.5f) + CHUNK_SIZE_Y * 0.4f;
 
             if(rand() % 1244 == 0) {

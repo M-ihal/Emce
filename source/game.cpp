@@ -268,23 +268,10 @@ World &Game::get_world(void) {
     return m_world;
 }
 
-const World &Game::get_world(void) const {
-    return m_world;
-}
-
 Camera &Game::get_camera(void) {
-    return m_camera;
-}
-
-const Camera &Game::get_camera(void) const {
     return m_camera;
 }
 
 Player &Game::get_player(void) {
     return m_player;
 }
-
-const Player &Game::get_player(void) const {
-    return m_player;
-}
-

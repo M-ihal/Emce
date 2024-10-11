@@ -60,7 +60,7 @@ bool check_aabb_3d(vec3 pos_1, vec3 size_1, vec3 pos_2, vec3 size_2) {
     );
 }
 
-bool Player::check_collision_with_any_block(vec3 position, vec3 size, const World &world) {
+bool Player::check_collision_with_any_block(vec3 position, vec3 size, World &world) {
     WorldPosition min;
     WorldPosition max;
     calc_overlapping_blocks(position, size, min, max);
@@ -70,7 +70,7 @@ bool Player::check_collision_with_any_block(vec3 position, vec3 size, const Worl
             for(int32_t block_z = min.block.z; block_z <= max.block.z; ++block_z) {
                 WorldPosition block_p = WorldPosition::from_block({ block_x, block_y, block_z });
 
-                const Block *block = world.get_block(block_p.block);
+                Block *block = world.get_block(block_p.block);
                 if(block == NULL) {
                     /* Block is from chunk that doesn't exist */
                     continue;
@@ -195,7 +195,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         m_velocity.z = velocity_xz.y;
     }
 
-    auto add_move_range_to_debug = [&] (const WorldPosition &min, const WorldPosition &max) {
+    auto add_move_range_to_debug = [&] (WorldPosition &min, WorldPosition &max) {
         m_debug_min_checked_block.x = MIN(m_debug_min_checked_block.x, min.block.x);
         m_debug_min_checked_block.y = MIN(m_debug_min_checked_block.y, min.block.y);
         m_debug_min_checked_block.z = MIN(m_debug_min_checked_block.z, min.block.z);
@@ -291,7 +291,7 @@ vec3 Player::get_velocity(void) const {
     return m_velocity;
 }
 
-bool Player::check_is_grounded(const class World &world) {
+bool Player::check_is_grounded(World &world) {
     vec3 ground_collider_pos;
     vec3 ground_collider_size;
     this->get_ground_collider_info(ground_collider_pos, ground_collider_size);

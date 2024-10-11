@@ -4,6 +4,10 @@
 #include "math_types.h"
 #include "camera.h"
 
+class Input;
+class Game;
+class World;
+
 class Player {
 public:
     CLASS_COPY_DISABLE(Player);
@@ -11,9 +15,9 @@ public:
     Player(void);
     ~Player(void);
 
-    void update(class Game &game, const class Input &input, float delta_time);
+    void update(Game &game, const Input &input, float delta_time);
 
-    void debug_render(class Game &game);
+    void debug_render(Game &game);
 
     vec3 get_size(void) const;
     void set_position(const vec3 &position);
@@ -26,11 +30,11 @@ public:
     vec3 get_velocity(void) const;
 
     /* @todo Slow procedure */
-    bool check_is_grounded(const class World &world);
+    bool check_is_grounded(World &world);
     void get_ground_collider_info(vec3 &pos, vec3 &size);
 
 private:
-    bool check_collision_with_any_block(vec3 position, vec3 size, const World &world);
+    bool check_collision_with_any_block(vec3 position, vec3 size, World &world);
     
     vec3   m_velocity;
     vec3   m_position;

@@ -19,15 +19,15 @@ class World {
 public:
     CLASS_COPY_DISABLE(World);
     
-    friend class Game;
+    friend Game;
 
     /* @temp */
-    explicit World(const Game *game);
+    explicit World(Game *game);
     ~World(void);
 
     /* Resets world if exists, and sets the new seed */
     void initialize_world(int32_t seed);
-    int32_t get_seed(void) const;
+    int32_t get_seed(void);
 
     /* Deletes every chunk from the m_chunks map */
     void delete_chunks(void);
@@ -45,22 +45,20 @@ public:
     void render_chunks(const Shader &shader, const Texture &atlas);
 
     /* Get chunk or create if doesn't exist */
-    Chunk       *get_chunk(const vec2i &chunk_xz, bool create_if_doesnt_exist = false);
-    const Chunk *get_chunk(const vec2i &chunk_xz) const;
-    Chunk       *gen_chunk(const vec2i &chunk_xz);
+    Chunk *get_chunk(vec2i chunk_xz, bool create_if_doesnt_exist = false);
+    Chunk *gen_chunk(vec2i chunk_xz);
 
     /* Get block from absolute block position (not relative to a chunk) */
-    Block       *get_block(const vec3i &block);
-    const Block *get_block(const vec3i &block) const;
+    Block *get_block(const vec3i &block);
 
     /* debug @temp */
     bool _debug_render_not_fill;
 
 private:
     /* Allocates a chunk and generates terrain for given key (Queues the generation of VAO) */
-    Chunk *gen_chunk_really(const vec2i &chunk_xz);
+    Chunk *gen_chunk_really(vec2i chunk_xz);
 
-    const Game    *m_owner;
+    Game          *m_owner;
     int32_t        m_world_gen_seed;
     ChunkHashTable m_chunk_table;
 
