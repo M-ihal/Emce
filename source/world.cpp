@@ -10,7 +10,9 @@
 #define STB_PERLIN_IMPLEMENTATION
 #include <stb_perlin.h>
 
-World::World(Game *game) : m_chunk_table(10000) {
+// @todo Bug with threading process_gen_chunks or something, sometimes slows down...
+
+World::World(Game *game) : m_chunk_table(1000) {
     m_owner = game;
     m_world_gen_seed = 2137;
     m_load_queue.clear();
@@ -43,23 +45,27 @@ void World::delete_chunks(void) {
     m_load_queue.clear();
 }
 
+struct MutexTicket;
+extern MutexTicket mutex_load_queue;
+extern MutexTicket mutex_gen_queue;
+extern void begin_ticket_mutex(MutexTicket &mutex);
+extern void end_ticket_mutex(MutexTicket &mutex);
+
 void World::queue_chunk_vao_load(vec2i chunk_xz) {
+    begin_ticket_mutex(mutex_load_queue);
     m_load_queue.push_back(chunk_xz);
+    end_ticket_mutex(mutex_load_queue);
     m_should_sort_load_queue = true;
 }
 
 void World::process_load_queue(void) {
-    if(m_load_queue.empty()) {
-        return;
-    }
-
     /* Sorting by distance for now */
     auto sort_func = [&] (const vec2i &c1, const vec2i &c2) -> bool {
         WorldPosition player_chunk_pos = WorldPosition::from_real(m_owner->get_player().get_position());
         vec2i half_chunk_size = vec2i{ 16, 16 } / 2;
         vec2i rel_dist_1 = vec2i::absolute(player_chunk_pos.chunk - c1);
         vec2i rel_dist_2 = vec2i::absolute(player_chunk_pos.chunk - c2);
-        
+
         // stupid
         float dist_1 = vec2::length(vec2::make(rel_dist_1));
         float dist_2 = vec2::length(vec2::make(rel_dist_2));
@@ -67,46 +73,42 @@ void World::process_load_queue(void) {
         return dist_1 > dist_2; 
     };
 
-    if(m_should_sort_load_queue) {
-        std::sort(m_load_queue.begin(), m_load_queue.end(), sort_func);
-        m_should_sort_load_queue = false;
-    }
+    Chunk *chunk = NULL;
 
-    while(true) {
-        if(!m_load_queue.size()) {
-            return;
+    begin_ticket_mutex(mutex_load_queue);
+    if(!m_load_queue.empty()) {
+        if(m_should_sort_load_queue) {
+            std::sort(m_load_queue.begin(), m_load_queue.end(), sort_func);
+            m_should_sort_load_queue = false;
         }
 
         auto end = m_load_queue.back();
-
-        WorldPosition player_chunk_pos = WorldPosition::from_real(m_owner->get_player().get_position());
-        vec2i rel_dist = vec2i::absolute(player_chunk_pos.chunk - end);
-        float dist = vec2::length(vec2::make(rel_dist));
-        if(dist > 32.0f) {
-            m_load_queue.pop_back();
-        } else {
-            break;
-        }
+        // fprintf(stdout, "Proccessing: %d %d\n", end.x, end.y);
+        chunk = this->get_chunk(end);
+        m_load_queue.pop_back();
     }
-    
-    auto end = m_load_queue.back();
-    Chunk *chunk = this->get_chunk(end);
+    end_ticket_mutex(mutex_load_queue);
 
-    ChunkVaoGenData vao_data = chunk->gen_vao_data();
-
-    m_gen_queue.push_back(vao_data);
-    m_load_queue.pop_back();
-}
-
-void World::process_gen_queue(void) {
-    if(m_gen_queue.empty()) {
+    if(chunk == NULL) {
         return;
     }
 
-    ChunkVaoGenData &gen_data = m_gen_queue.back();
-    Chunk *chunk = this->get_chunk(gen_data.chunk);
-    chunk->gen_vao(gen_data);
-    m_gen_queue.pop_back();
+    ChunkVaoGenData vao_data = chunk->gen_vao_data();
+
+    begin_ticket_mutex(mutex_gen_queue);
+    m_gen_queue.push_back(vao_data);
+    end_ticket_mutex(mutex_gen_queue);
+}
+
+void World::process_gen_queue(void) {
+    begin_ticket_mutex(mutex_gen_queue);
+    while(m_gen_queue.size()) {
+        ChunkVaoGenData &gen_data = m_gen_queue.back();
+        Chunk *chunk = this->get_chunk(gen_data.chunk);
+        chunk->gen_vao(gen_data);
+        m_gen_queue.pop_back();
+    }
+    end_ticket_mutex(mutex_gen_queue);
 }
 
 void World::render_chunks(const Shader &shader, const Texture &atlas) {
@@ -140,15 +142,20 @@ void World::render_chunks(const Shader &shader, const Texture &atlas) {
 
     }
 
-    DebugUI::push_text_right("triangles rendered: %d", num_of_triangles);
+
+    _rendered_triangles_last_frame = num_of_triangles;
 
     if(_debug_render_not_fill) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
 }
 
+extern MutexTicket mutex_get_chunk;
+
 Chunk *World::get_chunk(vec2i chunk_xz, bool create_if_doesnt_exist) {
+    begin_ticket_mutex(mutex_get_chunk);
     Chunk **chunk = m_chunk_table.find(chunk_xz);
+    end_ticket_mutex(mutex_get_chunk);
     if(chunk != NULL) {
         return *chunk;
     }
@@ -157,15 +164,11 @@ Chunk *World::get_chunk(vec2i chunk_xz, bool create_if_doesnt_exist) {
         return NULL;
     }
 
-    return this->gen_chunk(chunk_xz);
+    return this->gen_chunk_really(chunk_xz);
 }
 
-Chunk *World::gen_chunk(vec2i chunk_xz) {
-    if(m_chunk_table.find(chunk_xz)) {
-        return NULL;
-    }
-
-    return this->gen_chunk_really(chunk_xz);
+void World::gen_chunk(vec2i chunk_xz) {
+    Chunk *ignored = this->get_chunk(chunk_xz, true);
 }
 
 Block *World::get_block(const vec3i &block) {
@@ -181,18 +184,12 @@ Block *World::get_block(const vec3i &block) {
 }
 
 Chunk *World::gen_chunk_really(vec2i chunk_xz) {
-    ASSERT(m_chunk_table.find(chunk_xz) == NULL, "Error: Chunk already allocated!\n");
-
     Chunk *created = new Chunk(this, chunk_xz);
 
+    begin_ticket_mutex(mutex_get_chunk);
     m_chunk_table._insert_collisions = 0;
     m_chunk_table.insert(chunk_xz, created);
-    
-#if 1
-    if(m_chunk_table._insert_collisions) {
-        fprintf(stdout, "%u collisions while inserting new chunk\n", m_chunk_table._insert_collisions);
-    }
-#endif
+    end_ticket_mutex(mutex_get_chunk);
 
     int32_t lowest  = INT32_MAX;
     int32_t highest = INT32_MIN;
@@ -268,23 +265,23 @@ Chunk *World::gen_chunk_really(vec2i chunk_xz) {
 vec3 real_position_from_block(const vec3i &block) {
     return {
         (float)block.x,
-        (float)block.y,
-        (float)block.z
+            (float)block.y,
+            (float)block.z
     };
 }
 
 vec3i block_position_from_real(const vec3 &real) {
     return {
         (int32_t)floorf(real.x),
-        (int32_t)floorf(real.y),
-        (int32_t)floorf(real.z),
+            (int32_t)floorf(real.y),
+            (int32_t)floorf(real.z),
     };
 }
 
 vec2i chunk_position_from_block(const vec3i &block) {
     return {
         (int32_t)floorf(float(block.x) / CHUNK_SIZE_X),
-        (int32_t)floorf(float(block.z) / CHUNK_SIZE_Z)
+            (int32_t)floorf(float(block.z) / CHUNK_SIZE_Z)
     };
 }
 

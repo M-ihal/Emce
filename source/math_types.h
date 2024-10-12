@@ -46,6 +46,7 @@ struct vec2 {
 };
 
 vec2 operator + (const vec2 &l, const vec2 &r);
+vec2 operator - (const vec2 &l, const vec2 &r);
 vec2 operator * (const vec2 &l, float r);
 vec2 &operator *= (vec2 &l, float r);
 

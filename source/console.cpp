@@ -297,7 +297,7 @@ void Console::render(int32_t window_w, int32_t window_h) {
         glEnable(GL_DEPTH_TEST);
     }
 
-    g_batcher.render(window_w, window_h, g_font);
+    g_batcher.render(window_w, window_h, g_font, { 1.0f, 1.0f, 1.0f });
 }
 
 void Console::set_open_state(bool open) {

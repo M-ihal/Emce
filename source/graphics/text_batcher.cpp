@@ -73,7 +73,7 @@ void TextBatcher::begin(void) {
     m_chars_pushed = 0;
 }
 
-void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec2i shadow_offset) {
+void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 color, vec2i shadow_offset) {
     // @todo Get rid of these somehow
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -90,15 +90,14 @@ void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec2i 
     /* Draw text shadow */
     if(shadow_offset.x != 0 || shadow_offset.y != 0) {
         g_shader.upload_vec2("u_offset", vec2::make(shadow_offset).e);
-        g_shader.upload_vec3("u_color", vec3{ 0.0f, 0.0f, 0.0f }.e);
+        g_shader.upload_vec3("u_color", vec3{ 0.1f, 0.1f, 0.1f }.e);
         GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
     }
 
     /* Draw actual text */
     g_shader.upload_vec2("u_offset", vec2{ 0.0f, 0.0f }.e);
-    g_shader.upload_vec3("u_color", vec3{ 1.0f, 1.0f, 1.0f }.e);
+    g_shader.upload_vec3("u_color", color.e);
     GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
-
 
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);

@@ -69,6 +69,10 @@ vec2 operator + (const vec2 &l, const vec2 &r) {
     return vec2{ l.x + r.x, l.y + r.y };
 }
 
+vec2 operator - (const vec2 &l, const vec2 &r) {
+    return vec2{ l.x - r.x, l.y - r.y };
+}
+
 vec2 operator * (const vec2 &l, float r) {
     return vec2{ l.x * r, l.y * r };
 }

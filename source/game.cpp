@@ -172,24 +172,6 @@ void Game::update(const Input &input, double delta_time) {
     }
 
     WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
-    const vec3 camera_direction = m_camera.calc_direction();
-    const vec2 camera_rotation = m_camera.get_rotation();
-
-    DebugUI::push_text_left(NULL);
-    DebugUI::push_text_left(" --- Camera ---");
-    DebugUI::push_text_left("fov:      %.2f", RAD_TO_DEG(m_camera.get_fov()));
-    DebugUI::push_text_left("real:     %+.2f, %+.2f, %+.2f", camera_position.real.x, camera_position.real.y, camera_position.real.z);
-    DebugUI::push_text_left("block:    %+d, %+d, %+d", camera_position.block.x, camera_position.block.y, camera_position.block.z);
-    DebugUI::push_text_left("blockrel: %+d, %+d, %+d", camera_position.block_rel.x, camera_position.block_rel.y, camera_position.block_rel.z);
-    DebugUI::push_text_left("chunk:    %+d, %+d", camera_position.chunk.x, camera_position.chunk.y);
-    DebugUI::push_text_left("direction: %.3f, %.3f, %.3f", camera_direction.x, camera_direction.y, camera_direction.z);
-    DebugUI::push_text_left("rotation H: %+.3f", RAD_TO_DEG(camera_rotation.x));
-    DebugUI::push_text_left("rotation V: %+.3f", RAD_TO_DEG(camera_rotation.y));
-
-    DebugUI::push_text_right("world seed: %d", m_world.get_seed());
-    DebugUI::push_text_right("load radius: %d", g_load_radius);
-    DebugUI::push_text_right("number of chunks: %u", m_world.m_chunk_table.get_count());
-    DebugUI::push_text_right("number of chunk buckets available: %u", m_world.m_chunk_table.get_size());
 
     for(int32_t i = 0; i < g_load_radius; ++i) {
         for(int32_t load_x = -i; load_x <= i; ++load_x) {
@@ -206,11 +188,10 @@ void Game::update(const Input &input, double delta_time) {
         }
     }
 
-    m_world.process_load_queue();
+    //m_world.process_load_queue();
     m_world.process_gen_queue();
 
-    DebugUI::push_text_right("chunk load queue: %d", m_world.m_load_queue.size());
-    DebugUI::push_text_right("chunk gen  queue: %d", m_world.m_gen_queue.size());
+    this->push_debug_ui();
 }
 
 void Game::render(const Window &window) {
@@ -274,4 +255,38 @@ Camera &Game::get_camera(void) {
 
 Player &Game::get_player(void) {
     return m_player;
+}
+
+void Game::push_debug_ui(void) {
+    const vec3 camera_direction = m_camera.calc_direction();
+    const vec3 camera_position  = m_camera.get_position();
+    const vec2 camera_rotation  = m_camera.get_rotation();
+
+    const vec3 player_position = m_player.get_position();
+    const vec3 player_velocity = m_player.get_velocity();
+
+    DebugUI::push_text_left(NULL);
+    DebugUI::push_text_left(" --- World state ---");
+    DebugUI::push_text_left("gen seed:    %d", m_world.get_seed());
+    DebugUI::push_text_left("load radius: %d", g_load_radius);
+    DebugUI::push_text_left("loaded chunks: %u", m_world.m_chunk_table.get_count());
+    DebugUI::push_text_left("chunk buckets available: %u", m_world.m_chunk_table.get_size());
+    DebugUI::push_text_left("chunk load queue: %d", m_world.m_load_queue.size());
+    DebugUI::push_text_left("chunk gen  queue: %d", m_world.m_gen_queue.size());
+    DebugUI::push_text_left("triangles rendered: %u (%.3fmln)", m_world._rendered_triangles_last_frame, (double)m_world._rendered_triangles_last_frame / 1000000.0);
+
+    DebugUI::push_text_left(NULL);
+    DebugUI::push_text_left(" --- Player ---");
+    DebugUI::push_text_left("position: %.2f, %.2f, %.2f", player_position.x, player_position.y, player_position.z);
+    DebugUI::push_text_left("velocity: %.2f, %.2f, %.2f", player_velocity.x, player_velocity.y, player_velocity.z);
+    DebugUI::push_text_left("xz speed: %.3f", vec2::length(player_velocity.get_xz()));
+    DebugUI::push_text_left("is_grounded: %s", BOOL_STR(m_player.check_is_grounded(m_world)));
+
+    DebugUI::push_text_left(NULL);
+    DebugUI::push_text_left(" --- Camera ---");
+    DebugUI::push_text_left("fov:      %.2f", RAD_TO_DEG(m_camera.get_fov()));
+    DebugUI::push_text_left("real:     %+.2f, %+.2f, %+.2f", camera_position.x, camera_position.y, camera_position.z);
+    DebugUI::push_text_left("direction: %.3f, %.3f, %.3f", camera_direction.x, camera_direction.y, camera_direction.z);
+    DebugUI::push_text_left("rotation H: %+.3f", RAD_TO_DEG(camera_rotation.x));
+    DebugUI::push_text_left("rotation V: %+.3f", RAD_TO_DEG(camera_rotation.y));
 }

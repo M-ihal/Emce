@@ -25,6 +25,8 @@ public:
     Player &get_player(void);
 
 private:
+    void push_debug_ui(void);
+
     Camera m_camera;
     World  m_world;
     Player m_player;

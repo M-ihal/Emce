@@ -40,13 +40,41 @@ namespace {
 int32_t calc_average_fps(double delta_time);
 void render_random_thing_at_origin(const Camera &camera, float aspect);
 
+// All specific windows stuff temporary
+
 #include <windows.h>
+
+struct MutexTicket {
+    int64_t volatile ticket;
+    int64_t volatile serving;
+};
+
+void begin_ticket_mutex(MutexTicket &mutex) {
+    int64_t ticket = _InterlockedExchangeAdd64((__int64 volatile *)&mutex.ticket, 1);
+    while(ticket != mutex.serving);
+}
+
+void end_ticket_mutex(MutexTicket &mutex) {
+    _InterlockedExchangeAdd64((__int64 volatile *)&mutex.serving, 1);
+}
+
+MutexTicket mutex_load_queue = { };
+MutexTicket mutex_gen_queue  = { };
+MutexTicket mutex_get_chunk  = { };
+
+/*
+extern MutexTicket mutex_load_queue;
+extern MutexTicket mutex_gen_queue;
+extern void begin_ticket_mutex(MutexTicket &mutex);
+extern void end_ticket_mutex(MutexTicket &mutex);
+*/
+
 
 DWORD WINAPI chunk_gen_thread(void *param) {
     Game *game = (Game *)param;
-    Sleep(100);
     for(;;) {
-        Sleep(5);
+        game->get_world().get_chunk({ 1, 1 });
+
         game->get_world().process_load_queue();
     }
     return 0;
@@ -162,10 +190,16 @@ int SDL_main(int argc, char *argv[]) {
     double elapsed_time = 0.0;
     double delta_time   = 0.0;
 
-#if 0
+#if 1
     DWORD thread_id;
     HANDLE thread = CreateThread(0, 0, chunk_gen_thread, &game, 0, &thread_id);
     CloseHandle(thread);
+
+    DWORD thread_id2;
+    HANDLE thread2 = CreateThread(0, 0, chunk_gen_thread, &game, 0, &thread_id2);
+    CloseHandle(thread2);
+
+
 #endif
 
     while(window.get_should_close()) {
@@ -177,6 +211,7 @@ int SDL_main(int argc, char *argv[]) {
             time_now = SDL_GetPerformanceCounter();
             const double delta = time_now - time_last;
             delta_time = delta / time_freq;
+            clamp_max_v(delta_time, 1.0 / 30.0);
 #if 0
             if(input.key_is_down(Key::LEFT_CTRL)) {
                 delta_time *= 0.1;

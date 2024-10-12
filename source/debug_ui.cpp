@@ -26,7 +26,6 @@ void DebugUI::initialize(void) {
     g_initialized = true;
 
     const char *font_filepath = "C://dev//emce//data//CascadiaMono.ttf";
-    // const char *font_filepath = "C://dev//emce//data//minecraftia-regular.ttf";
 
     g_font.load_from_file(font_filepath, 16);
     g_font.get_atlas().set_filter_min(TextureFilter::NEAREST);
@@ -85,5 +84,7 @@ void DebugUI::push_text_right(const char *format, ...) {
 }
 
 void DebugUI::render(void) {
-    g_batcher.render(g_window_w, g_window_h, g_font, vec2i{ 3, -3 });
+    const vec3  color = { 0.9f, 0.9f, 0.875f };
+    const vec2i shadow_offset = { 2, -2 };
+    g_batcher.render(g_window_w, g_window_h, g_font, color, shadow_offset);
 }

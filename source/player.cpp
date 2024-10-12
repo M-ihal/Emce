@@ -239,11 +239,6 @@ void Player::update(Game &game, const Input &input, float delta_time) {
 
     add_move_range_to_debug(min, max);
 
-    DebugUI::push_text_left(" --- Player ---");
-    DebugUI::push_text_left("position: %.2f, %.2f, %.2f", m_position.x, m_position.y, m_position.z);
-    DebugUI::push_text_left("velocity: %.2f, %.2f, %.2f", m_velocity.x, m_velocity.y, m_velocity.z);
-    DebugUI::push_text_left("xz speed: %.3f", vec2::length(m_velocity.get_xz()));
-    DebugUI::push_text_left("is_grounded: %s", BOOL_STR(this->check_is_grounded(world)));
 
     m_camera.set_position(this->get_position_head());
 }

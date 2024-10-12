@@ -17,7 +17,8 @@ struct Color {
             float b;
             float a;
         };
-        vec4  v;
+        vec3 rgb;
+        vec4 rgba;
         float e[4];
     };
 
