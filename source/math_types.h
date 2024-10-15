@@ -108,7 +108,6 @@ vec3 &operator -= (vec3 &l, const vec3 &r);
 vec3 &operator *= (vec3 &l, const vec3 &r);
 vec3 &operator *= (vec3 &l, const float &r);
 
-
 struct vec3i {
     union {
         struct {
@@ -121,6 +120,9 @@ struct vec3i {
 
     static vec3i make(const vec3 &v);
 };
+
+vec3i operator + (const vec3i &l, const vec3i r);
+vec3i operator - (const vec3i &l, const vec3i r);
 
 struct vec4 {
     union {

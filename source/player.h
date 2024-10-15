@@ -19,23 +19,27 @@ public:
 
     void debug_render(Game &game);
 
+
     vec3 get_size(void) const;
     void set_position(const vec3 &position);
     vec3 get_position(void) const;
     vec3 get_position_center(void) const;
     vec3 get_position_head(void) const;
-    Camera       &get_head_camera(void);
-    const Camera &get_head_camera(void) const;
+    Camera &get_head_camera(void);
 
+    bool is_grounded(void) const;
     vec3 get_velocity(void) const;
-
-    /* @todo Slow procedure */
-    bool check_is_grounded(World &world);
     void get_ground_collider_info(vec3 &pos, vec3 &size);
 
 private:
-    bool check_collision_with_any_block(vec3 position, vec3 size, World &world);
+    bool check_if_collides_with_any_block(World &world, vec3 position, vec3 size);
+
+    void move_in_xz(World &world, float delta_time);
+
+    void move_in_y(World &world, float delta_time);
     
+ 
+    bool   m_is_grounded;
     vec3   m_velocity;
     vec3   m_position;
     bool   m_is_sprinting;

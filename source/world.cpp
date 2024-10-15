@@ -12,7 +12,7 @@
 
 // @todo Bug with threading process_gen_chunks or something, sometimes slows down...
 
-World::World(Game *game) : m_chunk_table(1000) {
+World::World(Game *game) : m_chunk_table(3000) {
     m_owner = game;
     m_world_gen_seed = 2137;
     m_load_queue.clear();
@@ -204,6 +204,12 @@ Chunk *World::gen_chunk_really(vec2i chunk_xz) {
  //           float perlin01 = 0.5f;
             int32_t height = perlin01 * (CHUNK_SIZE_Y * 0.5f) + CHUNK_SIZE_Y * 0.4f;
 
+            // height = block_position_from_real({ 0.0f, 152.0f, 0.0f }).y - 3;
+
+            if(rand() % 100 == 0) {
+                height += 1;
+            }
+
             if(rand() % 1244 == 0) {
                 int32_t y_min = height;
                 int32_t y_max = y_min + 4;
@@ -256,6 +262,7 @@ Chunk *World::gen_chunk_really(vec2i chunk_xz) {
             }
         }
     }
+
 
     this->queue_chunk_vao_load(chunk_xz);
 

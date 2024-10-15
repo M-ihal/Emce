@@ -84,8 +84,8 @@ vec2 &operator *= (vec2 &l, float r) {
 
 
 /*
-    --- vec2i ---
-*/
+   --- vec2i ---
+   */
 
 vec2i vec2i::zero(void) {
     return vec2i{ 0, 0 };
@@ -101,6 +101,7 @@ vec2i operator + (const vec2i &l, const vec2i &r) {
 
 vec2i operator - (const vec2i &l, const vec2i &r) {
     return vec2i{ l.x - r.x, l.y - r.y };
+
 }
 
 vec2i operator / (const vec2i &l, int32_t r) {
@@ -220,6 +221,14 @@ vec3 &operator *= (vec3 &l, const float &r) {
 
 vec3i vec3i::make(const vec3 &v) {
     return vec3i{ int32_t(v.x), int32_t(v.y), int32_t(v.z) };
+}
+
+vec3i operator + (const vec3i &l, const vec3i r) {
+    return vec3i{ l.x + r.x, l.y + r.y, l.z + r.z };
+}
+
+vec3i operator - (const vec3i &l, const vec3i r) {
+    return vec3i{ l.x - r.x, l.y - r.y, l.z - r.z };
 }
 
 /*

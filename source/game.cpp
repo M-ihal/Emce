@@ -7,7 +7,7 @@
 #include <glew.h>
 
 namespace {
-    static int32_t g_load_radius = 32;
+    static int32_t g_load_radius = 8;
     static float   g_third_person_distance = 10.0f;
 
     static bool g_debug_show_chunk_borders  = false;
@@ -136,6 +136,34 @@ Game::Game(void) : m_world(this) {
             game.get_player().get_head_camera().set_fov(DEG_TO_RAD(fov));
         }
     });
+
+    Console::register_command({
+        .command = "spawnstuff",
+        .proc = CONSOLE_COMMAND_LAMBDA {
+            World &world = game.get_world();
+
+            ChunkHashTable::Iterator iter = {};
+            while(world.m_chunk_table.iterate_all(iter)) {
+                for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
+                    for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
+                        for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
+                            Block *block = (*iter.value)->get_block({ x, y, z });
+                            if(rand() % 100 == 0) {
+                                block->set_type(BlockType::COBBLESTONE);
+                            }
+                        }
+                    }
+                }
+                world.m_load_queue.push_back(iter.key);
+                
+                // @todo
+                // (*iter.value)->queue_rebuild_vao();
+            }
+        }
+    });
+
+
+
 }
 
 Game::~Game(void) {
@@ -207,7 +235,7 @@ void Game::render(const Window &window) {
         SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 1.0f / 32.0f, collider_color);
 
         /* Ground check collider */
-        const Color ground_collider_color = m_player.check_is_grounded(m_world) ? Color{ 0.0f, 1.0f, 0.0f, 1.0f } : Color{ 1.0f, 0.0f, 0.0f, 1.0f };
+        const Color ground_collider_color = m_player.is_grounded() ? Color{ 0.0f, 1.0f, 0.0f, 1.0f } : Color{ 1.0f, 0.0f, 0.0f, 1.0f };
         vec3 ground_collider_pos;
         vec3 ground_collider_size;
         m_player.get_ground_collider_info(ground_collider_pos, ground_collider_size);
@@ -280,7 +308,7 @@ void Game::push_debug_ui(void) {
     DebugUI::push_text_left("position: %.2f, %.2f, %.2f", player_position.x, player_position.y, player_position.z);
     DebugUI::push_text_left("velocity: %.2f, %.2f, %.2f", player_velocity.x, player_velocity.y, player_velocity.z);
     DebugUI::push_text_left("xz speed: %.3f", vec2::length(player_velocity.get_xz()));
-    DebugUI::push_text_left("is_grounded: %s", BOOL_STR(m_player.check_is_grounded(m_world)));
+    DebugUI::push_text_left("is_grounded: %s", BOOL_STR(m_player.is_grounded()));
 
     DebugUI::push_text_left(NULL);
     DebugUI::push_text_left(" --- Camera ---");

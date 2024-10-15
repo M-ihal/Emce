@@ -7,7 +7,7 @@ Camera::Camera(void) {
     m_rotation = { 0.0f, 0.0f };
     m_plane_near = 0.1f;
     m_plane_far = 2000.0f;
-    m_field_of_view = DEG_TO_RAD(55.0f); 
+    m_field_of_view = DEG_TO_RAD(70.0f); 
     m_up_vector = { 0.0f, 1.0f, 0.0f };
 }
 

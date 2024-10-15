@@ -37,6 +37,15 @@ enum class BlockType : uint8_t {
     TREE_LEAVES,
 };
 
+inline const char *block_type_string[] = {
+    "Air",
+    "Sand",
+    "Dirt",
+    "Cobblestone",
+    "Tree log",
+    "Tree leaves"
+};
+
 class World;
 
 struct BlockInfo {
