@@ -7,6 +7,8 @@
 
 namespace {
     bool        g_initialized = false;
+    ShaderFile  g_triangle_shader;
+    VertexArray g_triangle_vao;
     ShaderFile  g_cube_outline_shader;
     VertexArray g_cube_outline_vao;
     ShaderFile  g_line_shader;
@@ -19,8 +21,29 @@ void SimpleDraw::initialize(void) {
     ASSERT(!g_initialized, "SimpleDraw already initialized.\n");
     g_initialized = true;
 
+    g_triangle_shader.set_filepath_and_load("C://dev//emce//source//shaders//sd_triangle.glsl");
     g_cube_outline_shader.set_filepath_and_load("C://dev//emce//source//shaders//sd_outline_cube.glsl");
     g_line_shader.set_filepath_and_load("C://dev//emce//source//shaders//sd_line.glsl");
+
+    /* Triangle w/ placeholder data */ {
+        const float vertices[] = {
+            0.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 1.0f, 0.0f
+        };
+
+        const uint32_t indices[] = {
+            0, 1, 2
+        };
+
+        BufferLayout layout;
+        layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
+
+        g_triangle_vao.create_vao(layout, ArrayBufferUsage::DYNAMIC);
+        g_triangle_vao.set_vbo_data(vertices, sizeof(float) * ARRAY_COUNT(vertices));
+        g_triangle_vao.set_ibo_data(indices, ARRAY_COUNT(indices));
+        g_triangle_vao.apply_vao_attributes();
+    }
 
     /* Cube outline */ {
         const float vertices[] = {
@@ -83,6 +106,8 @@ void SimpleDraw::destroy(void) {
     ASSERT(g_initialized, "SimpleDraw was not initialized\n");
     g_initialized = false;
 
+    g_triangle_shader.delete_shader_file();
+    g_triangle_vao.delete_vao();
     g_cube_outline_shader.delete_shader_file();
     g_cube_outline_vao.delete_vao();
     g_line_shader.delete_shader_file();
@@ -90,6 +115,7 @@ void SimpleDraw::destroy(void) {
 }
 
 void SimpleDraw::hotload_shader(void) {
+    g_triangle_shader.hotload();
     g_cube_outline_shader.hotload();
     g_line_shader.hotload();
 }
@@ -97,6 +123,27 @@ void SimpleDraw::hotload_shader(void) {
 void SimpleDraw::set_camera(const Camera &camera, float aspect_ratio) {
     g_set_aspect = aspect_ratio;
     g_set_camera = camera;
+}
+
+void SimpleDraw::draw_triangle(const vec3 &tri_a, const vec3 &tri_b, const vec3 &tri_c, const vec4 &color) {
+    mat4 view = g_set_camera.calc_view();
+    mat4 proj = g_set_camera.calc_proj(g_set_aspect);
+
+    g_triangle_shader.use_program();
+    g_triangle_shader.upload_mat4("u_view", view.e);
+    g_triangle_shader.upload_mat4("u_proj", proj.e);
+    g_triangle_shader.upload_vec4("u_color", (float *)color.e);
+
+    float vertices[] = {
+        tri_a.x, tri_a.y, tri_a.z,
+        tri_b.x, tri_b.y, tri_b.z,
+        tri_c.x, tri_c.y, tri_c.z,
+    };
+
+    g_triangle_vao.bind_vao();
+    g_triangle_vao.upload_vbo_data(vertices, ARRAY_COUNT(vertices) * sizeof(float), 0);
+
+    GL_CHECK(glDrawElements(GL_TRIANGLES, g_triangle_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
 }
 
 void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float width, const Color &color) {

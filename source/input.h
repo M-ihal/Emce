@@ -42,7 +42,8 @@ enum class Key : int32_t {
 
 /* All defined mouse buttons */
 #define INPUT_DEFINED_BUTTONS\
-    DEFINE_BUTTON(LEFT, SDL_BUTTON_LEFT)
+    DEFINE_BUTTON(LEFT, SDL_BUTTON_LEFT)\
+    DEFINE_BUTTON(RIGHT, SDL_BUTTON_RIGHT)\
 
 /* Enum of mouse buttons */
 #define DEFINE_BUTTON(name, sdlb) name,

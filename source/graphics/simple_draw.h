@@ -53,6 +53,7 @@ namespace SimpleDraw {
     void destroy(void);
     void hotload_shader(void);
     void set_camera(const Camera &camera, float aspect_ratio);
+    void draw_triangle(const vec3 &tri_a, const vec3 &tri_b, const vec3 &tri_c, const vec4 &color);
     void draw_cube_outline(const vec3 &position, const vec3 &size, float width, const Color &color);
     void draw_line(const vec3 &point_a, const vec3 &point_b, float width, const Color &color);
 }

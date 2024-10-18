@@ -89,6 +89,7 @@ const char *const Input::get_text_input(void) const {
 
 void Input::prepare_to_catch_input(void) {
     for(int32_t key_index = 0; key_index < (int32_t)Key::_COUNT; ++key_index) { m_key_state[key_index] &= ~(PRESSED | RELEASED | REPEAT); }
+    for(int32_t btn_index = 0; btn_index < (int32_t)Button::_COUNT; ++btn_index) { m_button_state[btn_index] &= ~(PRESSED | RELEASED); }
 
     m_mouse_rel_x = 0;
     m_mouse_rel_y = 0;

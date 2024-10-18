@@ -97,5 +97,7 @@ struct WorldPosition {
 vec3  real_position_from_block(const vec3i &block);
 vec3i block_position_from_real(const vec3 &real);
 vec2i chunk_position_from_block(const vec3i &block);
+vec3i block_origin_from_chunk(const vec2i &chunk);
 vec3i block_relative_from_block(const vec3i &block);
+vec3i block_position_from_relative(const vec3i &block_rel, const vec2i &chunk);
 void  calc_overlapping_blocks(vec3 pos, vec3 size, WorldPosition &min, WorldPosition &max);

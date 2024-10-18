@@ -35,6 +35,8 @@ namespace {
 
     @todo @maybe Make every constructor end destructor explicit?
     @todo Make window global?
+
+    @todo SLEEP THREADS!!
 */
 
 int32_t calc_average_fps(double delta_time);
@@ -83,7 +85,6 @@ DWORD WINAPI chunk_gen_thread(void *param) {
 int SDL_main(int argc, char *argv[]) {
     /* init std randomizer */
     srand(time(NULL));
-
 
     const bool sdl_success = SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) == 0;
     if(!sdl_success) {
@@ -191,15 +192,12 @@ int SDL_main(int argc, char *argv[]) {
     double delta_time   = 0.0;
 
 #if 1
-    DWORD thread_id;
-    HANDLE thread = CreateThread(0, 0, chunk_gen_thread, &game, 0, &thread_id);
-    CloseHandle(thread);
-
-    DWORD thread_id2;
-    HANDLE thread2 = CreateThread(0, 0, chunk_gen_thread, &game, 0, &thread_id2);
-    CloseHandle(thread2);
-
-
+    const uint32_t chunk_thread_count = 1;
+    DWORD thread_ids[chunk_thread_count] = { };
+    for(uint32_t index = 0; index < chunk_thread_count; ++index) {
+        HANDLE thread = CreateThread(0, 0, chunk_gen_thread, &game, 0, thread_ids + index);
+        CloseHandle(thread);
+    }
 #endif
 
     while(window.get_should_close()) {

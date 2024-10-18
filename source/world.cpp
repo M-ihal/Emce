@@ -280,15 +280,15 @@ vec3 real_position_from_block(const vec3i &block) {
 vec3i block_position_from_real(const vec3 &real) {
     return {
         (int32_t)floorf(real.x),
-            (int32_t)floorf(real.y),
-            (int32_t)floorf(real.z),
+        (int32_t)floorf(real.y),
+        (int32_t)floorf(real.z),
     };
 }
 
 vec2i chunk_position_from_block(const vec3i &block) {
     return {
         (int32_t)floorf(float(block.x) / CHUNK_SIZE_X),
-            (int32_t)floorf(float(block.z) / CHUNK_SIZE_Z)
+        (int32_t)floorf(float(block.z) / CHUNK_SIZE_Z)
     };
 }
 
@@ -297,6 +297,15 @@ vec3i block_relative_from_block(const vec3i &block) {
         .x = block.x >= 0 ? block.x % CHUNK_SIZE_X : (block.x + 1) % CHUNK_SIZE_X + CHUNK_SIZE_X - 1,
         .y = block.y,
         .z = block.z >= 0 ? block.z % CHUNK_SIZE_Z : (block.z + 1) % CHUNK_SIZE_Z + CHUNK_SIZE_Z - 1,
+    };
+}
+
+// @todo
+vec3i block_position_from_relative(const vec3i &block_rel, const vec2i &chunk) {
+    return vec3i{
+        .x = chunk.x >= 0 ? chunk.x * CHUNK_SIZE_X + block_rel.x : chunk.x * CHUNK_SIZE_X + block_rel.x,
+        .y = block_rel.y,
+        .z = chunk.y >= 0 ? chunk.y * CHUNK_SIZE_Z + block_rel.z : chunk.y * CHUNK_SIZE_Z + block_rel.z,
     };
 }
 
