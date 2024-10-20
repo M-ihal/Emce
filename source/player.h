@@ -19,7 +19,6 @@ public:
 
     void debug_render(Game &game);
 
-
     vec3 get_size(void) const;
     void set_position(const vec3 &position);
     vec3 get_position(void) const;

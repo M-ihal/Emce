@@ -15,16 +15,6 @@ namespace {
     static bool g_debug_third_person_camera = true;
 }
 
-struct RaycastBlockResult {
-    bool found;
-    vec3 normal;
-    vec3 intersection;
-    float distance;
-    WorldPosition block_p;
-};
-
-RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec3 &ray_end);
-
 static void test_generate_world(World &world, int32_t size_half_x, int32_t size_half_z, int32_t seed) {
     world.initialize_world(seed);
 
@@ -48,17 +38,6 @@ Game::Game(void) : m_world(this) {
     m_block_atlas.set_filter_min(TextureFilter::NEAREST);
     m_block_atlas.set_filter_mag(TextureFilter::NEAREST);
 
-    Console::register_command({
-        .command = "p",
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            if(args.size()) {
-                Console::add_to_history("> not implemented");
-            } else {
-                game.get_player().set_position(init_player_pos);
-            }
-        }
-    });
-
     m_player.set_position(init_player_pos);
     m_camera.set_position(m_player.get_position());
     m_camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
@@ -66,37 +45,17 @@ Game::Game(void) : m_world(this) {
     int32_t seed = 14; // rand() % RAND_MAX
     test_generate_world(m_world, 2, 2, seed);
 
-    Console::register_command({
-        .command = "generate",
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            if(args.size() < 3) {
-                Console::add_to_history("> missing arguments");
-                return;
-            }
-            int32_t half_x = std::stoi(args[0]);
-            int32_t half_y = std::stoi(args[1]);
-            int32_t seed = std::stoi(args[2]);
-            half_x = clamp(half_x, 0, 100);
-            half_y = clamp(half_y, 0, 100);
-            test_generate_world(game.get_world(), half_x, half_y, seed);
-        }
-    });
-
-    Console::register_command({
-        .command = "reset_world",
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            const int32_t seed = args.size() > 0 ? std::stoi(args[0]) : game.get_world().get_seed();
+    Console::set_command("reset_world", { CONSOLE_COMMAND_LAMBDA {
+            const int32_t seed = args.size() > 0 ? std::stoi(s_viu_to_std_string(args[0])) : game.get_world().get_seed();
             game.get_world().initialize_world(seed);
         }
     });
 
-    Console::register_command({
-        .command = "setrad",
-        .proc = CONSOLE_COMMAND_LAMBDA {
+    Console::set_command("load_radius", { CONSOLE_COMMAND_LAMBDA {
             if(args.size() != 1) {
                 return;
             }
-            int32_t radius = std::stoi(args[0]);
+            int32_t radius = std::stoi(s_viu_to_std_string(args[0]));
             if(radius) {
                 g_load_radius = radius;
                 char buffer[32];
@@ -106,9 +65,7 @@ Game::Game(void) : m_world(this) {
         }
     });
 
-    Console::register_command({
-        .command = "debug_toggle",
-        .proc = CONSOLE_COMMAND_LAMBDA {
+    Console::set_command("toggle", { CONSOLE_COMMAND_LAMBDA {
             if(args.size() < 1) {
                 Console::add_to_history("> Missing argument/s");
                 return;
@@ -135,21 +92,17 @@ Game::Game(void) : m_world(this) {
         }
     });
 
-    Console::register_command({
-        .command = "fov",
-        .proc = CONSOLE_COMMAND_LAMBDA {
+    Console::set_command("set_fov", { CONSOLE_COMMAND_LAMBDA {
             if(args.size() < 1) {
                 Console::add_to_history("> missing argument");
                 return;
             }
-            float fov = std::stof(args[0]);
+            float fov = std::stof(s_viu_to_std_string(args[0]));
             game.get_player().get_head_camera().set_fov(DEG_TO_RAD(fov));
         }
     });
 
-    Console::register_command({
-        .command = "spawnstuff",
-        .proc = CONSOLE_COMMAND_LAMBDA {
+    Console::set_command("spawn_cobble", { CONSOLE_COMMAND_LAMBDA {
             World &world = game.get_world();
 
             ChunkHashTable::Iterator iter = {};
@@ -180,17 +133,25 @@ Game::~Game(void) {
 }
 
 void Game::update(const Input &input, double delta_time) {
-    const vec2i last_player_chunk = WorldPosition::from_real(m_player.get_position()).chunk;
-    m_player.update(*this, input, delta_time);
-
-    if(last_player_chunk != WorldPosition::from_real(m_player.get_position()).chunk) {
-        m_world.m_should_sort_load_queue = true;
+    /* Gen new chunks */ {
+        WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
+        for(int32_t i = 0; i < g_load_radius; ++i) {
+            for(int32_t load_x = -i; load_x <= i; ++load_x) {
+                vec2i load_xz = camera_position.chunk + vec2i{ load_x, i };
+                m_world.gen_chunk(load_xz);
+                load_xz = camera_position.chunk + vec2i{ load_x, -i };
+                m_world.gen_chunk(load_xz);
+            }
+            for(int32_t load_z = -i + 1; load_z <= (i - 1); ++load_z) {
+                vec2i load_xz = camera_position.chunk + vec2i{ i, load_z };
+                m_world.gen_chunk(load_xz);
+                load_xz = camera_position.chunk + vec2i{ -i, load_z };
+                m_world.gen_chunk(load_xz);
+            }
+        }
     }
 
-    m_camera = m_player.get_head_camera();
-
     if(!Console::is_open()) {
-
         if(input.key_pressed(Key::F05)) {
             BOOL_TOGGLE(g_debug_third_person_camera);
         }
@@ -201,245 +162,26 @@ void Game::update(const Input &input, double delta_time) {
         }
     }
 
+    const vec2i last_player_chunk = WorldPosition::from_real(m_player.get_position()).chunk;
+
+    m_player.update(*this, input, delta_time);
+    m_camera = m_player.get_head_camera();
+
     if(g_debug_third_person_camera) {
         vec3 dir = m_camera.calc_direction();
         m_camera.set_position(m_camera.get_position() - dir * g_third_person_distance);
     }
 
-    WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
-
-    for(int32_t i = 0; i < g_load_radius; ++i) {
-        for(int32_t load_x = -i; load_x <= i; ++load_x) {
-            vec2i load_xz = camera_position.chunk + vec2i{ load_x, i };
-            m_world.gen_chunk(load_xz);
-            load_xz = camera_position.chunk + vec2i{ load_x, -i };
-            m_world.gen_chunk(load_xz);
-        }
-        for(int32_t load_z = -i + 1; load_z <= (i - 1); ++load_z) {
-            vec2i load_xz = camera_position.chunk + vec2i{ i, load_z };
-            m_world.gen_chunk(load_xz);
-            load_xz = camera_position.chunk + vec2i{ -i, load_z };
-            m_world.gen_chunk(load_xz);
-        }
+    if(last_player_chunk != WorldPosition::from_real(m_player.get_position()).chunk) {
+        m_world.m_should_sort_load_queue = true;
     }
 
-    //m_world.process_load_queue();
+    /* Upload generated chunk mesh data */
     m_world.process_gen_queue();
-
-    // can_place_block_at();
-
-    const Camera head_camera = m_player.get_head_camera();
-    const vec3 ray_origin = head_camera.get_position();
-    const vec3 ray_end    = ray_origin + head_camera.calc_direction() * 8.0f;
-    RaycastBlockResult raycast_result = raycast_block(m_world, ray_origin, ray_end);
-    if(raycast_result.found && input.button_pressed(Button::RIGHT)) {
-        WorldPosition target = WorldPosition::from_block(raycast_result.block_p.block + vec3i::make(raycast_result.normal));
-        Chunk *chunk = m_world.get_chunk(target.chunk);
-        if(chunk) {
-            Block *block = chunk->get_block(target.block_rel);
-            if(block) {
-                block->set_type(BlockType::COBBLESTONE);
-                m_world.m_load_queue.push_back(chunk->get_coords());
-            }
-        }
-    }
 
     this->push_debug_ui();
 }
 
-// https://www.youtube.com/watch?v=fIu_8b2n8ZM
-bool ray_plane_intersection(const vec3 &ray_origin, const vec3 &ray_end, const vec3 &plane_p, const vec3 &plane_normal, float &out_k, vec3 &out_p) {
-    const vec3  v = ray_end - ray_origin;
-    const vec3  w = plane_p - ray_origin;
-    const float k = vec3::dot(w, plane_normal) / vec3::dot(v, plane_normal);
-    const vec3  p = ray_origin + v * k;
-
-    if(k < 0.0f || k > 1.0f) {
-        return false;
-    }
-
-    out_k = k;
-    out_p = p;
-    return true;
-}
-
-// https://www.youtube.com/watch?v=EZXz-uPyCyA
-bool ray_triangle_intersection(const vec3 &ray_origin, const vec3 &ray_end, const vec3 &tri_a, const vec3 &tri_b, const vec3 &tri_c, float &out_k, vec3 &out_p) {
-    vec3 plane_normal = vec3::cross(tri_b - tri_a, tri_c - tri_a);
-
-    float k;
-    vec3  p;
-    if(!ray_plane_intersection(ray_origin, ray_end, tri_a, plane_normal, k, p)) {
-        return false;
-    }
-
-    /* Check a */ {
-        const vec3 cb = tri_b - tri_c;
-        const vec3 ab = tri_b - tri_a;
-        const vec3 ap = p - tri_a;
-
-        vec3  v = ab - cb * (vec3::dot(cb, ab) / vec3::dot(cb, cb));
-        float a = 1.0f - vec3::dot(v, ap) / vec3::dot(v, ab);
-
-        if(a < 0.0f || a > 1.0f) {
-            return false;
-        }
-    }
-
-    /* Check b */ {
-        const vec3 bc = tri_c - tri_b;
-        const vec3 ac = tri_c - tri_a;
-        const vec3 bp = p - tri_b;
-
-        vec3  v = bc - ac * (vec3::dot(ac, bc) / vec3::dot(ac, ac));
-        float b = 1.0f - vec3::dot(v, bp) / vec3::dot(v, bc);
-
-        if(b < 0.0f || b > 1.0f) {
-            return false;
-        }
-    }
-
-    /* Check c */ {
-        const vec3 ca = tri_a - tri_c;
-        const vec3 ba = tri_a - tri_b;
-        const vec3 cp = p - tri_c;
-
-        vec3  v = ca - ba * (vec3::dot(ba, ca) / vec3::dot(ba, ba));
-        float c = 1.0f - vec3::dot(v, cp) / vec3::dot(v, ca);
-
-        if(c < 0.0f || c > 1.0f) {
-            return false;
-        }
-    }
-
-    out_k = k;
-    out_p = p;
-    return true;
-}
-
-
-struct CheckSide {
-    vec3 normal;
-    vec3 off_a;
-    vec3 off_b;
-    vec3 off_c;
-    vec3 off_d;
-};
-
-constexpr static CheckSide sides[6] = {
-    /* Y pos */ {
-        .normal = { 0.0f, 1.0f, 0.0f },
-        .off_a = vec3{ 0.0f, 1.0f, 0.0f },
-        .off_b = vec3{ 1.0f, 1.0f, 0.0f },
-        .off_c = vec3{ 1.0f, 1.0f, 1.0f },
-        .off_d = vec3{ 0.0f, 1.0f, 1.0f },
-    },
-    /* Y neg */ {
-        .normal = { 0.0f, -1.0f, 0.0f },
-        .off_a = vec3{ 0.0f, 0.0f, 0.0f },
-        .off_b = vec3{ 1.0f, 0.0f, 0.0f },
-        .off_c = vec3{ 1.0f, 0.0f, 1.0f },
-        .off_d = vec3{ 0.0f, 0.0f, 1.0f },
-    },
-    /* X neg */ {
-        .normal = { -1.0f, 0.0f, 0.0f },
-        .off_a = vec3{ 0.0f, 0.0f, 1.0f },
-        .off_b = vec3{ 0.0f, 0.0f, 0.0f },
-        .off_c = vec3{ 0.0f, 1.0f, 0.0f },
-        .off_d = vec3{ 0.0f, 1.0f, 1.0f },
-    },
-    /* X pos */ {
-        .normal = { 1.0f, 0.0f, 0.0f },
-        .off_a = vec3{ 1.0f, 0.0f, 1.0f },
-        .off_b = vec3{ 1.0f, 0.0f, 0.0f },
-        .off_c = vec3{ 1.0f, 1.0f, 0.0f },
-        .off_d = vec3{ 1.0f, 1.0f, 1.0f },
-    },
-    /* Z neg */ {
-        .normal = { 0.0f, 0.0f, -1.0f },
-        .off_a = vec3{ 0.0f, 0.0f, 0.0f },
-        .off_b = vec3{ 1.0f, 0.0f, 0.0f },
-        .off_c = vec3{ 1.0f, 1.0f, 0.0f },
-        .off_d = vec3{ 0.0f, 1.0f, 0.0f },
-    },
-    /* Z pos */ {
-        .normal = { 0.0f, 0.0f, 1.0f },
-        .off_a = vec3{ 0.0f, 0.0f, 1.0f },
-        .off_b = vec3{ 1.0f, 0.0f, 1.0f },
-        .off_c = vec3{ 1.0f, 1.0f, 1.0f },
-        .off_d = vec3{ 0.0f, 1.0f, 1.0f },
-    },
-};
-
-
-RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec3 &ray_end) {
-    RaycastBlockResult result;
-    result.found = false;
-    result.distance = FLT_MAX;
-
-    WorldPosition ray_origin_p = WorldPosition::from_real(ray_origin);
-    WorldPosition ray_end_p = WorldPosition::from_real(ray_end);
-
-    // @todo block.y could be out of bounds @todo
-
-    vec3i min = {
-        .x = MIN(ray_origin_p.block.x, ray_end_p.block.x),
-        .y = MIN(ray_origin_p.block.y, ray_end_p.block.y),
-        .z = MIN(ray_origin_p.block.z, ray_end_p.block.z),
-    };
-
-    vec3i max = {
-        .x = MAX(ray_origin_p.block.x, ray_end_p.block.x),
-        .y = MAX(ray_origin_p.block.y, ray_end_p.block.y),
-        .z = MAX(ray_origin_p.block.z, ray_end_p.block.z),
-    };
-
-    for(int32_t y = min.y; y <= max.y; ++y) {
-        for(int32_t x = min.x; x <= max.x; ++x) {
-            for(int32_t z = min.z; z <= max.z; ++z) {
-                WorldPosition block_p = WorldPosition::from_block({ x, y, z });
-
-                // Getting chunk for every block... @todo
-                Chunk *chunk = world.get_chunk(block_p.chunk);
-                if(!chunk) {
-                    continue;
-                }
-
-                Block *block = chunk->get_block(block_p.block_rel);
-                if(!block || !block->is_solid()) {
-                    continue;
-                }
-
-                for(int32_t index = 0; index < ARRAY_COUNT(sides); ++index) {
-                    CheckSide side = sides[index];
-                    vec3 tri_a = block_p.real + side.off_a;
-                    vec3 tri_b = block_p.real + side.off_b;
-                    vec3 tri_c = block_p.real + side.off_c;
-                    vec3 tri_d = block_p.real + side.off_d;
-
-                    if(vec3::dot(vec3::normalize(ray_end - ray_origin), side.normal) >= 0.0f) {
-                        continue;
-                    }
-
-                    float distance;
-                    vec3  intersection;
-                    if(ray_triangle_intersection(ray_origin, ray_end, tri_a, tri_b, tri_c, distance, intersection) || 
-                       ray_triangle_intersection(ray_origin, ray_end, tri_c, tri_d, tri_a, distance, intersection)) {
-                        if(distance < result.distance) {
-                            result.distance = distance;
-                            result.intersection = intersection;
-                            result.block_p = block_p;
-                            result.normal = side.normal;
-                            result.found = true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return result;
-}
 
 void Game::render(const Window &window) {
     GL_CHECK(glViewport(0, 0, window.get_width(), window.get_height()));

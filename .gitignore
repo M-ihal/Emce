@@ -7,5 +7,3 @@ external/glew
 external/linmath
 external/SDL2
 external/stb
-external/string_view
-external/string_viu

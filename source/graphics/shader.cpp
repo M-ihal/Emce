@@ -4,17 +4,17 @@
 #include <string.h>
 #include <glew.h>
 
-// TEMP  TODO: Rewrite the thing, or use something else
-#define STRING_VIEW_IMPLEMENTATION
-#include <string_view.h>
+#define STRING_VIU_IMPLEMENTATION
+#define STRING_VIU_CPP_HELPERS
+#include <string_viu.h>
 
 #include "utils.h"
 
 static bool find_shader_sources(const void  *file_data, 
                                 const size_t file_size, 
-                                string_view_t &out_vert_view, 
-                                string_view_t &out_frag_view, 
-                                string_view_t &out_geom_view);
+                                StringViu &out_vert_view, 
+                                StringViu &out_frag_view, 
+                                StringViu &out_geom_view);
 
 
 Shader::Shader(void) {
@@ -96,9 +96,9 @@ bool Shader::load_from_file(const std::string &filepath) {
     }
 
     /* Parse file to find sources */
-    string_view_t vs;
-    string_view_t fs;
-    string_view_t gs;
+    StringViu vs;
+    StringViu fs;
+    StringViu gs;
     const bool parse_success = find_shader_sources(file.data, file.size, vs, fs, gs);
     if(!parse_success) {
         fprintf(stderr, "[error] Shader: Failed to parse shader file, path: %s\n", filepath.c_str());
@@ -106,7 +106,7 @@ bool Shader::load_from_file(const std::string &filepath) {
         return false;
     }
     
-    const bool success = this->load_from_memory(vs.pointer, vs.length, fs.pointer, fs.length, gs.pointer, gs.length);
+    const bool success = this->load_from_memory(vs.data, vs.length, fs.data, fs.length, gs.data, gs.length);
     free_loaded_file(file);
     return success;
 }
@@ -222,44 +222,44 @@ void ShaderFile::hotload(void) {
 /* Returns true if atleast vertex and fragment shaders were found */
 static bool find_shader_sources(const void  *file_data, 
                                 const size_t file_size, 
-                                string_view_t &out_vert_view, 
-                                string_view_t &out_frag_view, 
-                                string_view_t &out_geom_view) {
+                                StringViu &out_vert_view, 
+                                StringViu &out_frag_view, 
+                                StringViu &out_geom_view) {
 
-    constexpr const char shader_token_start[] = "@shader_";
-    constexpr const char shader_vert_token[]  = "@shader_vertex";
-    constexpr const char shader_frag_token[]  = "@shader_fragment";
-    constexpr const char shader_geom_token[]  = "@shader_geometry";
+    const char shader_token_start[] = "@shader_";
+    const char shader_vert_token[]  = "@shader_vertex";
+    const char shader_frag_token[]  = "@shader_fragment";
+    const char shader_geom_token[]  = "@shader_geometry";
 
     /* Zero the out views */
-    out_vert_view = s_view_zero;
-    out_frag_view = s_view_zero;
-    out_geom_view = s_view_zero;
+    out_vert_view = s_viu_zero();
+    out_frag_view = s_viu_zero();
+    out_geom_view = s_viu_zero();
 
-    const string_view_t file_view = string_view((char *)file_data, file_size);
+    const StringViu file_view = s_viu((const char *)file_data, file_size);
 
     /* Find tokens */
-    const size_t token_1 = s_view_find(file_view, shader_token_start);
-    if(token_1 == s_view_invalid_idx) {
+    const int32_t token_1 = s_viu_find(file_view, shader_token_start, strlen(shader_token_start));
+    if(token_1 == -1) {
         return false;
     }
 
-    const size_t token_2 = s_view_find(file_view, shader_token_start, token_1 + strlen(shader_token_start));
-    if(token_2 == s_view_invalid_idx) {
+    const int32_t token_2 = s_viu_find(file_view, shader_token_start, strlen(shader_token_start), token_1 + strlen(shader_token_start));
+    if(token_2 == -1) {
         return false;
     }
 
-    const size_t token_3 = s_view_find(file_view, shader_token_start, token_2 + strlen(shader_token_start));
+    const int32_t token_3 = s_viu_find(file_view, shader_token_start, strlen(shader_token_start), token_2 + strlen(shader_token_start));
 
     /* Determine which shader source is which */
-    string_view_t vert_view = s_view_zero;
-    string_view_t frag_view = s_view_zero;
-    string_view_t geom_view = s_view_zero;
+    StringViu vert_view = s_viu_zero();
+    StringViu frag_view = s_viu_zero();
+    StringViu geom_view = s_viu_zero();
 
     bool redefined_shaders_error = false;
-    auto assign_shader = [&] (string_view_t view) -> void {
-        auto assign_inner = [&] (string_view_t *view, const char *token, string_view_t *dest) -> bool {
-            if(s_view_begins_with(*view, token, view)) {
+    auto assign_shader = [&] (StringViu view) -> void {
+        auto assign_inner = [&] (StringViu *view, const char *token, StringViu *dest) -> bool {
+            if(s_viu_begins_with(*view, view, token)) {
                 if(dest->length) {
                     redefined_shaders_error = true;
                     return true;
@@ -276,14 +276,14 @@ static bool find_shader_sources(const void  *file_data,
     };
     
     /* First view is guaranteed */
-    assign_shader(s_view_substring(file_view, token_1, token_2 - 1));
+    assign_shader(s_viu_substr(file_view, token_1, token_2 - 1));
 
     /* Calc second and _optionally_ third shader view */
-    if(token_3 == s_view_invalid_idx) {
-        assign_shader(s_view_substring(file_view, token_2, file_view.length - 1));
+    if(token_3 == -1) {
+        assign_shader(s_viu_substr(file_view, token_2, file_view.length - 1));
     } else {
-        assign_shader(s_view_substring(file_view, token_2, token_3 - 1));
-        assign_shader(s_view_substring(file_view, token_3, file_view.length - 1));
+        assign_shader(s_viu_substr(file_view, token_2, token_3 - 1));
+        assign_shader(s_viu_substr(file_view, token_3, file_view.length - 1));
     }
     
     /* Error checks */

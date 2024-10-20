@@ -119,9 +119,7 @@ int SDL_main(int argc, char *argv[]) {
     SimpleDraw::initialize();
     Console::initialize();
 
-    Console::register_command({
-        .command = "quit", 
-        .proc = CONSOLE_COMMAND_LAMBDA {
+    Console::set_command("quit", { CONSOLE_COMMAND_LAMBDA {
             window.set_should_close();
         }
     });

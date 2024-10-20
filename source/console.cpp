@@ -6,7 +6,9 @@
 
 #include <glew.h>
 #include <SDL.h> // Start/StopTextInput
-#include <string_view.h>
+                 
+#define STRING_VIU_CPP_HELPERS
+#include <string_viu.h>
 
 /* 
     @todo
@@ -16,9 +18,30 @@
     - max command length
 */
 
+#include <meh_hash.h>
+
+constexpr int32_t CONSOLE_HISTORY_MAX = 32;
+constexpr int32_t CONSOLE_INPUT_MAX   = 64;
+
+struct CommandTableKey {
+    char string[CONSOLE_INPUT_MAX + 1]; // This includes the null terminator
+};
+
+uint64_t hash_func(const CommandTableKey &a) {
+    uint64_t hash = 0;
+    for(uint32_t index = 0; index < strlen(a.string); ++index) {
+        hash += a.string[index] * (index + 1) + 7;
+    }
+    return hash;
+}
+
+bool compare_func(const CommandTableKey &a, const CommandTableKey &b) {
+    return !strcmp(a.string, b.string);
+}
+
+typedef meh::Table<CommandTableKey, ConsoleCommand, hash_func, compare_func> CommandTable ;
+
 namespace {
-    constexpr int32_t CONSOLE_HISTORY_MAX = 32;
-    constexpr int32_t CONSOLE_INPUT_MAX   = 64;
 
     bool        g_initialized = false;
     Font        g_font;
@@ -30,7 +53,8 @@ namespace {
     std::string g_history[CONSOLE_HISTORY_MAX];
     std::string g_input_buffer;
     std::string g_last_valid_input;
-    std::vector<ConsoleCommand> g_commands;
+
+    CommandTable g_commands;
 
     constexpr double CURSOR_BLINK_TIME = 0.5;
     double g_cursor_blink_t = 0.0;
@@ -74,21 +98,21 @@ void Console::initialize(void) {
     g_is_open = false;
     g_input_buffer.clear();
     g_last_valid_input.clear();
-    g_commands.clear();
+    g_commands.clear_table();
 
-    Console::register_command({
-        .command = "commands",
-        .proc = CONSOLE_COMMAND_LAMBDA {
-            Console::add_to_history("> registered commands:");
-            for(auto &command : g_commands) {
-                Console::add_to_history(command.command.c_str());
+    Console::set_command("commands", { 
+        CONSOLE_COMMAND_LAMBDA {
+            Console::add_to_history("> commands:");
+
+            CommandTable::Iterator iter;
+            while(g_commands.iterate_all(iter)) {
+                Console::add_to_history(iter.key.string);
             }
         }
     });
 
-    Console::register_command({
-        .command = "clear",
-        .proc = CONSOLE_COMMAND_LAMBDA {
+    Console::set_command("clear", {
+        CONSOLE_COMMAND_LAMBDA {
             for(int32_t index = 0; index < CONSOLE_HISTORY_MAX; ++index) {
                 g_history[index].clear();
             }
@@ -104,7 +128,7 @@ void Console::destroy(void) {
     g_quad_vao.delete_vao();
 }
 
-void Console::add_to_history(const char *string) {
+void Console::add_to_history(const char *string, ...) {
     /* Push history */
     for(int32_t index = CONSOLE_HISTORY_MAX - 1; index >= 1; --index) {
         g_history[index] = g_history[index - 1];
@@ -151,57 +175,64 @@ void Console::update(const Input &input, Window &window, Game &game, double delt
         input_buffer_changed = true;
     }
 
-    /* Apply command @todo Hacky */
-    string_view_t command_view = string_view((char *)g_input_buffer.c_str());
-    command_view = s_view_trim(command_view);
-    if(input.key_pressed(Key::ENTER) && g_input_buffer.length()) {
-        Console::add_to_history(g_input_buffer.c_str());
+    if(input.key_pressed(Key::ENTER)) {
+        StringViu command_view = s_viu(g_input_buffer.c_str());
+        command_view = s_viu_trim(command_view);
+        
+        StringViu command = { };
+        StringViu arg1    = { };
+        StringViu arg2    = { };
+        StringViu arg3    = { };
 
-        // @temp Parsing Command and args
-        string_view_t cmd;
-        string_view_t arg1 = { };
-        string_view_t arg2 = { };
-        string_view_t arg3 = { };
-        size_t space_idx = s_view_find_first(command_view, ' ');
-        if(space_idx != s_view_invalid_idx) {
-            string_view_t args;
-            s_view_split(command_view, space_idx, &cmd, &args);
-            args = s_view_trim(args);
-            space_idx = s_view_find_first(args, ' ');
-            if(space_idx != s_view_invalid_idx) {
-                s_view_split(args, space_idx, &arg1, &args);
-                args = s_view_trim(args);
-                space_idx = s_view_find_first(args, ' ');
-                if(space_idx != s_view_invalid_idx) {
-                    s_view_split(args, space_idx, &arg2, &args);
-                    args = s_view_trim(args);
-                    space_idx = s_view_find_first(args, ' ');
-                    if(space_idx != s_view_invalid_idx) {
-                        s_view_split(args, space_idx, &arg3, &args);
-                    } else {
-                        arg3 = args;
-                    }
-                } else {
-                    arg2 = args;
-                }
-            } else {
-                arg1 = args;
-            }
-        } else {
-            cmd = command_view;
+        int32_t space_idx = s_viu_find_first(command_view, ' ');
+        if(space_idx == -1) {
+            command = command_view;
+            goto command_parsed;
         }
 
-        for(auto &command : g_commands) {
-            if(cmd == string_view((char *)command.command.c_str())) {
-                g_last_valid_input = g_input_buffer;
+        StringViu args;
+        s_viu_split(command_view, space_idx, command, args);
+        args = s_viu_trim(args);
 
-                std::vector<std::string> args;
-                if(arg1.length) { std::string s; s.assign(arg1.pointer, arg1.length); args.push_back(s); }
-                if(arg2.length) { std::string s; s.assign(arg2.pointer, arg2.length); args.push_back(s); }
-                if(arg3.length) { std::string s; s.assign(arg3.pointer, arg3.length); args.push_back(s); }
-                command.proc(args, window, game);
-                break;
-            }
+        space_idx = s_viu_find_first(args, ' ');
+        if(space_idx == -1) {
+            arg1 = args;
+            goto command_parsed;
+        }
+
+        s_viu_split(args, space_idx, arg1, args);
+        args = s_viu_trim(args);
+        
+        space_idx = s_viu_find_first(args, ' ');
+        if(space_idx == -1) {
+            arg2 = args;
+            goto command_parsed;
+        }
+
+        s_viu_split(args, space_idx, arg2, args);
+        args = s_viu_trim(args);
+
+        space_idx = s_viu_find_first(args, ' ');
+        if(space_idx == -1) {
+            arg3 = args;
+            goto command_parsed;
+        }
+
+        s_viu_split(args, space_idx, arg3, args);
+
+command_parsed:
+
+        CommandTableKey command_key;
+        sprintf_s(command_key.string, ARRAY_COUNT(command_key.string), "%.*s", command.length, command.data);
+        ConsoleCommand *the_command = g_commands.find(command_key);
+        if(the_command != NULL) {
+            g_last_valid_input = g_input_buffer;
+
+            std::vector<StringViu> args = { arg1, arg2, arg3 };
+//            if(arg1.length) { std::string s; s.assign(arg1.data, arg1.length); args.push_back(s); }
+//            if(arg2.length) { std::string s; s.assign(arg2.data, arg2.length); args.push_back(s); }
+//            if(arg3.length) { std::string s; s.assign(arg3.data, arg3.length); args.push_back(s); }
+            the_command->proc(args, window, game);
         }
 
         g_input_buffer.clear();
@@ -319,7 +350,14 @@ bool Console::is_open(void) {
     return g_is_open;
 }
 
-// @todo Check on command name and stuff?
-void Console::register_command(ConsoleCommand command) {
-    g_commands.push_back(command);
+void Console::set_command(const char *name, ConsoleCommand command) {
+    CommandTableKey key = { };
+
+    if(strlen(name) >= (ARRAY_COUNT(key.string) - 1)) {
+        fprintf(stderr, "Error: Console: set_command(...), too big name for command.");
+        return;
+    }
+
+    sprintf_s(key.string, ARRAY_COUNT(key.string), name);
+    g_commands.insert(key, command);
 }

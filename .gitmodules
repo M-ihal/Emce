@@ -1,3 +1,6 @@
 [submodule "external/meh_hash"]
 	path = external/meh_hash
 	url = https://github.com/M-ihal/meh_hash.git
+[submodule "external/string_viu"]
+	path = external/string_viu
+	url = https://github.com/M-ihal/string_viu.git

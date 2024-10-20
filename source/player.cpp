@@ -8,6 +8,8 @@
 
 #include "simple_draw.h"
 
+// TODO@ Bug with movement when sliding
+
 namespace {
     constexpr float P_ACCELERATION = 35.0f;
     constexpr float P_DECELERATION = 18.0f;
@@ -30,16 +32,12 @@ Player::Player(void) {
     m_velocity = vec3::zero();
     m_is_sprinting = false;
     
-    Console::register_command({
-        .command = "infjmp",
-        .proc = CONSOLE_COMMAND_LAMBDA {
+    Console::set_command("jumper", { CONSOLE_COMMAND_LAMBDA {
             BOOL_TOGGLE(g_debug_infinite_jump);
         }
     });
 
-    Console::register_command({
-        .command = "fly",
-        .proc = CONSOLE_COMMAND_LAMBDA {
+    Console::set_command("fly", { CONSOLE_COMMAND_LAMBDA {
             BOOL_TOGGLE(g_debug_flying);
         }
     });
@@ -143,7 +141,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     }
 
     if(!g_debug_flying) {
-    m_velocity.y += P_GRAVITY * delta_time;
+        m_velocity.y += P_GRAVITY * delta_time;
     }
 
     if(move_input) {
@@ -187,6 +185,32 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     this->move_in_y(world, delta_time);
 
     m_camera.set_position(this->get_position_head());
+
+    const Camera head_camera = this->get_head_camera();
+    const vec3 ray_origin = head_camera.get_position();
+    const vec3 ray_end    = ray_origin + head_camera.calc_direction() * 8.0f;
+    RaycastBlockResult raycast_result = raycast_block(world, ray_origin, ray_end);
+    if(raycast_result.found && input.button_pressed(Button::RIGHT)) {
+        WorldPosition target = WorldPosition::from_block(raycast_result.block_p.block + vec3i::make(raycast_result.normal));
+        Chunk *chunk = world.get_chunk(target.chunk);
+        if(chunk) {
+            Block *block = chunk->get_block(target.block_rel);
+            if(block) {
+                block->set_type(BlockType::COBBLESTONE);
+                world.queue_chunk_vao_load(chunk->get_coords());
+            }
+        }
+    } else if(raycast_result.found && input.key_pressed_or_repeat(Key::DELETE)) {
+        Chunk *chunk = world.get_chunk(raycast_result.block_p.chunk);
+        if(chunk) {
+            Block *block = chunk->get_block(raycast_result.block_p.block_rel);
+            if(block) {
+                block->set_type(BlockType::AIR);
+                world.queue_chunk_vao_load(chunk->get_coords());
+            }
+        }
+    }
+
 }
 
 #define _ADD_TO_DEBUG_RANGE(min, max)\

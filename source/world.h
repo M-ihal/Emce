@@ -20,6 +20,7 @@ public:
     CLASS_COPY_DISABLE(World);
     
     friend Game;
+    friend Chunk;
 
     /* @temp */
     explicit World(Game *game);
@@ -101,3 +102,15 @@ vec3i block_origin_from_chunk(const vec2i &chunk);
 vec3i block_relative_from_block(const vec3i &block);
 vec3i block_position_from_relative(const vec3i &block_rel, const vec2i &chunk);
 void  calc_overlapping_blocks(vec3 pos, vec3 size, WorldPosition &min, WorldPosition &max);
+
+struct RaycastBlockResult {
+    bool found;
+    vec3 normal;
+    vec3 intersection;
+    float distance;
+    WorldPosition block_p;
+};
+
+RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec3 &ray_end);
+bool ray_plane_intersection(const vec3 &ray_origin, const vec3 &ray_end, const vec3 &plane_p, const vec3 &plane_normal, float &out_k, vec3 &out_p);
+bool ray_triangle_intersection(const vec3 &ray_origin, const vec3 &ray_end, const vec3 &tri_a, const vec3 &tri_b, const vec3 &tri_c, float &out_k, vec3 &out_p);

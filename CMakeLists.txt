@@ -70,7 +70,8 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${source_files_external})
 add_executable(emce ${source_files} ${source_files_external})
 
 target_include_directories(emce
-    PUBLIC ${PROJECT_SOURCE_DIR}/external/string_view
+    # PUBLIC ${PROJECT_SOURCE_DIR}/external/string_view
+    PUBLIC ${PROJECT_SOURCE_DIR}/external/string_viu
     PUBLIC ${PROJECT_SOURCE_DIR}/source
     PUBLIC ${PROJECT_SOURCE_DIR}/source/graphics
     PUBLIC ${PROJECT_SOURCE_DIR}/external/SDL2/include
