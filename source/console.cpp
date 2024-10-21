@@ -5,7 +5,6 @@
 #include "text_batcher.h"
 
 #include <glew.h>
-#include <SDL.h> // Start/StopTextInput
                  
 #define STRING_VIU_CPP_HELPERS
 #include <string_viu.h>
@@ -147,7 +146,7 @@ void Console::update(const Input &input, Window &window, Game &game, double delt
 
     /* Exit console */
     if(input.key_pressed(Key::ESCAPE)) {
-        Console::set_open_state(false);
+        Console::set_open_state(false, window);
         return;
     }
 
@@ -331,16 +330,17 @@ void Console::render(int32_t window_w, int32_t window_h) {
     g_batcher.render(window_w, window_h, g_font, { 1.0f, 1.0f, 1.0f });
 }
 
-void Console::set_open_state(bool open) {
+void Console::set_open_state(bool open, Window &window) {
     if(g_is_open == open) {
         return;
     }
 
+    // For now only console queries text input
     if(open) {
         g_input_buffer.clear();
-        SDL_StartTextInput();
+        window.set_text_input_active(true);
     } else {
-        SDL_StopTextInput();
+        window.set_text_input_active(false);
     }
 
     g_is_open = open;

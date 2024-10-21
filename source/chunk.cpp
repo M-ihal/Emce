@@ -201,12 +201,9 @@ static constexpr void fill_tex_coords_for_block(BlockSide side, const BlockInfo 
 void Chunk::gen_vao(const ChunkVaoGenData &gen_data) {
 #if 1
     if(m_chunk_vao.has_been_created() && m_chunk_vao.get_vbo_size() >= gen_data.vertices.size() * sizeof(ChunkVaoVertex) && m_chunk_vao.get_ibo_count() >= gen_data.indices.size()) {
-        fprintf(stdout, "JUST UPLOADED!\n");
         m_chunk_vao.upload_vbo_data(gen_data.vertices.data(), gen_data.vertices.size() * sizeof(ChunkVaoVertex), 0);
         m_chunk_vao.upload_ibo_data(gen_data.indices.data(),  gen_data.indices.size(), 0);
     } else {
-        fprintf(stdout, "RECREATED WHOLE!\n");
-
         BufferLayout layout;
         layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
         layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);

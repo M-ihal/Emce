@@ -1,5 +1,5 @@
-#define SDL_MAIN_HANDLED
-#include <SDL.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3/SDL.h>
 #include <glew.h>
 
 #include <stdio.h>
@@ -86,14 +86,11 @@ int SDL_main(int argc, char *argv[]) {
     /* init std randomizer */
     srand(time(NULL));
 
-    const bool sdl_success = SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) == 0;
+    const bool sdl_success = SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO);
     if(!sdl_success) {
         fprintf(stderr, "[error] SDL: Failed to initialize SDL, Error: %s.\n", SDL_GetError());
         return -1;
     }
-
-    /* Do not query text input by default */
-    SDL_StopTextInput();
 
     Window window;
 
@@ -101,6 +98,9 @@ int SDL_main(int argc, char *argv[]) {
         fprintf(stderr, "[error] Window: Failed to create valid opengl window.\n");
         return -1;
     }
+
+    /* Do not query text input by default */
+    window.set_text_input_active(false);
 
     const bool glew_success = glewInit() == GLEW_OK;
     if(!glew_success) {
@@ -238,7 +238,7 @@ int SDL_main(int argc, char *argv[]) {
         }
 
         if(input.key_pressed(Key::T) && !Console::is_open()) {
-            Console::set_open_state(true);
+            Console::set_open_state(true, window);
         }
 
         if(input.key_pressed(Key::ESCAPE) && !Console::is_open()) {

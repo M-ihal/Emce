@@ -33,7 +33,7 @@ namespace Console {
     void update(const Input &input, Window &window, Game &game, double delta_time);
     void render(int32_t window_w, int32_t window_h);
     void add_to_history(const char *format, ...); // @todo
-    void set_open_state(bool open);
+    void set_open_state(bool open, Window &window);
     bool is_open(void);
     void set_command(const char name[64], ConsoleCommand command);
 }

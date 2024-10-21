@@ -465,7 +465,7 @@ constexpr static CheckSide sides[6] = {
 RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec3 &ray_end) {
     RaycastBlockResult result;
     result.found = false;
-    result.distance = FLT_MAX;
+    result.distance = 100000.0f; // FLT_MAX
 
     WorldPosition ray_origin_p = WorldPosition::from_real(ray_origin);
     WorldPosition ray_end_p = WorldPosition::from_real(ray_end);

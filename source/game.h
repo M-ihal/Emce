@@ -7,6 +7,8 @@
 #include "input.h"
 #include "player.h"
 
+class Window;
+
 class Game {
 public:
     CLASS_COPY_DISABLE(Game);

@@ -2,9 +2,10 @@
 
 #include "common.h"
 
-class         Input;
-struct        SDL_Window;
-typedef void *SDL_GLContext;
+class   Input;
+struct  SDL_Window;
+struct  SDL_GLContextState;
+typedef SDL_GLContextState *SDL_GLContext;
 
 class Window {
 public:
@@ -23,6 +24,9 @@ public:
     float   calc_aspect(void) const;
     int32_t get_width(void) const;
     int32_t get_height(void) const;
+
+    void set_text_input_active(bool enable);
+    bool is_text_input_active(void) const;
 
     /* Return OS handle i.e. on windows HWND */
     void *get_os_native_handle(void);

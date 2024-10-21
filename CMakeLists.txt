@@ -18,7 +18,7 @@ set_property(GLOBAL PROPERTY CMAKE_SKIP_INSTALL_ALL_DEPENDENCY ON)
 set_property(GLOBAL PROPERTY CMAKE_SKIP_PACKAGE_ALL_DEPENDENCY ON)
 
 add_subdirectory(external/glew/build/cmake)
-add_subdirectory(external/SDL2)
+add_subdirectory(external/SDL)
 
 set(source_files
 	source/main.cpp
@@ -70,18 +70,16 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${source_files_external})
 add_executable(emce ${source_files} ${source_files_external})
 
 target_include_directories(emce
-    # PUBLIC ${PROJECT_SOURCE_DIR}/external/string_view
     PUBLIC ${PROJECT_SOURCE_DIR}/external/string_viu
     PUBLIC ${PROJECT_SOURCE_DIR}/source
     PUBLIC ${PROJECT_SOURCE_DIR}/source/graphics
-    PUBLIC ${PROJECT_SOURCE_DIR}/external/SDL2/include
+    PUBLIC ${PROJECT_SOURCE_DIR}/external/SDL/include
     PUBLIC ${PROJECT_SOURCE_DIR}/external/glew/include/GL
 	PUBLIC ${PROJECT_SOURCE_DIR}/external/stb
     PUBLIC ${PROJECT_SOURCE_DIR}/external/meh_hash
 )
 
 target_link_libraries(emce
-    PUBLIC SDL2main
-    PUBLIC SDL2
+    PRIVATE SDL3::SDL3
     PUBLIC glew_s
 )

@@ -6,6 +6,7 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <cstdarg>
+#include <cstring>
 
 #include <glew.h>
 

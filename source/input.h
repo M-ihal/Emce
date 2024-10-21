@@ -13,11 +13,11 @@ enum InputFlags : uint32_t {
 
 /* All defined keys */
 #define INPUT_DEFINED_KEYS\
-    DEFINE_KEY(W,      SDLK_w)\
-    DEFINE_KEY(A,      SDLK_a)\
-    DEFINE_KEY(S,      SDLK_s)\
-    DEFINE_KEY(D,      SDLK_d)\
-    DEFINE_KEY(T,      SDLK_t)\
+    DEFINE_KEY(W,      SDLK_W)\
+    DEFINE_KEY(A,      SDLK_A)\
+    DEFINE_KEY(S,      SDLK_S)\
+    DEFINE_KEY(D,      SDLK_D)\
+    DEFINE_KEY(T,      SDLK_T)\
     DEFINE_KEY(LEFT,   SDLK_LEFT)\
     DEFINE_KEY(RIGHT,  SDLK_RIGHT)\
     DEFINE_KEY(UP,     SDLK_UP)\

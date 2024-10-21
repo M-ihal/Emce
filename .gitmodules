@@ -4,3 +4,6 @@
 [submodule "external/string_viu"]
 	path = external/string_viu
 	url = https://github.com/M-ihal/string_viu.git
+[submodule "external/SDL"]
+	path = external/SDL
+	url = https://github.com/libsdl-org/SDL.git

@@ -3,8 +3,7 @@
 
 #include <stdio.h>
 
-#include <SDL.h>
-#include <SDL_syswm.h>
+#include <SDL3/SDL.h>
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -30,7 +29,7 @@ Window::~Window(void) {
     }
 
     if(m_gl_context) {
-        SDL_GL_DeleteContext(m_gl_context);
+        SDL_GL_DestroyContext(m_gl_context);
         m_gl_context = NULL;
     }
 
@@ -50,12 +49,9 @@ bool Window::initialize(int width, int height, const char *title) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
-    const int x_pos = SDL_WINDOWPOS_UNDEFINED; 
-    const int y_pos = SDL_WINDOWPOS_UNDEFINED; 
-
     unsigned int window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
 
-    m_sdl_window = SDL_CreateWindow(title, x_pos, y_pos, width, height, window_flags);
+    m_sdl_window = SDL_CreateWindow(title, width, height, window_flags);
     if(!m_sdl_window) {
         fprintf(stderr, "[error] Window: Failed to create SDL window.\n");
         return false;
@@ -85,19 +81,14 @@ void Window::process_events(Input &input) {
     SDL_Event event;
     while(SDL_PollEvent(&event)) {
         switch(event.type) {
-            case SDL_QUIT: {
+            case SDL_EVENT_QUIT: {
                 m_should_close = true;
             } continue;
 
-            case SDL_WINDOWEVENT: {
+            case SDL_EVENT_WINDOW_RESIZED: {
                 const SDL_WindowEvent &window_event = event.window;
-                switch(window_event.event) {
-                    // case SDL_WINDOWEVENT_RESIZED:
-                    case SDL_WINDOWEVENT_SIZE_CHANGED: {
-                        m_width  = window_event.data1;
-                        m_height = window_event.data2;
-                    } break;
-                }
+                m_width  = window_event.data1;
+                m_height = window_event.data2;
             } continue;
         }
 
@@ -129,12 +120,29 @@ float Window::calc_aspect(void) const {
     return float(m_width) / float(m_height);
 }
 
+void Window::set_text_input_active(bool enable) {
+    /* Check if trying to set to the same state */
+    if(enable == this->is_text_input_active()) {
+        return;
+    }
+
+    if(enable) {
+        SDL_StartTextInput(m_sdl_window);
+    } else {
+        SDL_StopTextInput(m_sdl_window);
+    }
+}
+
+bool Window::is_text_input_active(void) const {
+    return SDL_TextInputActive(m_sdl_window);
+}
+
 void *Window::get_os_native_handle(void) {
 #if defined(_WIN32)
-    SDL_SysWMinfo sys_info;
-    SDL_VERSION(&sys_info.version);
-    SDL_GetWindowWMInfo(m_sdl_window, &sys_info);
-    return (void *)sys_info.info.win.window;
+    SDL_PropertiesID props = SDL_GetWindowProperties(m_sdl_window);
+    ASSERT(props != 0);
+    void *hwnd = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+    return hwnd;
 #else
     INVALID_CODE_PATH;
 #endif

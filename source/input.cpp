@@ -1,6 +1,6 @@
 #include "input.h"
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 // temp
 #include <cstring>
@@ -65,8 +65,8 @@ int32_t Input::scroll_move(void) const {
 
 /* Function to get Key enum from SDL Keysym @todo Maybe do something better */
 #define DEFINE_KEY(name, sdlk) case sdlk: return Key::name;
-Key key_from_sdl_key_sym(int32_t sdl_key_sym) {
-    switch(sdl_key_sym) {
+Key key_from_sdl_key_code(int32_t sdl_key_code) {
+    switch(sdl_key_code) {
         default: return Key::_INVALID;
         INPUT_DEFINED_KEYS  
     }
@@ -100,12 +100,12 @@ void Input::prepare_to_catch_input(void) {
 
 void Input::catch_input(const SDL_Event &event) {
     switch(event.type) {
-        case SDL_KEYDOWN:
-        case SDL_KEYUP: {
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP: {
             const SDL_KeyboardEvent &kb_event = event.key;
-            const SDL_Keysym &key_sym = kb_event.keysym;
+            const SDL_Keycode &key_code = kb_event.key;
 
-            const Key key = key_from_sdl_key_sym((int32_t)key_sym.sym);
+            const Key key = key_from_sdl_key_code((int32_t)key_code);
             if(key == Key::_INVALID) {
                 break;
             }
@@ -113,18 +113,18 @@ void Input::catch_input(const SDL_Event &event) {
             /* Set key state flags */
             const int32_t index = key_index(key);
 
-            if((kb_event.type == SDL_KEYDOWN) && (kb_event.repeat != 1)) {
+            if((kb_event.type == SDL_EVENT_KEY_DOWN) && (kb_event.repeat != 1)) {
                 m_key_state[index] |= InputFlags::PRESSED;
                 m_key_state[index] |= InputFlags::IS_DOWN;
             } else if(kb_event.repeat == 1) {
                 m_key_state[index] |= InputFlags::REPEAT;
-            } else if(kb_event.type == SDL_KEYUP) {
+            } else if(kb_event.type == SDL_EVENT_KEY_UP) {
                 m_key_state[index] |= InputFlags::RELEASED;
                 m_key_state[index] &= ~InputFlags::IS_DOWN;
             }
         } break;
 
-        case SDL_MOUSEMOTION: {
+        case SDL_EVENT_MOUSE_MOTION: {
             const SDL_MouseMotionEvent &motion = event.motion;
             m_mouse_x = motion.x;
             m_mouse_y = motion.y;
@@ -132,8 +132,8 @@ void Input::catch_input(const SDL_Event &event) {
             m_mouse_rel_y = motion.yrel;
         } break;
 
-        case SDL_MOUSEBUTTONDOWN:
-        case SDL_MOUSEBUTTONUP: {
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP: {
             const SDL_MouseButtonEvent &button_event = event.button;
 
             const Button button = button_from_sdl_button(button_event.button);
@@ -143,21 +143,22 @@ void Input::catch_input(const SDL_Event &event) {
 
             const int32_t index = button_index(button);
 
-            if(button_event.type == SDL_MOUSEBUTTONDOWN) {
+            if(button_event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
                 m_button_state[index] |= PRESSED;
                 m_button_state[index] |= IS_DOWN;
-            } else if(button_event.type == SDL_MOUSEBUTTONUP) {
+            } else if(button_event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
                 m_button_state[index] |= RELEASED;
                 m_button_state[index] &= ~IS_DOWN;
             }
         } break;
 
-        case SDL_MOUSEWHEEL: {
+        case SDL_EVENT_MOUSE_WHEEL: {
             const SDL_MouseWheelEvent &wheel_event = event.wheel;
             m_scroll_move = wheel_event.y;
         } break;
 
-        case SDL_TEXTINPUT: {
+        case SDL_EVENT_TEXT_INPUT: {
+            // @todo
             strcpy_s(m_text_input, event.text.text);
         } break;
     }
