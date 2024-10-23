@@ -51,6 +51,14 @@ bool Input::button_is_down(Button button) const {
     return button_check(button, IS_DOWN);
 }
 
+int32_t Input::mouse_x(void) const {
+    return m_mouse_x;
+}
+
+int32_t Input::mouse_y(void) const {
+    return m_mouse_y;
+}
+
 int32_t Input::mouse_rel_x(void) const {
     return m_mouse_rel_x;
 }

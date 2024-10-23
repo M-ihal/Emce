@@ -1,6 +1,7 @@
 #include "debug_ui.h"
 #include "text_batcher.h"
 #include "font.h"
+#include "framebuffer.h"
 
 #include <cstdarg>
 
@@ -11,6 +12,8 @@ namespace {
 
     const float g_spacing = 8.0f;
     const vec2  g_padding = { 4.0f, 4.0f };
+
+    bool g_show = false;
 
     /* Frame data */
     float g_left_x;
@@ -35,6 +38,10 @@ void DebugUI::initialize(void) {
 void DebugUI::destroy(void) {
     g_font.delete_font();
     g_initialized = false;
+}
+
+void DebugUI::toggle(void) {
+    BOOL_TOGGLE(g_show);
 }
 
 void DebugUI::begin_frame(int32_t window_w, int32_t window_h) {
@@ -84,6 +91,11 @@ void DebugUI::push_text_right(const char *format, ...) {
 }
 
 void DebugUI::render(void) {
+    if(!g_show) {
+        return;
+    }
+
+    Framebuffer::bind_no_fbo();
     const vec3  color = { 0.9f, 0.9f, 0.875f };
     const vec2i shadow_offset = { 2, -2 };
     g_batcher.render(g_window_w, g_window_h, g_font, color, shadow_offset);

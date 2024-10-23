@@ -61,7 +61,7 @@ bool Cubemap::load_from_file(const std::string (&filepaths)[6], bool flip_on_loa
     this->set_wrap_t(TextureWrap::CLAMP);
     this->set_wrap_r(TextureWrap::CLAMP);
 
-    fprintf(stdout, "[info] Cubemap: Loaded successfully.\n");
+    // fprintf(stdout, "[info] Cubemap: Loaded successfully.\n");
     return true;
 }
 

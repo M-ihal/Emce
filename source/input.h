@@ -71,6 +71,8 @@ public:
     bool button_released(Button button) const;
     bool button_is_down(Button button) const;
 
+    int32_t mouse_x(void) const;
+    int32_t mouse_y(void) const;
     int32_t mouse_rel_x(void) const;
     int32_t mouse_rel_y(void) const;
 

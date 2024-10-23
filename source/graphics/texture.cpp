@@ -25,9 +25,10 @@ extern constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
 inline constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format) {
     switch(format) {
         default: INVALID_CODE_PATH;   return -1;
-        case TextureDataFormat::RED:  return GL_R8; // *8 or something?
+        case TextureDataFormat::RED:  return GL_R8;
         case TextureDataFormat::RGB:  return GL_RGB8;
         case TextureDataFormat::RGBA: return GL_RGBA8;
+        case TextureDataFormat::DEPTH24_STENCIL8: return GL_DEPTH24_STENCIL8;
     }
 }
 
@@ -37,6 +38,7 @@ inline constexpr int32_t gl_data_format_from_texture_data_format(TextureDataForm
         case TextureDataFormat::RED:  return GL_RED;
         case TextureDataFormat::RGB:  return GL_RGB;
         case TextureDataFormat::RGBA: return GL_RGBA;
+        case TextureDataFormat::DEPTH24_STENCIL8: return GL_DEPTH24_STENCIL8;
     }
 }
 
@@ -54,7 +56,7 @@ Texture::Texture(void) {
 void Texture::delete_texture_if_exists(void) {
     if(m_texture_id) {
         GL_CHECK(glDeleteTextures(1, &m_texture_id));
-        fprintf(stdout, "[info] Texture: Deleted texture, ID: %d\n", m_texture_id);
+        // fprintf(stdout, "[info] Texture: Deleted texture, ID: %d\n", m_texture_id);
         m_texture_id = 0;
     }
 }
@@ -82,7 +84,7 @@ bool Texture::load_empty(int32_t width, int32_t height, TextureDataFormat intern
     this->set_wrap_s(TextureWrap::CLAMP);
     this->set_wrap_t(TextureWrap::CLAMP);
 
-    fprintf(stdout, "[info] Texture: Created texture, ID: %d (%p)\n", m_texture_id, this);
+    // fprintf(stdout, "[info] Texture: Created texture, ID: %d (%p)\n", m_texture_id, this);
     return true;
 }
 

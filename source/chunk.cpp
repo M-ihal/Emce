@@ -42,6 +42,10 @@ Chunk::~Chunk(void) {
     m_owner = NULL;
 }
 
+const VertexArray &Chunk::get_vao(void) {
+    return m_chunk_vao;
+}
+
 Block *Chunk::get_block(const vec3i &rel) {
     if(Chunk::is_inside_chunk(rel)) {
         return &m_blocks[rel.x][rel.y][rel.z];

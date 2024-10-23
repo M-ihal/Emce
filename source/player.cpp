@@ -11,17 +11,19 @@
 // TODO@ Bug with movement when sliding
 
 namespace {
-    constexpr float P_ACCELERATION = 35.0f;
-    constexpr float P_DECELERATION = 18.0f;
-    constexpr float P_MAX_SPEED        = 5.0f;
-    constexpr float P_SPRINT_MAX_SPEED = 212.0f; // @todo
-    constexpr float P_JUMP_FORCE   = 8.5f;
-    constexpr float P_GRAVITY      = -9.81f * 2.0f;
+    constexpr float PLAYER_ACCELERATION     = 35.0f;
+    constexpr float PLAYER_DECELERATION     = 18.0f;
+    constexpr float PLAYER_MAX_SPEED        = 5.0f;
+    constexpr float PLAYER_SPRINT_MAX_SPEED = 212.0f; // @todo
+    constexpr float PLAYER_JUMP_FORCE       = 8.5f;
+    constexpr float PLAYER_GRAVITY          = -9.81f * 2.0f;
 
-    constexpr float P_GROUND_COLLIDER_HEIGHT = 0.2f;
-    constexpr vec3  P_COLLIDER_SIZE = vec3{ 0.6f, 1.85f, 0.6f };
-    constexpr float P_HEAD_OFFSET_PERC = 0.1f; // Head offset from the top of player size in percents
-    static_assert(IN_BOUNDS(P_HEAD_OFFSET_PERC, 0.0f, 1.0f));
+    constexpr float PLAYER_GROUND_COLLIDER_HEIGHT = 0.2f;
+    constexpr vec3  PLAYER_COLLIDER_SIZE = vec3{ 0.6f, 1.85f, 0.6f };
+    constexpr float PLAYER_HEAD_OFFSET_PERC = 0.1f; // Head offset from the top of player size in percents
+    static_assert(IN_BOUNDS(PLAYER_HEAD_OFFSET_PERC, 0.0f, 1.0f));
+
+    constexpr float PLAYER_RAYCAST_DIST = 16.0f;
 
     bool g_debug_infinite_jump = false;
     bool g_debug_flying = false;
@@ -90,7 +92,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     m_debug_min_checked_block = vec3i{ 1000000, 1000000, 1000000 };
     m_debug_max_checked_block = vec3i{ -1000000, -1000000, -1000000 };
 
-    if(!Console::is_open() && input.button_is_down(Button::LEFT)) {
+    if(!Console::is_open()) {
         m_camera.rotate_by(-input.mouse_rel_y(), input.mouse_rel_x(), delta_time);
     }
 
@@ -129,7 +131,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
 
         } else {
             if(input.key_pressed(Key::SPACE) && (is_grounded_now || g_debug_infinite_jump)) {
-                m_velocity.y = P_JUMP_FORCE;
+                m_velocity.y = PLAYER_JUMP_FORCE;
             }
         }
     }
@@ -141,16 +143,16 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     }
 
     if(!g_debug_flying) {
-        m_velocity.y += P_GRAVITY * delta_time;
+        m_velocity.y += PLAYER_GRAVITY * delta_time;
     }
 
     if(move_input) {
         m_velocity += vec3{ 
-            .x = dir.x * P_ACCELERATION * delta_time,
-            .z = dir.z * P_ACCELERATION * delta_time,
+            .x = dir.x * PLAYER_ACCELERATION * delta_time,
+            .z = dir.z * PLAYER_ACCELERATION * delta_time,
         };
     } else {
-        const float deceleration = P_DECELERATION * delta_time;
+        const float deceleration = PLAYER_DECELERATION * delta_time;
         const float epsilon = 0.1f;
 
         vec2 vel_xz = { m_velocity.x, m_velocity.z };
@@ -175,7 +177,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     float velocity_xz_len = vec2::length(velocity_xz);
     if(velocity_xz_len && move_input) {
         vec2 velocity_xz_unit = vec2::normalize(velocity_xz);
-        clamp_max_v(velocity_xz_len, m_is_sprinting ? P_SPRINT_MAX_SPEED : P_MAX_SPEED);
+        clamp_max_v(velocity_xz_len, m_is_sprinting ? PLAYER_SPRINT_MAX_SPEED : PLAYER_MAX_SPEED);
         velocity_xz = velocity_xz_unit * velocity_xz_len;
         m_velocity.x = velocity_xz.x;
         m_velocity.z = velocity_xz.y;
@@ -187,9 +189,17 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     m_camera.set_position(this->get_position_head());
 
     const Camera head_camera = this->get_head_camera();
-    const vec3 ray_origin = head_camera.get_position();
-    const vec3 ray_end    = ray_origin + head_camera.calc_direction() * 8.0f;
+    const vec3   ray_origin  = head_camera.get_position();
+    const vec3   ray_end     = ray_origin + head_camera.calc_direction() * PLAYER_RAYCAST_DIST;
+
     RaycastBlockResult raycast_result = raycast_block(world, ray_origin, ray_end);
+
+    if(raycast_result.found) {
+        m_targeted_block = raycast_result;
+    } else {
+        m_targeted_block = { };
+    }
+
     if(raycast_result.found && input.button_pressed(Button::RIGHT)) {
         WorldPosition target = WorldPosition::from_block(raycast_result.block_p.block + vec3i::make(raycast_result.normal));
         Chunk *chunk = world.get_chunk(target.chunk);
@@ -200,7 +210,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
                 world.queue_chunk_vao_load(chunk->get_coords());
             }
         }
-    } else if(raycast_result.found && input.key_pressed_or_repeat(Key::DELETE)) {
+    } else if(raycast_result.found && input.button_pressed(Button::LEFT)) {
         Chunk *chunk = world.get_chunk(raycast_result.block_p.chunk);
         if(chunk) {
             Block *block = chunk->get_block(raycast_result.block_p.block_rel);
@@ -251,7 +261,7 @@ void Player::move_in_xz(World &world, float delta_time) {
     while(t_min > 0.0f && iter++ < 4) {
         vec3 move_delta = vec3{ m_velocity.x, 0.0f, m_velocity.z } * delta_time;
         WorldPosition min, max;
-        calc_range_to_check_move(m_position, P_COLLIDER_SIZE, move_delta, min, max);
+        calc_range_to_check_move(m_position, PLAYER_COLLIDER_SIZE, move_delta, min, max);
 
         _ADD_TO_DEBUG_RANGE(min, max);
 
@@ -272,13 +282,13 @@ void Player::move_in_xz(World &world, float delta_time) {
                         continue;
                     }
 
-                    if(m_position.y >= (block_p.real.y + 1.0f) || (m_position.y + P_COLLIDER_SIZE.y) <= block_p.real.y) {
+                    if(m_position.y >= (block_p.real.y + 1.0f) || (m_position.y + PLAYER_COLLIDER_SIZE.y) <= block_p.real.y) {
                         continue;
                     }
 
                     /* Check collisions with blocks in xz axis as 2d for now... */
 
-                    const vec2 collider_size = { P_COLLIDER_SIZE.x, P_COLLIDER_SIZE.z };
+                    const vec2 collider_size = { PLAYER_COLLIDER_SIZE.x, PLAYER_COLLIDER_SIZE.z };
                     const vec2 block_size = { 1.0f, 1.0f };
 
                     vec2 min_corner = vec2{ block_p.real.x, block_p.real.z } - collider_size * 0.5f;
@@ -324,9 +334,9 @@ void Player::move_in_y(World &world, float delta_time) {
     vec3 new_position = m_position + move_delta;
 
     WorldPosition min, max;
-    calc_range_to_check_move(m_position, P_COLLIDER_SIZE, move_delta, min, max);
+    calc_range_to_check_move(m_position, PLAYER_COLLIDER_SIZE, move_delta, min, max);
 
-    if(this->check_if_collides_with_any_block(world, new_position, P_COLLIDER_SIZE)) {
+    if(this->check_if_collides_with_any_block(world, new_position, PLAYER_COLLIDER_SIZE)) {
         m_velocity.y = 0.0f;
     } else {
         m_position = new_position;
@@ -348,7 +358,7 @@ void Player::debug_render(class Game &game) {
 }
 
 vec3 Player::get_size(void) const {
-    return P_COLLIDER_SIZE;
+    return PLAYER_COLLIDER_SIZE;
 }
 
 void Player::set_position(const vec3 &position) {
@@ -360,14 +370,14 @@ vec3 Player::get_position(void) const {
 }
 
 vec3 Player::get_position_center(void) const {
-    return m_position + P_COLLIDER_SIZE * 0.5f;
+    return m_position + PLAYER_COLLIDER_SIZE * 0.5f;
 }
 
 vec3 Player::get_position_head(void) const {
     return {
-        .x = m_position.x + P_COLLIDER_SIZE.x * 0.5f,
-        .y = m_position.y + P_COLLIDER_SIZE.y * (1.0f - P_HEAD_OFFSET_PERC),
-        .z = m_position.z + P_COLLIDER_SIZE.z * 0.5f,
+        .x = m_position.x + PLAYER_COLLIDER_SIZE.x * 0.5f,
+        .y = m_position.y + PLAYER_COLLIDER_SIZE.y * (1.0f - PLAYER_HEAD_OFFSET_PERC),
+        .z = m_position.z + PLAYER_COLLIDER_SIZE.z * 0.5f,
     };
 }
 
@@ -384,6 +394,10 @@ vec3 Player::get_velocity(void) const {
 }
 
 void Player::get_ground_collider_info(vec3 &pos, vec3 &size) {
-    pos = this->get_position() - vec3{ 0.0f, P_GROUND_COLLIDER_HEIGHT * 0.5f, 0.0f  };
-    size = { P_COLLIDER_SIZE.x, P_GROUND_COLLIDER_HEIGHT, P_COLLIDER_SIZE.z };
+    pos = this->get_position() - vec3{ 0.0f, PLAYER_GROUND_COLLIDER_HEIGHT * 0.5f, 0.0f  };
+    size = { PLAYER_COLLIDER_SIZE.x, PLAYER_GROUND_COLLIDER_HEIGHT, PLAYER_COLLIDER_SIZE.z };
+}
+
+RaycastBlockResult Player::get_targeted_block(void) {
+    return m_targeted_block;
 }

@@ -30,10 +30,10 @@ void Shader::use_no_program(void) {
 }
 
 void Shader::use_program(void) const {
-    /* What TODO */
+    /* What TODO 
     if(!this->is_valid_program()) {
         Shader::use_no_program();
-    }
+    }*/
 
     GL_CHECK(glUseProgram(m_program_id));
 }
@@ -82,7 +82,7 @@ bool Shader::load_from_memory(const char *vs, size_t vs_len, const char *fs, siz
         return false;
     }
 
-    fprintf(stdout, "[info] Shader: Created shader, ID: %d (%p)\n", m_program_id, this);
+    // fprintf(stdout, "[info] Shader: Created shader, ID: %d (%p)\n", m_program_id, this);
     return true;
 }
 
@@ -115,7 +115,7 @@ void Shader::delete_program_if_exists(bool log) {
     if(m_program_id) {
         GL_CHECK(glDeleteProgram(m_program_id));
         if(log) {
-            fprintf(stdout, "[info] Shader: Deleted shader program, ID: %d (%p)\n", m_program_id, this);
+            // fprintf(stdout, "[info] Shader: Deleted shader program, ID: %d (%p)\n", m_program_id, this);
         }
         m_program_id = 0;
     }
@@ -208,7 +208,7 @@ void ShaderFile::hotload(void) {
         return;
     }
 
-    fprintf(stdout, "[info] Hotload: Hotloading shader: \n");
+    // fprintf(stdout, "[info] Hotload: Hotloading shader: \n");
 
     bool hotloaded = this->load_from_file(m_filepath);
     if(!hotloaded) {

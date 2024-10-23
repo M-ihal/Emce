@@ -3,6 +3,9 @@
 #include "shader.h"
 #include "vertex_array.h"
 #include "text_batcher.h"
+#include "framebuffer.h"
+
+#include <cstdarg>
 
 #include <glew.h>
                  
@@ -41,7 +44,6 @@ bool compare_func(const CommandTableKey &a, const CommandTableKey &b) {
 typedef meh::Table<CommandTableKey, ConsoleCommand, hash_func, compare_func> CommandTable ;
 
 namespace {
-
     bool        g_initialized = false;
     Font        g_font;
     TextBatcher g_batcher;
@@ -58,6 +60,9 @@ namespace {
     constexpr double CURSOR_BLINK_TIME = 0.5;
     double g_cursor_blink_t = 0.0;
     bool   g_cursor_blink   = false;
+
+    int32_t g_frame_width  = 1;
+    int32_t g_frame_height = 1;
 }
 
 void Console::initialize(void) {
@@ -119,6 +124,11 @@ void Console::initialize(void) {
     });
 }
 
+void Console::begin_frame(int32_t width, int32_t height) {
+    g_frame_width  = width;
+    g_frame_height = height;
+}
+
 void Console::destroy(void) {
     g_initialized = false;
 
@@ -133,7 +143,14 @@ void Console::add_to_history(const char *string, ...) {
         g_history[index] = g_history[index - 1];
     }
 
-    g_history[0] = std::string(string);
+    static char buffer[1024];
+    ZERO_ARRAY(buffer);
+
+    va_list args;
+    va_start(args, string);
+    vsprintf_s(buffer, ARRAY_COUNT(buffer), string, args);
+    g_history[0] = std::string(buffer);
+    va_end(args);
 }
 
 void Console::update(const Input &input, Window &window, Game &game, double delta_time) {
@@ -227,10 +244,10 @@ command_parsed:
         if(the_command != NULL) {
             g_last_valid_input = g_input_buffer;
 
-            std::vector<StringViu> args = { arg1, arg2, arg3 };
-//            if(arg1.length) { std::string s; s.assign(arg1.data, arg1.length); args.push_back(s); }
-//            if(arg2.length) { std::string s; s.assign(arg2.data, arg2.length); args.push_back(s); }
-//            if(arg3.length) { std::string s; s.assign(arg3.data, arg3.length); args.push_back(s); }
+            std::vector<StringViu> args;
+            if(arg1.length) args.push_back(arg1);
+            if(arg2.length) args.push_back(arg2);
+            if(arg3.length) args.push_back(arg3);
             the_command->proc(args, window, game);
         }
 
@@ -249,10 +266,11 @@ command_parsed:
     }
 }
 
-void Console::render(int32_t window_w, int32_t window_h) {
+void Console::render(void) {
     if(!g_is_open) {
         return;
     }
+    Framebuffer::bind_no_fbo();
 
     g_quad_shader.hotload();
 
@@ -262,7 +280,7 @@ void Console::render(int32_t window_w, int32_t window_h) {
 
     /* Quad shader */
     g_quad_shader.use_program();
-    g_quad_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(window_w), float(window_h), -1.0f, 1.0f).e);
+    g_quad_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(g_frame_width), float(g_frame_height), -1.0f, 1.0f).e);
     g_quad_vao.bind_vao();
 
     g_batcher.begin();
@@ -327,7 +345,7 @@ void Console::render(int32_t window_w, int32_t window_h) {
         glEnable(GL_DEPTH_TEST);
     }
 
-    g_batcher.render(window_w, window_h, g_font, { 1.0f, 1.0f, 1.0f });
+    g_batcher.render(g_frame_width, g_frame_height, g_font, { 1.0f, 1.0f, 1.0f });
 }
 
 void Console::set_open_state(bool open, Window &window) {

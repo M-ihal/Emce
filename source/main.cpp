@@ -1,5 +1,6 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_thread.h>
 #include <glew.h>
 
 #include <stdio.h>
@@ -22,29 +23,16 @@
 #include "console.h"
 #include "game.h"
 #include "simple_draw.h"
+#include "framebuffer.h"
+#include "draw.h"
+
+int32_t calc_average_fps(double delta_time);
 
 namespace {
     constexpr int32_t INIT_WINDOW_WIDTH  = 1280;
     constexpr int32_t INIT_WINDOW_HEIGHT = 720;
     const char       *INIT_WINDOW_TITLE  = "emce";
 }
-
-/*
-    @todo: Better cleanup of reasorces... maybe make it explicit not in destructors
-    @todo: Maybe make window globally accesible
-
-    @todo @maybe Make every constructor end destructor explicit?
-    @todo Make window global?
-
-    @todo SLEEP THREADS!!
-*/
-
-int32_t calc_average_fps(double delta_time);
-void render_random_thing_at_origin(const Camera &camera, float aspect);
-
-// All specific windows stuff temporary
-
-#include <windows.h>
 
 struct MutexTicket {
     int64_t volatile ticket;
@@ -64,21 +52,13 @@ MutexTicket mutex_load_queue = { };
 MutexTicket mutex_gen_queue  = { };
 MutexTicket mutex_get_chunk  = { };
 
-/*
-extern MutexTicket mutex_load_queue;
-extern MutexTicket mutex_gen_queue;
-extern void begin_ticket_mutex(MutexTicket &mutex);
-extern void end_ticket_mutex(MutexTicket &mutex);
-*/
-
-
-DWORD WINAPI chunk_gen_thread(void *param) {
+int chunk_gen_thread_func(void *param) {
     Game *game = (Game *)param;
-    for(;;) {
-        game->get_world().get_chunk({ 1, 1 });
 
+    while(true) {
         game->get_world().process_load_queue();
     }
+
     return 0;
 }
 
@@ -93,24 +73,15 @@ int SDL_main(int argc, char *argv[]) {
     }
 
     Window window;
-
     if(!window.initialize(INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT, INIT_WINDOW_TITLE)) {
         fprintf(stderr, "[error] Window: Failed to create valid opengl window.\n");
         return -1;
     }
 
-    /* Do not query text input by default */
-    window.set_text_input_active(false);
-
     const bool glew_success = glewInit() == GLEW_OK;
     if(!glew_success) {
         fprintf(stderr, "[error] Glew: Failed to initialize.\n");
         return -1;
-    }
-
-    /* Initialize OpenGL state */ {
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
     }
 
     /* Initialize global stuff */
@@ -125,63 +96,7 @@ int SDL_main(int argc, char *argv[]) {
     });
 
     Input input;
-    Game  game;
-
-    bool show_debug_ui = true;
-
-    const std::string folder = "skybox_blue";
-    const std::string extension = ".jpg";
-    const std::string filepaths[6] = {
-        "C://dev//emce//data//" + folder + "//right" + extension,
-        "C://dev//emce//data//" + folder + "//left" + extension,
-        "C://dev//emce//data//" + folder + "//up" + extension,
-        "C://dev//emce//data//" + folder + "//down" + extension,
-        "C://dev//emce//data//" + folder + "//front" + extension,
-        "C://dev//emce//data//" + folder + "//back" + extension,
-    };
-
-    Cubemap skybox;
-    skybox.load_from_file(filepaths);
-    skybox.set_filter_min(TextureFilter::NEAREST);
-    skybox.set_filter_mag(TextureFilter::NEAREST);
-
-    ShaderFile skybox_shader;
-    skybox_shader.set_filepath_and_load("C://dev//emce//source//shaders//skybox.glsl");
-
-    const float sv_vertices[] = {
-        -0.5f, -0.5f,  0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f,  0.5f,
-        -0.5f,  0.5f,  0.5f,
-        -0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f,  0.5f, -0.5f,
-        -0.5f,  0.5f, -0.5f 
-    };
-
-    const uint32_t sv_indices[] = {
-        0, 1, 2,
-        2, 3, 0,
-        4, 5, 6,
-        6, 7, 4,
-        4, 0, 3,
-        3, 7, 4,
-        1, 5, 6,
-        6, 2, 1,
-        3, 2, 6,
-        6, 7, 3,
-        0, 1, 5,
-        5, 4, 0
-    };
-
-    BufferLayout sv_layout;
-    sv_layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
-
-    VertexArray skybox_vao;
-    skybox_vao.create_vao(sv_layout, ArrayBufferUsage::STATIC);
-    skybox_vao.apply_vao_attributes();
-    skybox_vao.set_vbo_data(sv_vertices, ARRAY_COUNT(sv_vertices) * sizeof(float));
-    skybox_vao.set_ibo_data(sv_indices, ARRAY_COUNT(sv_indices));
+    Game  game(window);
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -189,30 +104,32 @@ int SDL_main(int argc, char *argv[]) {
     double elapsed_time = 0.0;
     double delta_time   = 0.0;
 
-#if 1
+    /* Create threads */
     const uint32_t chunk_thread_count = 1;
-    DWORD thread_ids[chunk_thread_count] = { };
+    SDL_Thread *threads[chunk_thread_count] = { };
     for(uint32_t index = 0; index < chunk_thread_count; ++index) {
-        HANDLE thread = CreateThread(0, 0, chunk_gen_thread, &game, 0, thread_ids + index);
-        CloseHandle(thread);
+        char thread_name[64];
+        sprintf_s(thread_name, ARRAY_COUNT(thread_name), "Chunk gen thread #%u", index);
+        threads[index] = SDL_CreateThread(chunk_gen_thread_func, thread_name, (void *)&game);
+        SDL_DetachThread(threads[index]);
     }
-#endif
 
     while(window.get_should_close()) {
         window.process_events(input);
 
+        if(window.size_changed_this_frame()) {
+            game.resize_framebuffers(window.get_width(), window.get_height());
+        }
+
         DebugUI::begin_frame(window.get_width(), window.get_height());
+        Console::begin_frame(window.get_width(), window.get_height());
 
         /* Calculate time */ {
             time_now = SDL_GetPerformanceCounter();
             const double delta = time_now - time_last;
             delta_time = delta / time_freq;
             clamp_max_v(delta_time, 1.0 / 30.0);
-#if 0
-            if(input.key_is_down(Key::LEFT_CTRL)) {
-                delta_time *= 0.1;
-            }
-#endif
+
             elapsed_time += delta_time;
             time_last = time_now;
         }
@@ -226,56 +143,39 @@ int SDL_main(int argc, char *argv[]) {
         TextBatcher::hotload_shader();
         SimpleDraw::hotload_shader();
         game.hotload_stuff();
-        skybox_shader.hotload();
 
+        /* Update */ {
+            if(input.key_pressed(Key::F03)) {
+                DebugUI::toggle();
+            }
 
-        /*        */
-        /* Update */
-        /*        */
+            if(input.key_pressed(Key::T) && !Console::is_open()) {
+                Console::set_open_state(true, window);
+            }
 
-        if(input.key_pressed(Key::F03)) {
-            show_debug_ui = !show_debug_ui;
+            if(input.key_pressed(Key::ESCAPE) && !Console::is_open()) {
+                window.set_should_close();
+            }
+
+            Console::update(input, window, game, delta_time);
+            game.update(window, input, delta_time);
         }
 
-        if(input.key_pressed(Key::T) && !Console::is_open()) {
-            Console::set_open_state(true, window);
-        }
+        /* Render */ {
+            SimpleDraw::set_camera(game.get_camera(), window.calc_aspect());
 
-        if(input.key_pressed(Key::ESCAPE) && !Console::is_open()) {
-            window.set_should_close();
-        }
+            glViewport(0, 0, window.get_width(), window.get_height());
+            GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
+            GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
-        Console::update(input, window, game, delta_time);
-        game.update(input, delta_time);
+            game.render_world();
+            game.render_ui();
 
-        SimpleDraw::set_camera(game.get_camera(), window.calc_aspect());
+            Framebuffer::bind_no_fbo();
+            glViewport(0, 0, window.get_width(), window.get_height());
 
-        /*        */
-        /* Render */
-        /*        */
-
-        glViewport(0, 0, window.get_width(), window.get_height());
-        GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
-        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
-
-        game.render(window);
-        render_random_thing_at_origin(game.get_camera(), window.calc_aspect());
-
-        /* Render skybox */ {
-            glDepthFunc(GL_LEQUAL);
-            skybox_shader.use_program();
-            skybox_shader.upload_mat4("u_proj", game.get_camera().calc_proj(window.calc_aspect()).e);
-            skybox_shader.upload_mat4("u_view", game.get_camera().calc_view().e);
-            skybox_vao.bind_vao();
-            skybox.bind_cubemap();
-            GL_CHECK(glDrawElements(GL_TRIANGLES, skybox_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
-            glDepthFunc(GL_LESS);
-        }
-
-        Console::render(window.get_width(), window.get_height());
-
-        if(show_debug_ui) {
             DebugUI::render();
+            Console::render();
         }
 
         window.swap_buffer();
@@ -287,57 +187,7 @@ int SDL_main(int argc, char *argv[]) {
     DebugUI::destroy();
     TextBatcher::destroy();
 
-    skybox.delete_cubemap();
-
     return 0;
-}
-
-void render_random_thing_at_origin(const Camera &camera, float aspect) {
-    /// @todo NOT DELETING THOSE....
-    static Shader s_shader;
-    static VertexArray s_vao;
-    static Texture s_texture;
-    static bool    s_initialized = false;
-    if(!s_initialized) {
-        s_initialized = true;
-        s_shader.load_from_file("C://dev//emce//source//shaders//flat_image.glsl");
-        s_texture.load_from_file("C://dev//emce//data//dog.png", true);
-
-        const float fval = 4.0f;
-
-        const float vertices[] = {
-            -fval, -fval, 0.0f, 0.0f, 0.0f,
-            +fval, -fval, 0.0f, 1.0f, 0.0f,
-            +fval, +fval, 0.0f, 1.0f, 1.0f,
-            -fval, +fval, 0.0f, 0.0f, 1.0f,
-        };
-
-        const uint32_t indices[] = {
-            0, 1, 2,
-            2, 3, 0
-        };
-
-        BufferLayout layout;
-        layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
-        layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
-
-        s_vao.create_vao(layout, ArrayBufferUsage::STATIC);
-        s_vao.set_vbo_data(vertices, ARRAY_COUNT(vertices) * sizeof(float));
-        s_vao.set_ibo_data(indices, 6);
-        s_vao.apply_vao_attributes();
-    }
-
-    mat4 proj_m = camera.calc_proj(aspect);
-    mat4 view_m = camera.calc_view();
-    s_shader.use_program();
-    s_shader.upload_mat4("u_proj", proj_m.e);
-    s_shader.upload_mat4("u_view", view_m.e);
-    s_shader.upload_mat4("u_model", mat4::translate({ 0.0f, 130.0f, 0.0f }).e);
-    s_shader.upload_int("u_image", 0);
-    s_texture.bind_texture_unit(0);
-
-    s_vao.bind_vao();
-    glDrawElements(GL_TRIANGLES, s_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL);
 }
 
 int32_t calc_average_fps(double delta_time) {

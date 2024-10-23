@@ -87,6 +87,8 @@ public:
     explicit Chunk(World *world, vec2i chunk_xz);
     ~Chunk(void);
 
+    const VertexArray &get_vao(void);
+
     Block *get_block(const vec3i &rel);
     vec2i  get_coords(void);
 

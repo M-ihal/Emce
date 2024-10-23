@@ -21,6 +21,7 @@ Window::Window(void) {
     m_width        = 0;
     m_height       = 0;
     m_should_close = false;
+    m_size_changed_this_frame = false;
 }
 
 Window::~Window(void) {
@@ -46,6 +47,7 @@ bool Window::initialize(int width, int height, const char *title) {
     ASSERT(!m_sdl_window);
     ASSERT(!m_gl_context);
 
+
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
@@ -56,6 +58,7 @@ bool Window::initialize(int width, int height, const char *title) {
         fprintf(stderr, "[error] Window: Failed to create SDL window.\n");
         return false;
     }
+
 
     m_gl_context = SDL_GL_CreateContext(m_sdl_window);
     if(!m_gl_context) {
@@ -72,11 +75,19 @@ bool Window::initialize(int width, int height, const char *title) {
     /* Set vsync */
     SDL_GL_SetSwapInterval(1);
 
+    /* Do not query text input by default */
+    this->set_text_input_active(false);
+
+    /* Do not capture mouse by default */
+    this->set_rel_mouse_active(false);
+
     return true;
 }
 
 void Window::process_events(Input &input) {
     input.prepare_to_catch_input();
+    
+    m_size_changed_this_frame = false;
 
     SDL_Event event;
     while(SDL_PollEvent(&event)) {
@@ -89,6 +100,7 @@ void Window::process_events(Input &input) {
                 const SDL_WindowEvent &window_event = event.window;
                 m_width  = window_event.data1;
                 m_height = window_event.data2;
+                m_size_changed_this_frame = true;
             } continue;
         }
 
@@ -120,8 +132,11 @@ float Window::calc_aspect(void) const {
     return float(m_width) / float(m_height);
 }
 
+bool Window::size_changed_this_frame(void) const {
+    return m_size_changed_this_frame;
+}
+
 void Window::set_text_input_active(bool enable) {
-    /* Check if trying to set to the same state */
     if(enable == this->is_text_input_active()) {
         return;
     }
@@ -135,6 +150,19 @@ void Window::set_text_input_active(bool enable) {
 
 bool Window::is_text_input_active(void) const {
     return SDL_TextInputActive(m_sdl_window);
+}
+
+void Window::set_rel_mouse_active(bool enable) {
+    if(enable == this->is_rel_mouse_active()) {
+        return;
+    }
+
+    SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
+    SDL_SetWindowRelativeMouseMode(m_sdl_window, enable);
+}
+
+bool Window::is_rel_mouse_active(void) {
+    return SDL_GetWindowRelativeMouseMode(m_sdl_window);
 }
 
 void *Window::get_os_native_handle(void) {

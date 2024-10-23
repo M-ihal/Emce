@@ -42,19 +42,12 @@ public:
     /* Generate VAOs, called on main thread */
     void process_gen_queue(void);
 
-    /* move out to GameRenderer or something */
-    void render_chunks(const Shader &shader, const Texture &atlas);
-
     /* Get chunk or create if doesn't exist */
     Chunk *get_chunk(vec2i chunk_xz, bool create_if_doesnt_exist = false);
     void   gen_chunk(vec2i chunk_xz);
 
     /* Get block from absolute block position (not relative to a chunk) */
     Block *get_block(const vec3i &block);
-
-    /* debug @temp */
-    bool     _debug_render_not_fill;
-    uint32_t _rendered_triangles_last_frame;
 
 private:
     /* Allocates a chunk and generates terrain for given key (Queues the generation of VAO) */

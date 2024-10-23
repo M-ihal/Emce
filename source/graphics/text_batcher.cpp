@@ -60,14 +60,17 @@ TextBatcher::TextBatcher(void) {
     const size_t size_in_bytes = TEXT_BATCHER_QUAD_MAX * 4 * sizeof(TextQuadVertex);
     m_vertices = (TextQuadVertex *)malloc(size_in_bytes);
     m_chars_pushed = 0;
-    ASSERT(m_vertices);
-    fprintf(stdout, "[info] TextBatcher: Allocated memory. %lld bytes.\n", size_in_bytes);
+    if(!m_vertices) {
+        fprintf(stderr, "[Error] TextBatcher: Failed to allocate memory.\n");
+        ASSERT(m_vertices);
+    }
+    // fprintf(stdout, "[info] TextBatcher: Allocated memory. %lld bytes.\n", size_in_bytes);
 }
 
 TextBatcher::~TextBatcher(void) {
     free(m_vertices);
     m_vertices = NULL;
-    fprintf(stdout, "[info] TextBatcher: Deallocated memory.\n");
+    // fprintf(stdout, "[info] TextBatcher: Deallocated memory.\n");
 }
 
 void TextBatcher::begin(void) {

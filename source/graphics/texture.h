@@ -19,6 +19,7 @@ enum class TextureDataFormat : int8_t {
     RED,
     RGB,
     RGBA,
+    DEPTH24_STENCIL8,
     INVALID
 };
 
@@ -37,6 +38,9 @@ class Texture {
 public:
     CLASS_COPY_DISABLE(Texture);
 
+    /* Framebuffer needs the id */
+    friend class Framebuffer;
+
     /* Zeroes the variables, Does not generate texture ID */
     Texture(void);
 
@@ -45,9 +49,7 @@ public:
 
     /* Load functions delete current texture ID if exists */
     bool load_empty(int32_t width, int32_t height, TextureDataFormat internal_format);
-
     bool load_from_memory(uint8_t *data, int32_t width, int32_t height, TextureLoadSpec spec);
-
     bool load_from_file(const std::string &filepath, bool flip_on_load = false, TextureLoadSpec spec = { TextureDataFormat::INVALID, TextureDataFormat::INVALID, TextureDataType::INVALID });
 
     void bind_texture(void) const;

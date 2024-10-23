@@ -10,14 +10,11 @@
 #define STB_PERLIN_IMPLEMENTATION
 #include <stb_perlin.h>
 
-// @todo Bug with threading process_gen_chunks or something, sometimes slows down...
-
 World::World(Game *game) : m_chunk_table(3000) {
     m_owner = game;
     m_world_gen_seed = 2137;
     m_load_queue.clear();
     m_gen_queue.clear();
-    _debug_render_not_fill = false;
 }
 
 World::~World(void) {
@@ -115,44 +112,6 @@ void World::process_gen_queue(void) {
         m_gen_queue.pop_back();
     }
     end_ticket_mutex(mutex_gen_queue);
-}
-
-void World::render_chunks(const Shader &shader, const Texture &atlas) {
-    shader.use_program();
-    shader.upload_int("u_texture", 0);
-    atlas.bind_texture_unit(0);
-
-    uint32_t num_of_triangles = 0;
-
-    if(_debug_render_not_fill) {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    }
-
-    ChunkHashTable::Iterator iter;
-    while(m_chunk_table.iterate_all(iter)) {
-        Chunk *chunk = *iter.value;
-
-        if(!chunk->m_chunk_vao.has_been_created()) {
-            continue;
-        }
-
-        const int32_t z = iter.key.y;
-        const int32_t x = iter.key.x;
-
-        shader.upload_mat4("u_model", mat4::translate(vec3{ float(x * CHUNK_SIZE_X), 0.0f, float(z * CHUNK_SIZE_Z) }).e);
-
-        chunk->m_chunk_vao.bind_vao();
-        GL_CHECK(glDrawElements(GL_TRIANGLES, chunk->m_chunk_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
-
-        num_of_triangles += chunk->m_chunk_vao.get_ibo_count() / 3;
-    }
-
-
-    _rendered_triangles_last_frame = num_of_triangles;
-
-    if(_debug_render_not_fill) {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    }
 }
 
 extern MutexTicket mutex_get_chunk;

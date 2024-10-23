@@ -24,9 +24,13 @@ public:
     float   calc_aspect(void) const;
     int32_t get_width(void) const;
     int32_t get_height(void) const;
+    bool    size_changed_this_frame(void) const;
 
     void set_text_input_active(bool enable);
     bool is_text_input_active(void) const;
+
+    void set_rel_mouse_active(bool enable);
+    bool is_rel_mouse_active(void);
 
     /* Return OS handle i.e. on windows HWND */
     void *get_os_native_handle(void);
@@ -37,4 +41,5 @@ private:
     int32_t        m_width;
     int32_t        m_height;
     bool           m_should_close;
+    bool           m_size_changed_this_frame;
 };

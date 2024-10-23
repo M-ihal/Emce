@@ -30,10 +30,28 @@ struct ConsoleCommand {
 namespace Console {
     void initialize(void);
     void destroy(void);
+    void begin_frame(int32_t width, int32_t height);
     void update(const Input &input, Window &window, Game &game, double delta_time);
-    void render(int32_t window_w, int32_t window_h);
+    void render(void);
     void add_to_history(const char *format, ...); // @todo
     void set_open_state(bool open, Window &window);
     bool is_open(void);
     void set_command(const char name[64], ConsoleCommand command);
 }
+
+/*
+class Console {
+public:
+    CLASS_COPY_DISABLE(Console);
+
+    void initialize(void);
+
+    void destroy(void);
+
+    void resize(int32_t width, int32_t height);
+
+    void update(const Input &input);
+
+private:
+}
+*/

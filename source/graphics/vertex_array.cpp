@@ -4,10 +4,6 @@
 #include <stdio.h>
 #include <cstring>
 
-#if !defined(DO_VAO_LOGS)
-#define fprintf(...)
-#endif
-
 static inline constexpr int32_t gl_from_array_buffer_usage(ArrayBufferUsage usage) {
     switch(usage) {
         default: INVALID_CODE_PATH;     return -1;
@@ -58,7 +54,7 @@ void VertexArray::create_vao(const BufferLayout &vbo_layout, ArrayBufferUsage us
         return;
     } else {
         GL_CHECK(glBindVertexArray(m_vao_id));
-        fprintf(stdout, "[info] VAO: Created vertex array, ID: %d\n", m_vao_id);
+        // fprintf(stdout, "[info] VAO: Created vertex array, ID: %d\n", m_vao_id);
     }
 
     /* Generate vbo ID */
@@ -69,7 +65,7 @@ void VertexArray::create_vao(const BufferLayout &vbo_layout, ArrayBufferUsage us
         return;
     } else {
         GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, m_vbo_id));
-        fprintf(stdout, "[info] VAO: VBO ID: %d attached to VAO ID: %d\n", m_vbo_id, m_vao_id);
+        // fprintf(stdout, "[info] VAO: VBO ID: %d attached to VAO ID: %d\n", m_vbo_id, m_vao_id);
     }
 
     /* Generate ibo ID */
@@ -80,7 +76,7 @@ void VertexArray::create_vao(const BufferLayout &vbo_layout, ArrayBufferUsage us
         return;
     } else {
         GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo_id));
-        fprintf(stdout, "[info] VAO: IBO ID: %d attached to VAO ID: %d\n", m_ibo_id, m_vao_id);
+        // fprintf(stdout, "[info] VAO: IBO ID: %d attached to VAO ID: %d\n", m_ibo_id, m_vao_id);
     }
 
     this->bind_no_vao();
@@ -88,19 +84,19 @@ void VertexArray::create_vao(const BufferLayout &vbo_layout, ArrayBufferUsage us
     
 void VertexArray::delete_vao(void) {
     if(m_ibo_id) {
-        fprintf(stdout, "[info] VAO: Deleted attached IBO, ID: %d\n", m_ibo_id);
+        // fprintf(stdout, "[info] VAO: Deleted attached IBO, ID: %d\n", m_ibo_id);
         GL_CHECK(glDeleteBuffers(1, &m_ibo_id));
         m_ibo_id = 0;
     }
 
     if(m_vbo_id) {
-        fprintf(stdout, "[info] VAO: Deleted attached VBO, ID: %d\n", m_vbo_id);
+        // fprintf(stdout, "[info] VAO: Deleted attached VBO, ID: %d\n", m_vbo_id);
         GL_CHECK(glDeleteBuffers(1, &m_vbo_id));
         m_vbo_id = 0;
     }
 
     if(m_vao_id) {
-        fprintf(stdout, "[info] VAO: Deleted VAO, ID: %d\n", m_vao_id);
+        // fprintf(stdout, "[info] VAO: Deleted VAO, ID: %d\n", m_vao_id);
         glDeleteVertexArrays(1, &m_vao_id);
         m_vao_id = 0;
     }
@@ -210,7 +206,3 @@ void BufferLayout::push_attribute(const char *name, int32_t count, BufferDataTyp
     m_combined_count += count;
     m_next_attribute += 1;
 }
-
-#if !defined(DO_VAO_LOGS)
-#undef fprintf
-#endif
