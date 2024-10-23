@@ -35,6 +35,7 @@ enum class BlockType : uint8_t {
     COBBLESTONE,
     TREE_LOG,
     TREE_LEAVES,
+    __COUNT
 };
 
 inline const char *block_type_string[] = {

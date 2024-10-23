@@ -1,4 +1,5 @@
 #include "framebuffer.h"
+#include "simple_draw.h"
 
 #include <glew.h>
 
@@ -88,6 +89,17 @@ void Framebuffer::clear_fbo(const vec4 &color, uint32_t flags) {
     if(flags & CLEAR_DEPTH)   { clear_flags = clear_flags | GL_DEPTH_BUFFER_BIT; }
     if(flags & CLEAR_STENCIL) { clear_flags = clear_flags | GL_STENCIL_BUFFER_BIT; }
     GL_CHECK(glClear(clear_flags));
+}
+
+void Framebuffer::blit_whole(int32_t width, int32_t height) {
+    GL_CHECK(glDisable(GL_DEPTH_TEST));
+    GL_CHECK(glEnable(GL_BLEND));
+    GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+
+    mat4 proj_m = mat4::orthographic(0.0f, 0.0f, (float)width, (float)height, -10.0f, 10.0f);
+
+    GL_CHECK(glViewport(0, 0, width, height));
+    SimpleDraw::draw_textured_quad_2d({ 0.0f, 0.0f }, { (float)width, (float)height }, m_color, proj_m);
 }
 
 const Texture &Framebuffer::get_color_texture(void) const {

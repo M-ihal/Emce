@@ -1,5 +1,6 @@
 #include "simple_draw.h"
 
+#include "texture.h"
 #include "vertex_array.h"
 #include "shader.h"
 
@@ -13,6 +14,8 @@ namespace {
     VertexArray g_cube_outline_vao;
     ShaderFile  g_line_shader;
     VertexArray g_line_vao;
+    ShaderFile  g_tex_quad_shader;
+    VertexArray g_tex_quad_vao;
     float       g_set_aspect = 1.0f;
     Camera      g_set_camera;
 }
@@ -24,6 +27,7 @@ void SimpleDraw::initialize(void) {
     g_triangle_shader.set_filepath_and_load("C://dev//emce//source//shaders//sd_triangle.glsl");
     g_cube_outline_shader.set_filepath_and_load("C://dev//emce//source//shaders//sd_outline_cube.glsl");
     g_line_shader.set_filepath_and_load("C://dev//emce//source//shaders//sd_line.glsl");
+    g_tex_quad_shader.set_filepath_and_load("C://dev//emce//source//shaders//sd_textured_quad.glsl");
 
     /* Triangle w/ placeholder data */ {
         const float vertices[] = {
@@ -100,6 +104,29 @@ void SimpleDraw::initialize(void) {
         g_line_vao.set_ibo_data(indices, ARRAY_COUNT(indices));
         g_line_vao.apply_vao_attributes();
     }
+
+    /* Textured quad 2D */ {
+        const float vertices[] = {
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+            0.0f, 1.0f, 0.0f, 0.0f, 1.0f
+        };
+
+        const uint32_t indices[] = {
+            0, 1, 2,
+            2, 3, 0
+        };
+
+        BufferLayout layout;
+        layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
+        layout.push_attribute("a_tex_coords", 2, BufferDataType::FLOAT);
+
+        g_tex_quad_vao.create_vao(layout, ArrayBufferUsage::DYNAMIC);
+        g_tex_quad_vao.set_vbo_data(vertices, sizeof(float) * ARRAY_COUNT(vertices));
+        g_tex_quad_vao.set_ibo_data(indices, ARRAY_COUNT(indices));
+        g_tex_quad_vao.apply_vao_attributes();
+    }
 }
 
 void SimpleDraw::destroy(void) {
@@ -112,12 +139,15 @@ void SimpleDraw::destroy(void) {
     g_cube_outline_vao.delete_vao();
     g_line_shader.delete_shader_file();
     g_line_vao.delete_vao();
+    g_tex_quad_shader.delete_shader_file();
+    g_tex_quad_vao.delete_vao();
 }
 
 void SimpleDraw::hotload_shader(void) {
     g_triangle_shader.hotload();
     g_cube_outline_shader.hotload();
     g_line_shader.hotload();
+    g_tex_quad_shader.hotload();
 }
 
 void SimpleDraw::set_camera(const Camera &camera, float aspect_ratio) {
@@ -187,4 +217,19 @@ void SimpleDraw::draw_line(const vec3 &point_a, const vec3 &point_b, float width
 
     GL_CHECK(glLineWidth(width));
     GL_CHECK(glDrawElements(GL_LINES, g_line_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+}
+
+void SimpleDraw::draw_textured_quad_2d(const vec2 &position, const vec2 &size, const Texture &texture, mat4 &proj_m, float z_pos) {
+    mat4 model = mat4::scale(size.x, size.y, 1.0f);
+    model = model * mat4::translate(position.x, position.y, z_pos);
+
+    g_tex_quad_shader.use_program();
+    g_tex_quad_shader.upload_mat4("u_proj",  proj_m.e);
+    g_tex_quad_shader.upload_mat4("u_model", model.e);
+    g_tex_quad_shader.upload_int("u_texture", 0);
+    texture.bind_texture_unit(0);
+
+    g_tex_quad_vao.bind_vao();
+
+    GL_CHECK(glDrawElements(GL_TRIANGLES, g_tex_quad_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
 }

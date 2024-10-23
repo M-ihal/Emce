@@ -1,8 +1,10 @@
 #include "game.h"
-
-#include "console.h"
+#include "window.h"
 #include "debug_ui.h"
 #include "simple_draw.h"
+
+#define STRING_VIU_CPP_HELPERS
+#include <string_viu.h>
 
 #include <glew.h>
 
@@ -28,6 +30,9 @@ Game::Game(Window &window) : m_world(this) {
     int32_t height = window.get_height();
     m_fbo_world.create_fbo(width, height);
     m_fbo_ui.create_fbo(width, height);
+
+    m_ui_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
+    m_ui_font_big.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 40);
 
     m_block_shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
     m_block_atlas.load_from_file("C://dev//emce//data//atlas.png", true);
@@ -87,11 +92,14 @@ Game::Game(Window &window) : m_world(this) {
         m_skybox_vao.set_ibo_data(sv_indices, ARRAY_COUNT(sv_indices));
     }
 
+    m_world.initialize_world(14);
+    m_console.initialize(width, height);
+
+    m_player.initialize(m_console);
     m_player.set_position(init_player_pos);
+
     m_camera.set_position(m_player.get_position());
     m_camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
-
-    m_world.initialize_world(14);
 
     this->add_console_commands();
 }
@@ -100,20 +108,46 @@ Game::~Game(void) {
     m_fbo_world.delete_fbo();
     m_fbo_ui.delete_fbo();
 
+    m_ui_font.delete_font();
+    m_ui_font_big.delete_font();
+
     m_block_shader.delete_shader();
     m_block_atlas.delete_texture_if_exists();
 
     m_skybox_vao.delete_vao();
     m_skybox_shader.delete_shader();
     m_skybox_cubemap.delete_cubemap();
+
+    m_console.destroy();
 }
 
 void Game::update(Window &window, const Input &input, double delta_time) {
-    bool should_capture_mouse = !Console::is_open();
-    if(should_capture_mouse && !window.is_rel_mouse_active()) {
-        window.set_rel_mouse_active(true);
-    } else if(!should_capture_mouse && window.is_rel_mouse_active()) {
-        window.set_rel_mouse_active(false);
+
+    /* Maybe close game */
+    if(!m_console.is_open() && input.key_pressed(Key::ESCAPE)) {
+        window.set_should_close();
+        return;
+    }
+
+    /* Update Console */ {
+        /* Open console */
+        if(!m_console.is_open() && input.key_pressed(Key::T)) {
+            m_console.set_open_state(true, window);
+        }
+
+        /* Close console */
+        if(m_console.is_open() && input.key_pressed(Key::ESCAPE)) {
+            m_console.set_open_state(false, window);
+        }
+
+        /* Set relative mouse mode if needed */
+        if(!m_console.is_open() && !window.is_rel_mouse_active()) {
+            window.set_rel_mouse_active(true);
+        } else if(m_console.is_open() && window.is_rel_mouse_active()) {
+            window.set_rel_mouse_active(false);
+        }
+
+        m_console.update(*this, input, window, delta_time);
     }
 
     /* Gen new chunks */ {
@@ -134,11 +168,11 @@ void Game::update(Window &window, const Input &input, double delta_time) {
         }
     }
 
-    if(input.key_pressed(Key::F05) && !Console::is_open()) {
+    if(input.key_pressed(Key::F05) && !m_console.is_open()) {
         BOOL_TOGGLE(g_third_person_mode);
     }
 
-    if(g_third_person_mode && input.scroll_move() && !Console::is_open()) {
+    if(g_third_person_mode && input.scroll_move() && !m_console.is_open()) {
         g_third_person_distance -= input.scroll_move();
         clamp_v(g_third_person_distance, 1.0f, 20.0f);
     }
@@ -170,6 +204,7 @@ void Game::render_world(void) {
     m_fbo_world.bind_fbo();
     m_fbo_world.set_viewport();
     
+    GL_CHECK(glDisable(GL_BLEND));
     GL_CHECK(glEnable(GL_DEPTH_TEST));
     GL_CHECK(glDepthFunc(GL_LESS));
 
@@ -289,11 +324,28 @@ void Game::render_world(void) {
 }
 
 void Game::render_ui(void) {
-    const float aspect = (float)m_fbo_world.get_width() / (float)m_fbo_world.get_height();
+    const int32_t width  = m_fbo_ui.get_width();
+    const int32_t height = m_fbo_ui.get_height();
+    const float   aspect = (float)width / (float)height;
 
-    m_fbo_ui.clear_fbo({ 0.1f, 0.1f, 0.1f, 1.0f }, CLEAR_COLOR | CLEAR_DEPTH | CLEAR_STENCIL);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    m_fbo_ui.clear_fbo({ 0.0f, 0.0f, 0.0f, 0.0f }, CLEAR_COLOR | CLEAR_DEPTH | CLEAR_STENCIL);
     m_fbo_ui.bind_fbo();
     m_fbo_ui.set_viewport();
+
+    TextBatcher batcher;
+    batcher.begin();
+    batcher.push_text_formatted(vec2{ 6.0f, -m_ui_font_big.get_descent() * m_ui_font_big.get_scale_for_pixel_height() }, m_ui_font_big, "Held block: %s", block_type_string[(int32_t)m_player.get_held_block()]);
+    batcher.render(width, height, m_ui_font_big, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
+
+    DebugUI::render();
+
+    m_console.render(width, height);
+
+    Framebuffer::bind_no_fbo();
+    m_fbo_ui.blit_whole(width, height);
 }
 
 void Game::hotload_stuff(void) {
@@ -316,6 +368,10 @@ Camera &Game::get_camera(void) {
 
 Player &Game::get_player(void) {
     return m_player;
+}
+
+Console &Game::get_console(void) {
+    return m_console;
 }
 
 void Game::push_debug_ui(void) {
@@ -353,13 +409,13 @@ void Game::push_debug_ui(void) {
 }
 
 void Game::add_console_commands(void) {
-    Console::set_command("reset_world", { CONSOLE_COMMAND_LAMBDA {
+    m_console.set_command("reset_world", { CONSOLE_COMMAND_LAMBDA {
             const int32_t seed = args.size() > 0 ? std::stoi(s_viu_to_std_string(args[0])) : game.get_world().get_seed();
             game.get_world().initialize_world(seed);
         }
     });
 
-    Console::set_command("load_radius", { CONSOLE_COMMAND_LAMBDA {
+    m_console.set_command("load_radius", { CONSOLE_COMMAND_LAMBDA {
             if(args.size() != 1) {
                 return;
             }
@@ -368,14 +424,14 @@ void Game::add_console_commands(void) {
                 g_load_radius = radius;
                 char buffer[32];
                 sprintf_s(buffer, 32, "> radius set to %d", radius);
-                Console::add_to_history(buffer);
+                console.add_to_history(buffer);
             }
         }
     });
 
-    Console::set_command("toggle", { CONSOLE_COMMAND_LAMBDA {
+    m_console.set_command("toggle", { CONSOLE_COMMAND_LAMBDA {
             if(args.size() < 1) {
-                Console::add_to_history("> Missing argument/s");
+                console.add_to_history("> Missing argument/s");
                 return;
             }
 
@@ -390,19 +446,19 @@ void Game::add_console_commands(void) {
                 BOOL_TOGGLE(g_debug_chunk_wireframe_mode);
                 set_to = g_debug_chunk_wireframe_mode;
             } else {
-                Console::add_to_history("> Invalid argument");
+                console.add_to_history("> Invalid argument");
                 return;
             }
 
             char buffer[64];
             sprintf_s(buffer, 64, "> Set to: %s", BOOL_STR(set_to));
-            Console::add_to_history(buffer);
+            console.add_to_history(buffer);
         }
     });
 
-    Console::set_command("set_fov", { CONSOLE_COMMAND_LAMBDA {
+    m_console.set_command("set_fov", { CONSOLE_COMMAND_LAMBDA {
             if(args.size() < 1) {
-                Console::add_to_history("> missing argument");
+                console.add_to_history("> missing argument");
                 return;
             }
             float fov = std::stof(s_viu_to_std_string(args[0]));
@@ -410,7 +466,7 @@ void Game::add_console_commands(void) {
         }
     });
 
-    Console::set_command("spawn_cobble", { CONSOLE_COMMAND_LAMBDA {
+    m_console.set_command("spawn_cobble", { CONSOLE_COMMAND_LAMBDA {
             World &world = game.get_world();
 
             ChunkHashTable::Iterator iter = {};
@@ -425,10 +481,8 @@ void Game::add_console_commands(void) {
                         }
                     }
                 }
-                world.m_load_queue.push_back(iter.key);
-                
-                // @todo
-                // (*iter.value)->queue_rebuild_vao();
+
+                world.queue_chunk_vao_load(iter.key);
             }
         }
     });

@@ -29,23 +29,25 @@ namespace {
     bool g_debug_flying = false;
 }
 
-Player::Player(void) {
+void Player::initialize(Console &console) {
     m_position = vec3::zero();
     m_velocity = vec3::zero();
     m_is_sprinting = false;
     
-    Console::set_command("jumper", { CONSOLE_COMMAND_LAMBDA {
+    m_held_block = BlockType::TREE_LOG;
+
+    console.set_command("jumper", { CONSOLE_COMMAND_LAMBDA {
             BOOL_TOGGLE(g_debug_infinite_jump);
         }
     });
 
-    Console::set_command("fly", { CONSOLE_COMMAND_LAMBDA {
+    console.set_command("fly", { CONSOLE_COMMAND_LAMBDA {
             BOOL_TOGGLE(g_debug_flying);
         }
     });
 }
 
-Player::~Player(void) {
+void Player::destroy(void) {
 }
 
 bool check_aabb_3d(vec3 pos_1, vec3 size_1, vec3 pos_2, vec3 size_2) {
@@ -86,14 +88,27 @@ bool Player::check_if_collides_with_any_block(World &world, vec3 position, vec3 
     return false;
 }
 
+#define ADVANCE_ENUM(e, l, r, T) {\
+        int64_t __id = (int64_t)(e);\
+        __id += 1;\
+        if(__id >= (int64_t)r) {\
+            __id = (int64_t)l;\
+        }\
+        (e) = (T)__id;\
+}
+
 void Player::update(Game &game, const Input &input, float delta_time) {
     World &world = game.get_world();
 
     m_debug_min_checked_block = vec3i{ 1000000, 1000000, 1000000 };
     m_debug_max_checked_block = vec3i{ -1000000, -1000000, -1000000 };
 
-    if(!Console::is_open()) {
+    if(!game.get_console().is_open()) {
         m_camera.rotate_by(-input.mouse_rel_y(), input.mouse_rel_x(), delta_time);
+
+        if(input.key_pressed_or_repeat(Key::PAGE_UP)) {
+           ADVANCE_ENUM(m_held_block, 0, BlockType::__COUNT, BlockType);
+        }
     }
 
     const vec3 dir_xz   = m_camera.calc_direction_xz();
@@ -103,7 +118,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     m_is_sprinting = false;
 
     int32_t move = 0, move_side = 0;
-    if(!Console::is_open()) {
+    if(!game.get_console().is_open()) {
         if(input.key_is_down(Key::W)) {
             move += 1;
         }
@@ -206,7 +221,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         if(chunk) {
             Block *block = chunk->get_block(target.block_rel);
             if(block) {
-                block->set_type(BlockType::COBBLESTONE);
+                block->set_type(m_held_block);
                 world.queue_chunk_vao_load(chunk->get_coords());
             }
         }
@@ -396,6 +411,10 @@ vec3 Player::get_velocity(void) const {
 void Player::get_ground_collider_info(vec3 &pos, vec3 &size) {
     pos = this->get_position() - vec3{ 0.0f, PLAYER_GROUND_COLLIDER_HEIGHT * 0.5f, 0.0f  };
     size = { PLAYER_COLLIDER_SIZE.x, PLAYER_GROUND_COLLIDER_HEIGHT, PLAYER_COLLIDER_SIZE.z };
+}
+
+BlockType Player::get_held_block(void) {
+    return m_held_block;
 }
 
 RaycastBlockResult Player::get_targeted_block(void) {

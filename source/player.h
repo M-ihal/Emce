@@ -7,13 +7,16 @@
 
 class Input;
 class Game;
+class Console;
 
 class Player {
 public:
     CLASS_COPY_DISABLE(Player);
 
-    Player(void);
-    ~Player(void);
+    Player(void) = default;
+
+    void initialize(Console &console);
+    void destroy(void);
 
     void update(Game &game, const Input &input, float delta_time);
     void debug_render(Game &game);
@@ -29,18 +32,21 @@ public:
     vec3 get_velocity(void) const;
     void get_ground_collider_info(vec3 &pos, vec3 &size);
 
+    BlockType get_held_block(void);
     RaycastBlockResult get_targeted_block(void);
 
 private:
     bool check_if_collides_with_any_block(World &world, vec3 position, vec3 size);
     void move_in_xz(World &world, float delta_time);
     void move_in_y(World &world, float delta_time);
-    
+ 
     bool   m_is_grounded;
     vec3   m_velocity;
     vec3   m_position;
     bool   m_is_sprinting;
     Camera m_camera;
+
+    BlockType m_held_block;
 
     /* Targeted block by player */
     RaycastBlockResult m_targeted_block;

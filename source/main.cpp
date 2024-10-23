@@ -20,7 +20,6 @@
 #include "font.h"
 #include "text_batcher.h"
 #include "debug_ui.h"
-#include "console.h"
 #include "game.h"
 #include "simple_draw.h"
 #include "framebuffer.h"
@@ -88,15 +87,17 @@ int SDL_main(int argc, char *argv[]) {
     TextBatcher::initialize();
     DebugUI::initialize();
     SimpleDraw::initialize();
-    Console::initialize();
 
+
+    Input input;
+    Game  game(window);
+
+#if 0
     Console::set_command("quit", { CONSOLE_COMMAND_LAMBDA {
             window.set_should_close();
         }
     });
-
-    Input input;
-    Game  game(window);
+#endif
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -122,7 +123,6 @@ int SDL_main(int argc, char *argv[]) {
         }
 
         DebugUI::begin_frame(window.get_width(), window.get_height());
-        Console::begin_frame(window.get_width(), window.get_height());
 
         /* Calculate time */ {
             time_now = SDL_GetPerformanceCounter();
@@ -149,15 +149,6 @@ int SDL_main(int argc, char *argv[]) {
                 DebugUI::toggle();
             }
 
-            if(input.key_pressed(Key::T) && !Console::is_open()) {
-                Console::set_open_state(true, window);
-            }
-
-            if(input.key_pressed(Key::ESCAPE) && !Console::is_open()) {
-                window.set_should_close();
-            }
-
-            Console::update(input, window, game, delta_time);
             game.update(window, input, delta_time);
         }
 
@@ -174,15 +165,12 @@ int SDL_main(int argc, char *argv[]) {
             Framebuffer::bind_no_fbo();
             glViewport(0, 0, window.get_width(), window.get_height());
 
-            DebugUI::render();
-            Console::render();
         }
 
         window.swap_buffer();
     }
 
     /* Delete global stuff */
-    Console::destroy();
     SimpleDraw::destroy();
     DebugUI::destroy();
     TextBatcher::destroy();

@@ -56,7 +56,7 @@ int32_t Input::mouse_x(void) const {
 }
 
 int32_t Input::mouse_y(void) const {
-    return m_mouse_y;
+    return m_mouse_x;
 }
 
 int32_t Input::mouse_rel_x(void) const {

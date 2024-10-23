@@ -35,6 +35,9 @@ public:
 
     /* Clear the framebuffer */
     void clear_fbo(const vec4 &color, uint32_t flags);
+    
+    /* Render whole fbo on bound framebuffer */
+    void blit_whole(int32_t width, int32_t height);
 
     const Texture &get_color_texture(void) const;
     const Texture &get_depth_texture(void) const;
