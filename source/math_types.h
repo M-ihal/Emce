@@ -36,6 +36,7 @@ struct vec2 {
     static vec2 make(float x, float y);
     static vec2 make(float xy);
     static vec2 make(const struct vec2i &v);
+    static vec2 make_xz(const struct vec3 &v);
     static vec2 zero(void);
 
     static vec2  absolute(const vec2 &v);
@@ -142,22 +143,11 @@ struct vec4 {
     };
 };
 
-/* The matrix operations are column major, but initialization is row major due to memory layout */
-/*
-    i.e. Translation matrix would be initialized like:
-
-    mat4 m = {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        x, y, z, 1
-    };
-*/
-
+/* Row major */
 struct mat4 {
     union {
         float e[4][4];
-        struct { /* Memory layout of the matrix */
+        struct {
             float e00, e01, e02, e03;
             float e10, e11, e12, e13;
             float e20, e21, e22, e23;
@@ -172,7 +162,10 @@ struct mat4 {
     static mat4 look_at(vec3 eye, vec3 focus, vec3 up_vec);
     static mat4 translate(const vec3 &vec);
     static mat4 translate(float x, float y, float z);
-    static mat4 rotate(float x, float y, float z);
+    static mat4 rotate_x(float theta);
+    static mat4 rotate_y(float theta);
+    static mat4 rotate_z(float theta);
+    static mat4 scale(const vec3 &vec);
     static mat4 scale(float x, float y, float z);
 };
 

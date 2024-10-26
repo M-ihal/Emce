@@ -197,6 +197,7 @@ void Console::render(int32_t width, int32_t height) {
 
     /* Blend for quads, disabled before rendering text batch */
     GL_CHECK(glEnable(GL_BLEND));
+    GL_CHECK(glDisable(GL_DEPTH_TEST));
 
     /* Draw console input region */ {
         mat4 model_m = mat4::identity();
@@ -232,11 +233,8 @@ void Console::render(int32_t width, int32_t height) {
         }
     }
 
-    GL_CHECK(glDisable(GL_BLEND));
-
     /* Draw cursor */ 
     if(!m_cursor_blink) {
-        glDisable(GL_DEPTH_TEST);
         const vec2 cursor_size = { 2.0f, console_size.y - console_text_padding.y };
 
         vec2 cursor_pos = {
@@ -252,7 +250,6 @@ void Console::render(int32_t width, int32_t height) {
         m_quad_shader.upload_mat4("u_model", model_m.e);
 
         GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
-        glEnable(GL_DEPTH_TEST);
     }
 
     m_batcher.render(width, height, m_font, { 1.0f, 1.0f, 1.0f });

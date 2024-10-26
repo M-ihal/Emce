@@ -5,29 +5,10 @@
 #include <stdio.h>
 #include <string.h>
 
-Block::Block(void) {
-    ZERO_STRUCT(m_info);
-    this->set_type(BlockType::AIR);
-}
+#include <glew.h>
 
-void Block::set_type(BlockType type) {
-    m_info.type = type;
-}
-
-BlockType Block::get_type(void) {
-    return m_info.type;
-}
-
-BlockInfo &Block::get_info(void) {
-    return m_info;
-}
-
-bool Block::is_solid(void) {
-    return m_info.type != BlockType::AIR;
-}
-
-bool Block::is_of_type(BlockType type) {
-    return m_info.type == type;
+bool Block::is_solid(void) const {
+    return type != BlockType::AIR;
 }
 
 Chunk::Chunk(class World *world, vec2i chunk_xz) {
@@ -145,8 +126,8 @@ static constexpr void get_atlas_tex_coords(int32_t x, int32_t y, ChunkVaoVertex 
     v[3].tex_coord = vec2{ x * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
 }
 
-static constexpr void fill_tex_coords_for_block(BlockSide side, const BlockInfo &info, ChunkVaoVertex v[4]) {
-    switch(info.type) {
+static constexpr void fill_tex_coords_for_block(BlockSide side, const Block &block, ChunkVaoVertex v[4]) {
+    switch(block.type) {
         default: {
             get_atlas_tex_coords(0, 0, v);
         } break;
@@ -156,23 +137,23 @@ static constexpr void fill_tex_coords_for_block(BlockSide side, const BlockInfo 
         } break;
 
         case BlockType::DIRT: {
-            if(info.dirt.has_grass) {
-                switch(side) {
-                    case BlockSide::Y_NEG: {
-                        get_atlas_tex_coords(1, 0, v);
-                    } break;
-                    case BlockSide::Y_POS: {
-                        get_atlas_tex_coords(1, 2, v);
-                    } break;
-                    case BlockSide::X_POS:
-                    case BlockSide::X_NEG:
-                    case BlockSide::Z_POS:
-                    case BlockSide::Z_NEG: {
-                        get_atlas_tex_coords(1, 1, v);
-                    } break;
-                }
-            } else {
-                get_atlas_tex_coords(1, 0, v);
+            get_atlas_tex_coords(1, 0, v);
+        } break;
+
+        case BlockType::DIRT_WITH_GRASS: {
+            switch(side) {
+                case BlockSide::Y_NEG: {
+                    get_atlas_tex_coords(1, 0, v);
+                } break;
+                case BlockSide::Y_POS: {
+                    get_atlas_tex_coords(1, 2, v);
+                } break;
+                case BlockSide::X_POS:
+                case BlockSide::X_NEG:
+                case BlockSide::Z_POS:
+                case BlockSide::Z_NEG: {
+                    get_atlas_tex_coords(1, 1, v);
+                } break;
             }
         } break;
 
@@ -233,34 +214,41 @@ void Chunk::gen_vao(const ChunkVaoGenData &gen_data) {
 #endif
 }
 
+void push_block_side(std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t> &indices, BlockSide side, const Block &block, int32_t x, int32_t y, int32_t z, bool centered = false) {
+    ChunkVaoVertex v[4] = { };
+    fill_positions_and_normals(side, v);
+    fill_tex_coords_for_block(side, block, v);
+
+    v[0].position += vec3::make(x, y, z);
+    v[1].position += vec3::make(x, y, z);
+    v[2].position += vec3::make(x, y, z);
+    v[3].position += vec3::make(x, y, z);
+
+    if(centered) {
+        v[0].position -= vec3::make(0.5f);
+        v[1].position -= vec3::make(0.5f);
+        v[2].position -= vec3::make(0.5f);
+        v[3].position -= vec3::make(0.5f);
+    }
+
+    /* Starting index for indices */
+    const int32_t start = vertices.size();
+
+    vertices.push_back(v[0]);
+    vertices.push_back(v[1]);
+    vertices.push_back(v[2]);
+    vertices.push_back(v[3]);
+
+    indices.push_back(start + 0);
+    indices.push_back(start + 1);
+    indices.push_back(start + 2);
+    indices.push_back(start + 2);
+    indices.push_back(start + 3);
+    indices.push_back(start + 0);
+}
+
 ChunkVaoGenData Chunk::gen_vao_data(void) {
     ChunkVaoGenData gen_data = { };
-
-    auto push_quad = [&](BlockSide side, const BlockInfo &info, int32_t x, int32_t y, int32_t z) {
-        ChunkVaoVertex v[4] = { };
-        fill_positions_and_normals(side, v);
-        fill_tex_coords_for_block(side, info, v);
-
-        v[0].position += vec3::make(x, y, z);
-        v[1].position += vec3::make(x, y, z);
-        v[2].position += vec3::make(x, y, z);
-        v[3].position += vec3::make(x, y, z);
-
-        /* Starting index for indices */
-        const int32_t start = gen_data.vertices.size();
-
-        gen_data.vertices.push_back(v[0]);
-        gen_data.vertices.push_back(v[1]);
-        gen_data.vertices.push_back(v[2]);
-        gen_data.vertices.push_back(v[3]);
-
-        gen_data.indices.push_back(start + 0);
-        gen_data.indices.push_back(start + 1);
-        gen_data.indices.push_back(start + 2);
-        gen_data.indices.push_back(start + 2);
-        gen_data.indices.push_back(start + 3);
-        gen_data.indices.push_back(start + 0);
-    };
 
     // @todo Chunk::get_neighbouring_block(vec2i block, BlockSide side);
     auto is_relative_block_solid = [&] (const vec3i &other_rel) -> bool {
@@ -316,7 +304,7 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
         }
 
         /* If block is transparent, return true */
-        switch(other->get_type()) {
+        switch(other->type) {
             default: break;
 
             case BlockType::AIR: return false;
@@ -326,28 +314,67 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
 
     for_every_block(x, y, z) {
         Block *block = this->get_block({ x, y, z });
-        if(!block->is_of_type(BlockType::AIR)) {
+        if(block->type != BlockType::AIR) {
             if(!is_relative_block_solid({ x, y, z + 1 })) {
-                push_quad(BlockSide::Z_POS, block->get_info(), x, y, z);
+                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::Z_POS, *block, x, y, z);
             }
             if(!is_relative_block_solid({ x, y, z - 1 })) {
-                push_quad(BlockSide::Z_NEG, block->get_info(), x, y, z);
+                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::Z_NEG, *block, x, y, z);
             }
             if(!is_relative_block_solid({ x + 1, y, z })) {
-                push_quad(BlockSide::X_POS, block->get_info(), x, y, z);
+                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::X_POS, *block, x, y, z);
             }
             if(!is_relative_block_solid({ x - 1, y, z })) {
-                push_quad(BlockSide::X_NEG, block->get_info(), x, y, z);
+                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::X_NEG, *block, x, y, z);
             }
             if(!is_relative_block_solid({ x, y + 1, z })) {
-                push_quad(BlockSide::Y_POS, block->get_info(), x, y, z);
+                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::Y_POS, *block, x, y, z);
             }
             if(!is_relative_block_solid({ x, y - 1, z })) {
-                push_quad(BlockSide::Y_NEG, block->get_info(), x, y, z);
+                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::Y_NEG, *block, x, y, z);
             }
         }
     }
 
     gen_data.chunk = this->m_chunk_xz;
     return gen_data;
+}
+
+/* Big TODO !!!!! @todo */
+void render_single_block_centered(const vec3 &pos, const vec3 &size, const mat4 &rotate_m, BlockType type, const Shader &shader, const Texture &atlas) {
+    BufferLayout layout;
+    layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
+    layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
+    layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
+
+    std::vector<ChunkVaoVertex> vertices;
+    std::vector<uint32_t> indices;
+
+    Block block = { .type = type };
+
+    push_block_side(vertices, indices, BlockSide::Z_POS, block, 0, 0, 0, true);
+    push_block_side(vertices, indices, BlockSide::Z_NEG, block, 0, 0, 0, true);
+    push_block_side(vertices, indices, BlockSide::X_POS, block, 0, 0, 0, true);
+    push_block_side(vertices, indices, BlockSide::X_NEG, block, 0, 0, 0, true);
+    push_block_side(vertices, indices, BlockSide::Y_POS, block, 0, 0, 0, true);
+    push_block_side(vertices, indices, BlockSide::Y_NEG, block, 0, 0, 0, true);
+
+    VertexArray vao;
+    vao.delete_vao();
+    vao.create_vao(layout, ArrayBufferUsage::STATIC);
+    vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(ChunkVaoVertex));
+    vao.set_ibo_data(indices.data(),  indices.size());
+    vao.apply_vao_attributes();
+
+    mat4 model_m = mat4::scale(size);
+    model_m *= rotate_m;
+    model_m *= mat4::translate(pos);
+
+    shader.use_program();
+    shader.upload_mat4("u_model", model_m.e);
+
+    vao.bind_vao();
+    GL_CHECK(glDrawElements(GL_TRIANGLES, vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+
+    vao.delete_vao();
 }

@@ -92,12 +92,10 @@ int SDL_main(int argc, char *argv[]) {
     Input input;
     Game  game(window);
 
-#if 0
-    Console::set_command("quit", { CONSOLE_COMMAND_LAMBDA {
+    game.get_console().set_command("quit", { CONSOLE_COMMAND_LAMBDA {
             window.set_should_close();
         }
     });
-#endif
 
     const double time_freq = SDL_GetPerformanceFrequency();
     uint64_t time_now  = SDL_GetPerformanceCounter();
@@ -161,10 +159,6 @@ int SDL_main(int argc, char *argv[]) {
 
             game.render_world();
             game.render_ui();
-
-            Framebuffer::bind_no_fbo();
-            glViewport(0, 0, window.get_width(), window.get_height());
-
         }
 
         window.swap_buffer();

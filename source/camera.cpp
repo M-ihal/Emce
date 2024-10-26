@@ -32,6 +32,20 @@ vec3 Camera::calc_direction_side(void) const {
     };
 }
 
+vec3 Camera::calc_direction_up(void) const {
+    const float v_angle = m_rotation.y + M_PI * 0.5f;
+    const float h_angle = m_rotation.x;
+    return vec3{
+        cosf(v_angle) * cosf(h_angle),
+            sinf(v_angle),
+            cosf(v_angle) * sinf(h_angle)
+    };
+}
+
+vec3 Camera::get_up_vector(void) const {
+    return m_up_vector;
+}
+
 vec3 Camera::calc_direction_xz(void) const {
     const float v_angle = 0.0f;
     const float h_angle = m_rotation.x;

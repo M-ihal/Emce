@@ -33,6 +33,9 @@ bool Framebuffer::create_fbo(int32_t width, int32_t height) {
         m_color.delete_texture_if_exists();
         return false;
     }
+    
+    m_color.set_filter_min(TextureFilter::LINEAR);
+    m_color.set_filter_mag(TextureFilter::LINEAR);
 
     GL_CHECK(glGenFramebuffers(1, &m_fbo_id));
     if(!m_fbo_id) {

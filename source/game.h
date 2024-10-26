@@ -37,6 +37,9 @@ private:
     void push_debug_ui(void);
     void add_console_commands(void);
 
+    double m_time_elapsed;
+    double m_delta_time;
+
     Camera  m_camera;
     World   m_world;
     Player  m_player;

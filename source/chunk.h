@@ -29,19 +29,31 @@ struct ChunkVaoGenData {
 };
 
 enum class BlockType : uint8_t {
-    AIR,
+    AIR = 0,
     SAND,
     DIRT,
+    DIRT_WITH_GRASS,
     COBBLESTONE,
     TREE_LOG,
     TREE_LEAVES,
     __COUNT
 };
 
+inline bool is_placable(BlockType type) {
+    switch(type) {
+        default: return true;
+
+        case BlockType::AIR: {
+            return false;
+        };
+    }
+}
+
 inline const char *block_type_string[] = {
     "Air",
     "Sand",
     "Dirt",
+    "Dirt with grass",
     "Cobblestone",
     "Tree log",
     "Tree leaves"
@@ -49,34 +61,10 @@ inline const char *block_type_string[] = {
 
 class World;
 
-struct BlockInfo {
+struct Block {
     BlockType type;
-    union {
-        struct { } air;
-        struct { } sand;
-        struct {
-            bool has_grass;
-        } dirt;
-        struct { } cobblestone;
-        struct { } tree_log;
-        struct { } tree_leaves;
-    };
-};
 
-class Block {
-public:
-    Block(void);
-
-    void set_type(BlockType type);
-
-    BlockType  get_type(void);
-    BlockInfo &get_info(void);
-
-    bool is_solid(void);
-    bool is_of_type(BlockType type);
-
-private:
-    BlockInfo m_info;
+    bool is_solid(void) const;
 };
 
 class Chunk {
@@ -107,3 +95,5 @@ private:
     VertexArray  m_chunk_vao;
     Block        m_blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
 };
+
+void render_single_block_centered(const vec3 &pos, const vec3 &size, const mat4 &rotate_m, BlockType type, const Shader &shader, const Texture &atlas);

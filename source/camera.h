@@ -13,6 +13,7 @@ public:
 
     vec3 calc_direction(void) const;
     vec3 calc_direction_side(void) const;
+    vec3 calc_direction_up(void) const;
 
     vec3 calc_direction_xz(void) const;
     mat4 calc_proj(float aspect_ratio) const;
@@ -26,6 +27,8 @@ public:
     
     void  set_fov(float fov);
     float get_fov(void) const;
+
+    vec3 get_up_vector(void) const;
    
 private:
     vec3  m_position;

@@ -27,6 +27,7 @@ namespace {
 
     bool g_debug_infinite_jump = false;
     bool g_debug_flying = false;
+    bool g_debug_no_collision_when_flying = true;
 }
 
 void Player::initialize(Console &console) {
@@ -88,15 +89,6 @@ bool Player::check_if_collides_with_any_block(World &world, vec3 position, vec3 
     return false;
 }
 
-#define ADVANCE_ENUM(e, l, r, T) {\
-        int64_t __id = (int64_t)(e);\
-        __id += 1;\
-        if(__id >= (int64_t)r) {\
-            __id = (int64_t)l;\
-        }\
-        (e) = (T)__id;\
-}
-
 void Player::update(Game &game, const Input &input, float delta_time) {
     World &world = game.get_world();
 
@@ -106,8 +98,19 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     if(!game.get_console().is_open()) {
         m_camera.rotate_by(-input.mouse_rel_y(), input.mouse_rel_x(), delta_time);
 
-        if(input.key_pressed_or_repeat(Key::PAGE_UP)) {
-           ADVANCE_ENUM(m_held_block, 0, BlockType::__COUNT, BlockType);
+        if(input.scroll_move() != 0) {
+            int32_t unit = SIGN(input.scroll_move());
+
+            do {
+                int32_t value = (int32_t)m_held_block;
+                value += unit;
+                if(value >= (int32_t)BlockType::__COUNT) {
+                    value = 0;
+                } else if(value < 0) {
+                    value = (int32_t)BlockType::__COUNT - 1;
+                }
+                m_held_block = (BlockType)value;
+            } while(!is_placable(m_held_block));
         }
     }
 
@@ -198,8 +201,13 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         m_velocity.z = velocity_xz.y;
     }
 
-    this->move_in_xz(world, delta_time);
-    this->move_in_y(world, delta_time);
+    if(g_debug_flying && g_debug_no_collision_when_flying) {
+        vec3 move_delta = m_velocity * delta_time;
+        m_position += move_delta;
+    } else {
+        this->move_in_xz(world, delta_time);
+        this->move_in_y(world, delta_time);
+    }
 
     m_camera.set_position(this->get_position_head());
 
@@ -221,8 +229,11 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         if(chunk) {
             Block *block = chunk->get_block(target.block_rel);
             if(block) {
-                block->set_type(m_held_block);
-                world.queue_chunk_vao_load(chunk->get_coords());
+                // @todo Stupid check if would collide with placed block
+                if(!check_aabb_3d(this->get_position(), PLAYER_COLLIDER_SIZE, target.real, vec3::make(1))) {
+                    block->type = m_held_block;
+                    world.queue_chunk_vao_load(chunk->get_coords());
+                }
             }
         }
     } else if(raycast_result.found && input.button_pressed(Button::LEFT)) {
@@ -230,7 +241,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         if(chunk) {
             Block *block = chunk->get_block(raycast_result.block_p.block_rel);
             if(block) {
-                block->set_type(BlockType::AIR);
+                block->type = BlockType::AIR;
                 world.queue_chunk_vao_load(chunk->get_coords());
             }
         }

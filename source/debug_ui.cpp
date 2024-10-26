@@ -95,7 +95,6 @@ void DebugUI::render(void) {
         return;
     }
 
-    Framebuffer::bind_no_fbo();
     const vec3  color = { 0.9f, 0.9f, 0.875f };
     const vec2i shadow_offset = { 2, -2 };
     g_batcher.render(g_window_w, g_window_h, g_font, color, shadow_offset);

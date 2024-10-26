@@ -180,24 +180,24 @@ Chunk *World::gen_chunk_really(vec2i chunk_xz) {
                 if(y_max < CHUNK_SIZE_Y) {
                     for(int32_t y = y_min; y <= y_max; ++y) {
                         Block *block = created->get_block({ x, y, z });
-                        block->set_type(BlockType::TREE_LOG);
+                        block->type = BlockType::TREE_LOG;
                     }
 
                     Block *l1 = created->get_block({x+1, y_max, z}); 
                     if(l1) {
-                        l1->set_type(BlockType::TREE_LEAVES);
+                        l1->type = BlockType::TREE_LEAVES;
                     }
                     Block *l2 = created->get_block({x-1, y_max, z}); 
                     if(l2) {
-                        l2->set_type(BlockType::TREE_LEAVES);
+                        l2->type = BlockType::TREE_LEAVES;
                     }
                     Block *l3 = created->get_block({x, y_max, z+1}); 
                     if(l3) {
-                        l3->set_type(BlockType::TREE_LEAVES);
+                        l3->type = BlockType::TREE_LEAVES;
                     }
                     Block *l4 = created->get_block({x, y_max, z-1}); 
                     if(l4) {
-                        l4->set_type(BlockType::TREE_LEAVES);
+                        l4->type = BlockType::TREE_LEAVES;
                     }
 
                 }
@@ -209,18 +209,17 @@ Chunk *World::gen_chunk_really(vec2i chunk_xz) {
             for(int32_t y = 0; y < height; ++y) {
                 Block *block = created->get_block({ x, y, z });
                 if(y < height / 2) {
-                    block->set_type(BlockType::COBBLESTONE);
+                    block->type = BlockType::COBBLESTONE;
                 } else if(y >= height / 2 && y < CHUNK_SIZE_Y / 2 + 10) {
-                    block->set_type(BlockType::SAND);
+                    block->type = BlockType::SAND;
                 } else if(y > CHUNK_SIZE_Y - 40) {
-                    block->set_type(BlockType::COBBLESTONE);
+                    block->type = BlockType::COBBLESTONE;
                 } else if(y < (height - 1)) {
-                    block->set_type(BlockType::DIRT);
+                    block->type = BlockType::DIRT;
                 } else {
-                    block->set_type(BlockType::DIRT);
-                    BlockInfo &info = block->get_info();
+                    block->type = BlockType::DIRT;
                     if(rand() % 2) {
-                        info.dirt.has_grass = true;
+                        block->type = BlockType::DIRT_WITH_GRASS;
                     }
                 }
             }

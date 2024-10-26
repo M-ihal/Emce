@@ -78,7 +78,6 @@ void TextBatcher::begin(void) {
 }
 
 void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 color, vec2i shadow_offset) {
-    // @todo Get rid of these somehow
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
@@ -102,9 +101,6 @@ void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 c
     g_shader.upload_vec2("u_offset", vec2{ 0.0f, 0.0f }.e);
     g_shader.upload_vec3("u_color", color.e);
     GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
-
-    glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
 }
 
 void TextBatcher::push_text(vec2 position, const Font &font, const char *string) {

@@ -123,6 +123,9 @@ Game::~Game(void) {
 
 void Game::update(Window &window, const Input &input, double delta_time) {
 
+    m_delta_time = delta_time;
+    m_time_elapsed += delta_time;
+
     /* Maybe close game */
     if(!m_console.is_open() && input.key_pressed(Key::ESCAPE)) {
         window.set_should_close();
@@ -172,12 +175,14 @@ void Game::update(Window &window, const Input &input, double delta_time) {
         BOOL_TOGGLE(g_third_person_mode);
     }
 
-    if(g_third_person_mode && input.scroll_move() && !m_console.is_open()) {
-        g_third_person_distance -= input.scroll_move();
+    if(g_third_person_mode && (input.key_is_down(Key::PAGE_UP) || input.key_is_down(Key::PAGE_DOWN)) && !m_console.is_open()) {
+        float dir = 0.0f;
+        if(input.key_is_down(Key::PAGE_UP))   { dir -= 1.0f; } 
+        if(input.key_is_down(Key::PAGE_DOWN)) { dir += 1.0f; }
+        
+        g_third_person_distance += dir * 30.0f * delta_time;
         clamp_v(g_third_person_distance, 1.0f, 20.0f);
     }
-
-    const vec2i last_player_chunk = WorldPosition::from_real(m_player.get_position()).chunk;
 
     m_player.update(*this, input, delta_time);
     m_camera = m_player.get_head_camera();
@@ -185,10 +190,6 @@ void Game::update(Window &window, const Input &input, double delta_time) {
     if(g_third_person_mode) {
         vec3 dir = m_camera.calc_direction();
         m_camera.set_position(m_camera.get_position() - dir * g_third_person_distance);
-    }
-
-    if(last_player_chunk != WorldPosition::from_real(m_player.get_position()).chunk) {
-        m_world.m_should_sort_load_queue = true;
     }
 
     /* Upload generated chunk mesh data */
@@ -242,6 +243,15 @@ void Game::render_world(void) {
         if(g_debug_chunk_wireframe_mode) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
+
+        float rot_exp = cosf(m_time_elapsed * 0.8f) * 0.1f;
+        float pos_exp = sinf(m_time_elapsed * 1.2f) * 0.035f;
+        vec3 up = m_player.get_head_camera().calc_direction();
+        float y_rot = m_player.get_head_camera().get_rotation().x;
+        float z_rot = m_player.get_head_camera().get_rotation().y;
+        vec3  dir = vec3::normalize(m_player.get_head_camera().calc_direction()); 
+        mat4 rotate_m = mat4::rotate_z(-z_rot + rot_exp) * mat4::rotate_y(y_rot);
+        render_single_block_centered(m_player.get_head_camera().get_position() + dir * 0.5f + m_player.get_head_camera().calc_direction_side() * 0.185f * aspect - m_player.get_head_camera().calc_direction_up() *(0.2f + pos_exp), { 0.2f, 0.2f, 0.2f }, rotate_m, m_player.get_held_block(), m_block_shader, m_block_atlas);
     }
 
     /* Render collider in third person mode */
@@ -476,7 +486,7 @@ void Game::add_console_commands(void) {
                         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
                             Block *block = (*iter.value)->get_block({ x, y, z });
                             if(rand() % 100 == 0) {
-                                block->set_type(BlockType::COBBLESTONE);
+                                block->type = BlockType::COBBLESTONE;
                             }
                         }
                     }

@@ -9,6 +9,8 @@ enum ClearFlags : uint32_t {
     CLEAR_STENCIL = 0x4
 };
 
+// @todo multisample
+
 class Framebuffer {
 public:
     CLASS_COPY_DISABLE(Framebuffer);
