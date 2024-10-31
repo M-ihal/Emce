@@ -44,6 +44,8 @@ set(source_files
     source/graphics/text_batcher.h
     source/graphics/framebuffer.cpp
     source/graphics/framebuffer.h
+    source/graphics/texture_array.cpp
+    source/graphics/texture_array.h
     source/camera.cpp
     source/camera.h
     source/utils.cpp
@@ -79,6 +81,7 @@ target_include_directories(emce
     PUBLIC ${PROJECT_SOURCE_DIR}/external/glew/include/GL
 	PUBLIC ${PROJECT_SOURCE_DIR}/external/stb
     PUBLIC ${PROJECT_SOURCE_DIR}/external/meh_hash
+    PUBLIC ${PROJECT_SOURCE_DIR}/external/PerlinNoise
 )
 
 target_link_libraries(emce

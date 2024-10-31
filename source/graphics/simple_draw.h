@@ -49,6 +49,7 @@ struct Color {
 };
 
 class Texture;
+class TextureMultisample;
 
 namespace SimpleDraw {
     void initialize(void);

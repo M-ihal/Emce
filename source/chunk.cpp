@@ -27,6 +27,11 @@ const VertexArray &Chunk::get_vao(void) {
     return m_chunk_vao;
 }
 
+void Chunk::set_block(const vec3i &rel, BlockType type) {
+    ASSERT(Chunk::is_inside_chunk(rel));
+    m_blocks[rel.x][rel.y][rel.z].type = type;
+}
+
 Block *Chunk::get_block(const vec3i &rel) {
     if(Chunk::is_inside_chunk(rel)) {
         return &m_blocks[rel.x][rel.y][rel.z];
@@ -43,15 +48,6 @@ bool Chunk::is_inside_chunk(const vec3i &rel) {
         && rel.y >= 0 && rel.y < CHUNK_SIZE_Y
         && rel.z >= 0 && rel.z < CHUNK_SIZE_Z);
 }
-
-enum class BlockSide {
-    Z_POS,
-    Z_NEG,
-    X_POS,
-    X_NEG,
-    Y_POS,
-    Y_NEG
-};
 
 static constexpr void fill_positions_and_normals(BlockSide side, ChunkVaoVertex v[4]) {
     switch(side) {
@@ -161,6 +157,10 @@ static constexpr void fill_tex_coords_for_block(BlockSide side, const Block &blo
             get_atlas_tex_coords(2, 0, v);
         } break;
 
+        case BlockType::STONE: {
+            get_atlas_tex_coords(2, 1, v);
+        } break;
+
         case BlockType::TREE_LOG: {
             switch(side) {
                 case BlockSide::Y_POS:
@@ -179,6 +179,10 @@ static constexpr void fill_tex_coords_for_block(BlockSide side, const Block &blo
 
         case BlockType::TREE_LEAVES: {
             get_atlas_tex_coords(7, 2, v);
+        } break;
+        
+        case BlockType::GLASS: {
+            get_atlas_tex_coords(0, 1, v);
         } break;
     }
 }
@@ -214,7 +218,7 @@ void Chunk::gen_vao(const ChunkVaoGenData &gen_data) {
 #endif
 }
 
-void push_block_side(std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t> &indices, BlockSide side, const Block &block, int32_t x, int32_t y, int32_t z, bool centered = false) {
+void push_block_side(std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t> &indices, BlockSide side, Block &block, int32_t x, int32_t y, int32_t z, bool centered) {
     ChunkVaoVertex v[4] = { };
     fill_positions_and_normals(side, v);
     fill_tex_coords_for_block(side, block, v);
@@ -256,9 +260,14 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
         if(Chunk::is_inside_chunk(other_rel)) {
             other = this->get_block(other_rel);
         } else {
-            /* If on the edge in Y - always generate quad */
-            if(other_rel.y < 0 || other_rel.y >= CHUNK_SIZE_Y) {
+            /* always generate quad on top */
+            if(other_rel.y >= CHUNK_SIZE_Y) {
                 return false;
+            }
+
+            /* Never generate quad at bottom of chunk because there is no point */
+            if(other_rel.y < 0) {
+                return true;
             }
 
             /* Get neighbouring chunk */
@@ -338,43 +347,4 @@ ChunkVaoGenData Chunk::gen_vao_data(void) {
 
     gen_data.chunk = this->m_chunk_xz;
     return gen_data;
-}
-
-/* Big TODO !!!!! @todo */
-void render_single_block_centered(const vec3 &pos, const vec3 &size, const mat4 &rotate_m, BlockType type, const Shader &shader, const Texture &atlas) {
-    BufferLayout layout;
-    layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
-    layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
-    layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
-
-    std::vector<ChunkVaoVertex> vertices;
-    std::vector<uint32_t> indices;
-
-    Block block = { .type = type };
-
-    push_block_side(vertices, indices, BlockSide::Z_POS, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::Z_NEG, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::X_POS, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::X_NEG, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::Y_POS, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::Y_NEG, block, 0, 0, 0, true);
-
-    VertexArray vao;
-    vao.delete_vao();
-    vao.create_vao(layout, ArrayBufferUsage::STATIC);
-    vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(ChunkVaoVertex));
-    vao.set_ibo_data(indices.data(),  indices.size());
-    vao.apply_vao_attributes();
-
-    mat4 model_m = mat4::scale(size);
-    model_m *= rotate_m;
-    model_m *= mat4::translate(pos);
-
-    shader.use_program();
-    shader.upload_mat4("u_model", model_m.e);
-
-    vao.bind_vao();
-    GL_CHECK(glDrawElements(GL_TRIANGLES, vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
-
-    vao.delete_vao();
 }

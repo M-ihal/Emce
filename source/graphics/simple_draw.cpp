@@ -160,8 +160,8 @@ void SimpleDraw::draw_triangle(const vec3 &tri_a, const vec3 &tri_b, const vec3 
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
 
     g_triangle_shader.use_program();
-    g_triangle_shader.upload_mat4("u_view", view.e);
-    g_triangle_shader.upload_mat4("u_proj", proj.e);
+    g_triangle_shader.upload_mat4("u_view", view);
+    g_triangle_shader.upload_mat4("u_proj", proj);
     g_triangle_shader.upload_vec4("u_color", (float *)color.e);
 
     float vertices[] = {
@@ -183,9 +183,9 @@ void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float
     model = model * mat4::translate(position);
 
     g_cube_outline_shader.use_program();
-    g_cube_outline_shader.upload_mat4("u_view", view.e);
-    g_cube_outline_shader.upload_mat4("u_proj", proj.e);
-    g_cube_outline_shader.upload_mat4("u_model", model.e);
+    g_cube_outline_shader.upload_mat4("u_view", view);
+    g_cube_outline_shader.upload_mat4("u_proj", proj);
+    g_cube_outline_shader.upload_mat4("u_model", model);
     g_cube_outline_shader.upload_vec3("u_color", (float *)color.e);
     g_cube_outline_shader.upload_vec3("u_size", (float *)size.e);
     g_cube_outline_shader.upload_float("u_width", width);
@@ -208,8 +208,8 @@ void SimpleDraw::draw_line(const vec3 &point_a, const vec3 &point_b, float width
     ASSERT(vbo_data_size == ARRAY_COUNT(vertices) * sizeof(float));
 
     g_line_shader.use_program();
-    g_line_shader.upload_mat4("u_view", view.e);
-    g_line_shader.upload_mat4("u_proj", proj.e);
+    g_line_shader.upload_mat4("u_view", view);
+    g_line_shader.upload_mat4("u_proj", proj);
     g_line_shader.upload_vec3("u_color", (float *)color.e);
 
     g_line_vao.bind_vao();
@@ -224,8 +224,8 @@ void SimpleDraw::draw_textured_quad_2d(const vec2 &position, const vec2 &size, c
     model = model * mat4::translate(position.x, position.y, z_pos);
 
     g_tex_quad_shader.use_program();
-    g_tex_quad_shader.upload_mat4("u_proj",  proj_m.e);
-    g_tex_quad_shader.upload_mat4("u_model", model.e);
+    g_tex_quad_shader.upload_mat4("u_proj",  proj_m);
+    g_tex_quad_shader.upload_mat4("u_model", model);
     g_tex_quad_shader.upload_int("u_texture", 0);
     texture.bind_texture_unit(0);
 

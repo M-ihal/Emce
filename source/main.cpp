@@ -157,8 +157,7 @@ int SDL_main(int argc, char *argv[]) {
             GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
-            game.render_world();
-            game.render_ui();
+            game.render_frame();
         }
 
         window.swap_buffer();
@@ -175,19 +174,24 @@ int SDL_main(int argc, char *argv[]) {
 int32_t calc_average_fps(double delta_time) {
     static int32_t draw_fps = 0;
     static int32_t frame_times_counter = 0;
-    static double frame_times[32] = { };
+    static double  frame_times[32] = { };
+
     frame_times_counter++;
     frame_times_counter %= ARRAY_COUNT(frame_times);
     frame_times[frame_times_counter] = delta_time;
+
     double average = 0.0f;
     for(int32_t i = 0; i < ARRAY_COUNT(frame_times); ++i) {
         average += frame_times[i];
     }
+
     const int32_t num_frames = ARRAY_COUNT(frame_times);
     average /= double(num_frames);
+
     int32_t fps = int32_t(1.0 / average);
     if(frame_times_counter == ARRAY_COUNT(frame_times) - 1) {
         draw_fps = fps;
     }
+
     return draw_fps;
 }

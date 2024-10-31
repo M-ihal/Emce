@@ -9,6 +9,7 @@
 #include "framebuffer.h"
 #include "cubemap.h"
 #include "console.h"
+#include "texture_array.h"
 
 class Window;
 
@@ -22,8 +23,11 @@ public:
 
     void update(Window &window, const Input &input, double delta_time);
 
-    void render_world(void);
-    void render_ui(void);
+    /* Renders frame onto backbuffer */
+    void render_frame(void);
+
+    /* Render single block */
+    void render_single_block(const mat4 &transform, BlockType type);
 
     void hotload_stuff(void);
     void resize_framebuffers(int32_t new_width, int32_t new_height);
@@ -37,6 +41,10 @@ private:
     void push_debug_ui(void);
     void add_console_commands(void);
 
+    void render_world(int32_t width, int32_t height);
+    void render_ui(int32_t width, int32_t height);
+    void render_held_block(int32_t width, int32_t height);
+
     double m_time_elapsed;
     double m_delta_time;
 
@@ -45,17 +53,19 @@ private:
     Player  m_player;
     Console m_console;
  
-    Framebuffer m_fbo_world; /* 3d world */
-    Framebuffer m_fbo_ui;    /* 2d UI*/
+    Framebuffer m_fbo;
 
     Font m_ui_font;
     Font m_ui_font_big;
 
     ShaderFile  m_block_shader;
     Texture     m_block_atlas;
+    TextureArray m_block_tex_array;
 
     VertexArray m_skybox_vao;
     ShaderFile  m_skybox_shader;
     Cubemap     m_skybox_cubemap;
+
+    VertexArray m_block_vao; /* VAO for single block rendering, centered */
 };
 

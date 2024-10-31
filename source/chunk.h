@@ -28,14 +28,25 @@ struct ChunkVaoGenData {
     std::vector<uint32_t>       indices;
 };
 
+enum class BlockSide : uint8_t {
+    Z_POS,
+    Z_NEG,
+    X_POS,
+    X_NEG,
+    Y_POS,
+    Y_NEG
+};
+
 enum class BlockType : uint8_t {
     AIR = 0,
     SAND,
     DIRT,
     DIRT_WITH_GRASS,
     COBBLESTONE,
+    STONE,
     TREE_LOG,
     TREE_LEAVES,
+    GLASS,
     __COUNT
 };
 
@@ -55,17 +66,26 @@ inline const char *block_type_string[] = {
     "Dirt",
     "Dirt with grass",
     "Cobblestone",
+    "Stone",
     "Tree log",
-    "Tree leaves"
+    "Tree leaves",
+    "Glass"
 };
-
-class World;
 
 struct Block {
     BlockType type;
 
     bool is_solid(void) const;
 };
+
+/* Pushes side of block vertex data to given vectors @todo simplify */
+void push_block_side(std::vector<ChunkVaoVertex> &vertices, 
+                     std::vector<uint32_t> &indices, 
+                     BlockSide side, 
+                     Block &block, 
+                     int32_t x, int32_t y, int32_t z, bool centered = false);
+
+class World;
 
 class Chunk {
 public:
@@ -78,6 +98,7 @@ public:
 
     const VertexArray &get_vao(void);
 
+    void   set_block(const vec3i &rel, BlockType type);
     Block *get_block(const vec3i &rel);
     vec2i  get_coords(void);
 
@@ -95,5 +116,3 @@ private:
     VertexArray  m_chunk_vao;
     Block        m_blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
 };
-
-void render_single_block_centered(const vec3 &pos, const vec3 &size, const mat4 &rotate_m, BlockType type, const Shader &shader, const Texture &atlas);

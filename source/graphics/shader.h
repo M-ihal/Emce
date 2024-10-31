@@ -12,6 +12,8 @@
     @todo explicit delete function !!!!
 */
 
+struct mat4;
+
 class Shader {
 public:
     CLASS_COPY_DISABLE(Shader);
@@ -34,11 +36,11 @@ public:
 
     void upload_vec2(const char *name, float values[2]) const;
 
-    void upload_vec3(const char *name, float values[2]) const;
+    void upload_vec3(const char *name, float values[3]) const;
 
-    void upload_vec4(const char *name, float values[2]) const;
+    void upload_vec4(const char *name, float values[4]) const;
 
-    void upload_mat4(const char *name, float values[4][4]) const;
+    void upload_mat4(const char *name, const mat4 &mat) const;
 
     bool is_valid_program(void) const;
 

@@ -10,6 +10,8 @@
 #define STB_PERLIN_IMPLEMENTATION
 #include <stb_perlin.h>
 
+#include <PerlinNoise.hpp>
+
 World::World(Game *game) : m_chunk_table(3000) {
     m_owner = game;
     m_world_gen_seed = 2137;
@@ -33,6 +35,7 @@ int32_t World::get_seed(void) {
 struct MutexTicket;
 extern MutexTicket mutex_load_queue;
 extern MutexTicket mutex_gen_queue;
+extern MutexTicket mutex_get_chunk;
 extern void begin_ticket_mutex(MutexTicket &mutex);
 extern void end_ticket_mutex(MutexTicket &mutex);
 
@@ -56,7 +59,18 @@ void World::delete_chunks(void) {
 
 void World::queue_chunk_vao_load(vec2i chunk_xz) {
     begin_ticket_mutex(mutex_load_queue);
-    m_load_queue.push_back(chunk_xz);
+    
+    // @todo STUPID
+    bool exists = false;
+    for(auto &e : m_load_queue) {
+        if(e == chunk_xz) {
+            exists = true;
+            break;
+        }
+    }
+    if(!exists) {
+     m_load_queue.push_back(chunk_xz);
+    }
     end_ticket_mutex(mutex_load_queue);
     m_should_sort_load_queue = true;
 }
@@ -114,7 +128,6 @@ void World::process_gen_queue(void) {
     end_ticket_mutex(mutex_gen_queue);
 }
 
-extern MutexTicket mutex_get_chunk;
 
 Chunk *World::get_chunk(vec2i chunk_xz, bool create_if_doesnt_exist) {
     begin_ticket_mutex(mutex_get_chunk);
@@ -147,96 +160,147 @@ Block *World::get_block(const vec3i &block) {
     return chunk->get_block(block_p.block_rel);
 }
 
+void World::gen_chunk_height_map(vec2i chunk_xz, int32_t height_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]) {
+    siv::PerlinNoise perlin(m_world_gen_seed);
+
+    const int32_t octaves = 4;
+    const double freq_x   = 0.00315;
+    const double freq_z   = 0.00315;
+
+    for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
+        for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
+
+            int32_t abs_x = x + CHUNK_SIZE_X * chunk_xz.x;
+            int32_t abs_z = z + CHUNK_SIZE_Z * chunk_xz.y;
+
+            double noise = perlin.octave2D_01(abs_x * freq_x, abs_z * freq_z, octaves);
+
+            const int32_t min_height = 32;
+
+            int32_t height = 0;
+
+            struct Segment { double left; double right; int32_t height_left; int32_t height_right; };
+
+            Segment segments[] = {
+                { 0.00, 0.25, 0,   16  },
+                { 0.25, 0.30, 16,  32  },
+                { 0.30, 0.65, 32,  80  },
+                { 0.65, 0.68, 80,  96 },
+                { 0.68, 0.75, 96,  128 },
+                { 0.75, 0.80, 128, 164 },
+                { 0.80, 0.90, 164, 196 },
+                { 0.90, 1.00, 196, 200 },
+            };
+
+            for(int32_t index = 0; index < ARRAY_COUNT(segments); ++index) {
+                Segment seg = segments[index];
+                if(noise <= seg.right) {
+                    double perc = (noise - seg.left) / (seg.right - seg.left);
+                    height = min_height + lerp(seg.height_left, seg.height_right, perc);
+                    break;
+                }
+            }
+
+            height_map[x][z] = height;
+
+        }
+    }
+
+}
+
 Chunk *World::gen_chunk_really(vec2i chunk_xz) {
     Chunk *created = new Chunk(this, chunk_xz);
+
+    WorldStructure struct_tree;
+    struct_tree.push_block({ 0, 0, 0 }, BlockType::TREE_LOG);
+    struct_tree.push_block({ 0, 1, 0 }, BlockType::TREE_LOG);
+    struct_tree.push_block({ 0, 2, 0 }, BlockType::TREE_LOG);
+    struct_tree.push_block({ 0, 3, 0 }, BlockType::TREE_LOG);
+    struct_tree.push_block({ -1, 2, -1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ +1, 2, -1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ +1, 2, +1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ -1, 2, +1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({  0, 2, -1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({  0, 2, +1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ +1, 2,  0 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ -1, 2,  0 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ -1, 3, -1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ +1, 3, -1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ +1, 3, +1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ -1, 3, +1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({  0, 3, -1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({  0, 3, +1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ +1, 3,  0 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ -1, 3,  0 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({  0, 4, -1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({  0, 4, +1 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ +1, 4,  0 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({ -1, 4,  0 }, BlockType::TREE_LEAVES);
+    struct_tree.push_block({  0, 5, 0 }, BlockType::TREE_LEAVES);
 
     begin_ticket_mutex(mutex_get_chunk);
     m_chunk_table._insert_collisions = 0;
     m_chunk_table.insert(chunk_xz, created);
     end_ticket_mutex(mutex_get_chunk);
 
-    int32_t lowest  = INT32_MAX;
-    int32_t highest = INT32_MIN;
+    int32_t height_map[CHUNK_SIZE_X][CHUNK_SIZE_Z];
+
+    this->gen_chunk_height_map(chunk_xz, height_map);
 
     for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
-            const float smooth = 0.009f;
-            int32_t abs_x = x + CHUNK_SIZE_X * chunk_xz.x;
-            int32_t abs_z = z + CHUNK_SIZE_Z * chunk_xz.y;
-            float perlin01 = SQUARE((stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f);
-            // float perlin01 = (stb_perlin_noise3_seed(abs_x * smooth, 0.0f, abs_z * smooth, 0, 0, 0, m_world_gen_seed) + 1.0f) * 0.5f;
- //           float perlin01 = 0.5f;
-            int32_t height = perlin01 * (CHUNK_SIZE_Y * 0.5f) + CHUNK_SIZE_Y * 0.4f;
 
-            // height = block_position_from_real({ 0.0f, 152.0f, 0.0f }).y - 3;
+            int32_t height = height_map[x][z];
 
-            if(rand() % 100 == 0) {
-                height += 1;
-            }
-
-            if(rand() % 1244 == 0) {
-                int32_t y_min = height;
-                int32_t y_max = y_min + 4;
-                if(y_max < CHUNK_SIZE_Y) {
-                    for(int32_t y = y_min; y <= y_max; ++y) {
-                        Block *block = created->get_block({ x, y, z });
-                        block->type = BlockType::TREE_LOG;
-                    }
-
-                    Block *l1 = created->get_block({x+1, y_max, z}); 
-                    if(l1) {
-                        l1->type = BlockType::TREE_LEAVES;
-                    }
-                    Block *l2 = created->get_block({x-1, y_max, z}); 
-                    if(l2) {
-                        l2->type = BlockType::TREE_LEAVES;
-                    }
-                    Block *l3 = created->get_block({x, y_max, z+1}); 
-                    if(l3) {
-                        l3->type = BlockType::TREE_LEAVES;
-                    }
-                    Block *l4 = created->get_block({x, y_max, z-1}); 
-                    if(l4) {
-                        l4->type = BlockType::TREE_LEAVES;
-                    }
-
-                }
-            }
-
-            if(lowest > height) lowest = height;
-            if(highest < height) highest = height;
-
+            /* Generate stone shape of the terrain */
             for(int32_t y = 0; y < height; ++y) {
-                Block *block = created->get_block({ x, y, z });
-                if(y < height / 2) {
-                    block->type = BlockType::COBBLESTONE;
-                } else if(y >= height / 2 && y < CHUNK_SIZE_Y / 2 + 10) {
-                    block->type = BlockType::SAND;
-                } else if(y > CHUNK_SIZE_Y - 40) {
-                    block->type = BlockType::COBBLESTONE;
-                } else if(y < (height - 1)) {
-                    block->type = BlockType::DIRT;
-                } else {
-                    block->type = BlockType::DIRT;
-                    if(rand() % 2) {
-                        block->type = BlockType::DIRT_WITH_GRASS;
-                    }
+                if(y >= CHUNK_SIZE_Y) {
+                    assert(false);
                 }
+                created->set_block({ x, y, z }, BlockType::STONE);
+            }
+
+            if(rand() % 84 == 0 && height > ocean_level + 4) {
+                this->insert_world_structure(struct_tree, block_position_from_relative({ x, height_map[x][z] + 1, z }, created->get_coords()));
+            }
+
+            int32_t y = height;
+            while(y >= 0 && (height - y) < 4) {
+                if(y <= (this->ocean_level + 1)) {
+                    created->set_block({ x, y, z }, BlockType::SAND);
+                } else if(y == height) {
+                    created->set_block({ x, y, z }, BlockType::DIRT_WITH_GRASS);
+                } else {
+                    created->set_block({ x, y, z }, BlockType::DIRT);
+                }
+                y -= 1;
             }
         }
     }
-
 
     this->queue_chunk_vao_load(chunk_xz);
 
     return created;
 }
 
+void World::insert_world_structure(const WorldStructure &structure, const vec3i &origin) {
+    for(uint32_t index = 0; index < structure.block_count; ++index) {
+
+        const WorldPosition block_p = WorldPosition::from_block(origin + structure.blocks[index].rel_p);
+
+        Chunk *chunk = this->get_chunk(block_p.chunk, true);
+        ASSERT(chunk);
+        chunk->set_block(block_p.block_rel, structure.blocks[index].type);
+
+        this->queue_chunk_vao_load(chunk->get_coords());
+    }
+}
+
 vec3 real_position_from_block(const vec3i &block) {
     return {
         (float)block.x,
-            (float)block.y,
-            (float)block.z
+        (float)block.y,
+        (float)block.z,
     };
 }
 
@@ -428,6 +492,7 @@ RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec
     WorldPosition ray_origin_p = WorldPosition::from_real(ray_origin);
     WorldPosition ray_end_p = WorldPosition::from_real(ray_end);
 
+    // @todo Probably there is better way than checking pairs of triangles per side
     // @todo block.y could be out of bounds @todo
 
     vec3i min = {
@@ -489,3 +554,10 @@ RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec
     return result;
 }
 
+void WorldStructure::push_block(vec3i rel_p, BlockType type) {
+    ASSERT(block_count + 1 < ARRAY_COUNT(WorldStructure::blocks)); // @todo Handle
+                                                                
+    const uint32_t index = block_count++;
+    blocks[index].type  = type;
+    blocks[index].rel_p = rel_p;
+}

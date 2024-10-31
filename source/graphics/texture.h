@@ -6,26 +6,26 @@
 #include <string>
 
 enum class TextureFilter : int8_t {
-    LINEAR,
-    NEAREST
+    LINEAR  = 2,
+    NEAREST = 6
 };
 
 enum class TextureWrap : int8_t {
-    CLAMP,
-    REPEAT
+    CLAMP  = 5,
+    REPEAT = 7
 };
 
 enum class TextureDataFormat : int8_t { 
-    RED,
-    RGB,
-    RGBA,
-    DEPTH24_STENCIL8,
-    INVALID
+    RED  = 2,
+    RGB  = 7,
+    RGBA = 8,
+    DEPTH24_STENCIL8 = 12,
+    INVALID = 124
 };
 
 enum class TextureDataType : int8_t {
-    UNSIGNED_BYTE,
-    INVALID
+    UNSIGNED_BYTE = 6,
+    INVALID = 126
 };
 
 struct TextureLoadSpec {
@@ -38,35 +38,51 @@ class Texture {
 public:
     CLASS_COPY_DISABLE(Texture);
 
-    /* Framebuffer needs the id */
+    /* Framebuffer uses Texture as attachement */
     friend class Framebuffer;
 
-    /* Zeroes the variables, Does not generate texture ID */
-    Texture(void);
+    Texture(void) = default;
 
-    /* Need to be called in order to delete IDs */
-    void delete_texture_if_exists(void);
+    /* Deletes the texture */
+    void delete_texture(void);
 
-    /* Load functions delete current texture ID if exists */
+    /* load_* procs should be called only once or after Texture deletion */
+
+    /* Generates empty texture */
     bool load_empty(int32_t width, int32_t height, TextureDataFormat internal_format);
+
+    /* Generates texture and sets the pixels from memory */
     bool load_from_memory(uint8_t *data, int32_t width, int32_t height, TextureLoadSpec spec);
+
+    /* Generates texture from file */
     bool load_from_file(const std::string &filepath, bool flip_on_load = false, TextureLoadSpec spec = { TextureDataFormat::INVALID, TextureDataFormat::INVALID, TextureDataType::INVALID });
 
+    /* Binds texture 2d */
     void bind_texture(void) const;
-    void bind_texture_unit(int32_t unit) const;
 
+    /* Binds texture 2d on given unit */
+    void bind_texture_unit(uint32_t unit) const;
+
+    /* Sets the pixels */
     void set_pixels(uint8_t *data, int32_t off_x, int32_t off_y, int32_t width, int32_t height, TextureDataFormat data_format, TextureDataType data_type);
 
+    /* Sets the Texture min filter */
     void set_filter_min(TextureFilter param);
+
+    /* Sets the Texture mag filter */
     void set_filter_mag(TextureFilter param);
 
+    /* Sets the Texture wrap s mode */
     void set_wrap_s(TextureWrap param);
+
+    /* Sets the Texture wrap t mode */
     void set_wrap_t(TextureWrap param);
 
+    /* Getters */
     vec2i get_size(void) const;
 
 private:
-    uint32_t m_texture_id;
+    uint32_t m_tex_id = 0;
     int32_t  m_width;
     int32_t  m_height;
     TextureDataFormat m_internal_format;

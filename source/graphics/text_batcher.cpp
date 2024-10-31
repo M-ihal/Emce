@@ -83,7 +83,7 @@ void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 c
     glDisable(GL_DEPTH_TEST);
 
     g_shader.use_program();
-    g_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(width), float(height), -1.0f, 1.0f).e);
+    g_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(width), float(height), -1.0f, 1.0f));
     g_shader.upload_int("u_font_atlas", 0);
     font.get_atlas().bind_texture_unit(0);
 

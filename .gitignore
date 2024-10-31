@@ -8,3 +8,4 @@ external/linmath
 external/SDL2
 external/stb
 external/SDL
+external/PerlinNoise

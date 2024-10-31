@@ -5,86 +5,44 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-/* Get equivalent opengl enums for custom enum classes */
-extern constexpr int32_t gl_filter_from_texture_filter(TextureFilter param) {
-    switch(param) {
-        default: INVALID_CODE_PATH;  return -1;
-        case TextureFilter::NEAREST: return GL_NEAREST;
-        case TextureFilter::LINEAR:  return GL_LINEAR;
-    }
-}
+constexpr int32_t gl_filter_from_texture_filter(TextureFilter param);
+constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param);
+constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format);
+constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
+constexpr int32_t gl_data_type_from_texture_data_type(TextureDataType type);
 
-extern constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
-    switch(param) {
-        default: INVALID_CODE_PATH; return -1;
-        case TextureWrap::CLAMP:    return GL_CLAMP_TO_EDGE;
-        case TextureWrap::REPEAT:   return GL_REPEAT;
-    }
-}
-
-inline constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format) {
-    switch(format) {
-        default: INVALID_CODE_PATH;   return -1;
-        case TextureDataFormat::RED:  return GL_R8;
-        case TextureDataFormat::RGB:  return GL_RGB8;
-        case TextureDataFormat::RGBA: return GL_RGBA8;
-        case TextureDataFormat::DEPTH24_STENCIL8: return GL_DEPTH24_STENCIL8;
-    }
-}
-
-inline constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format) {
-    switch(format) {
-        default: INVALID_CODE_PATH;   return -1;
-        case TextureDataFormat::RED:  return GL_RED;
-        case TextureDataFormat::RGB:  return GL_RGB;
-        case TextureDataFormat::RGBA: return GL_RGBA;
-        case TextureDataFormat::DEPTH24_STENCIL8: return GL_DEPTH24_STENCIL8;
-    }
-}
-
-inline static constexpr int32_t gl_data_type_from_texture_data_type(TextureDataType type) {
-    switch(type) {
-        default: INVALID_CODE_PATH;          return -1;
-        case TextureDataType::UNSIGNED_BYTE: return GL_UNSIGNED_BYTE;
-    }
-}
-
-Texture::Texture(void) {
-    ZERO_STRUCT(*this);
-}
-
-void Texture::delete_texture_if_exists(void) {
-    if(m_texture_id) {
-        GL_CHECK(glDeleteTextures(1, &m_texture_id));
-        // fprintf(stdout, "[info] Texture: Deleted texture, ID: %d\n", m_texture_id);
-        m_texture_id = 0;
+void Texture::delete_texture(void) {
+    if(m_tex_id) {
+        GL_CHECK(glDeleteTextures(1, &m_tex_id));
+        m_tex_id = 0;
     }
 }
 
 bool Texture::load_empty(int32_t width, int32_t height, TextureDataFormat internal_format) {
-    this->delete_texture_if_exists();
+    ASSERT(m_tex_id == 0);
 
-    GL_CHECK(glCreateTextures(GL_TEXTURE_2D, 1, &m_texture_id));
-    if(!m_texture_id) {
+    GL_CHECK(glCreateTextures(GL_TEXTURE_2D, 1, &m_tex_id));
+    if(!m_tex_id) {
         fprintf(stderr, "[error] Texture: Failed to create texture id.\n");
         return false;
     }
 
     const int32_t gl_internal_format = gl_internal_format_from_texture_data_format(internal_format);
 
-    GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture_id));
+    GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_tex_id));
     GL_CHECK(glTexStorage2D(GL_TEXTURE_2D, 1, gl_internal_format, width, height));
 
-    m_width           = width;
-    m_height          = height;
+    m_width = width;
+    m_height = height;
     m_internal_format = internal_format;
 
-    this->set_filter_min(TextureFilter::LINEAR);
-    this->set_filter_mag(TextureFilter::LINEAR);
+    this->set_filter_min(TextureFilter::NEAREST);
+    this->set_filter_mag(TextureFilter::NEAREST);
     this->set_wrap_s(TextureWrap::CLAMP);
     this->set_wrap_t(TextureWrap::CLAMP);
 
-    // fprintf(stdout, "[info] Texture: Created texture, ID: %d (%p)\n", m_texture_id, this);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
     return true;
 }
 
@@ -153,23 +111,23 @@ bool Texture::load_from_file(const std::string &filepath, bool flip_on_load, Tex
 
     this->set_pixels(pixels, 0, 0, width, height, data_format, data_type);
     free(pixels);
+
     return true;
 }
 
 void Texture::bind_texture(void) const {
-    ASSERT(m_texture_id);
-    GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture_id));
+    ASSERT(m_tex_id);
+    GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_tex_id));
 }
 
 // TODO: Don't crash and use placeholder image/texture?
-void Texture::bind_texture_unit(int32_t unit) const {
-    ASSERT(m_texture_id);
-    ASSERT(unit >= 0);
-    GL_CHECK(glBindTextureUnit(unit, m_texture_id));
+void Texture::bind_texture_unit(uint32_t unit) const {
+    ASSERT(m_tex_id);
+    GL_CHECK(glBindTextureUnit(unit, m_tex_id));
 }
 
 void Texture::set_pixels(uint8_t *data, int32_t off_x, int32_t off_y, int32_t width, int32_t height, TextureDataFormat data_format, TextureDataType data_type) {
-    ASSERT(m_texture_id);
+    ASSERT(m_tex_id);
     ASSERT(data);
     ASSERT(width && height);
     ASSERT((off_x + width)  <= m_width);
@@ -211,4 +169,48 @@ void Texture::set_wrap_t(TextureWrap param) {
 
 vec2i Texture::get_size(void) const {
     return vec2i{ m_width, m_height };
+}
+
+/* Get equivalent opengl enums for custom enum classes */
+constexpr int32_t gl_filter_from_texture_filter(TextureFilter param) {
+    switch(param) {
+        default: INVALID_CODE_PATH;  return -1;
+        case TextureFilter::NEAREST: return GL_NEAREST;
+        case TextureFilter::LINEAR:  return GL_LINEAR;
+    }
+}
+
+constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
+    switch(param) {
+        default: INVALID_CODE_PATH; return -1;
+        case TextureWrap::CLAMP:    return GL_CLAMP_TO_EDGE;
+        case TextureWrap::REPEAT:   return GL_REPEAT;
+    }
+}
+
+constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format) {
+    switch(format) {
+        default: INVALID_CODE_PATH;   return -1;
+        case TextureDataFormat::RED:  return GL_R8;
+        case TextureDataFormat::RGB:  return GL_RGB8;
+        case TextureDataFormat::RGBA: return GL_RGBA8;
+        case TextureDataFormat::DEPTH24_STENCIL8: return GL_DEPTH24_STENCIL8;
+    }
+}
+
+constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format) {
+    switch(format) {
+        default: INVALID_CODE_PATH;   return -1;
+        case TextureDataFormat::RED:  return GL_RED;
+        case TextureDataFormat::RGB:  return GL_RGB;
+        case TextureDataFormat::RGBA: return GL_RGBA;
+        case TextureDataFormat::DEPTH24_STENCIL8: return GL_DEPTH24_STENCIL8;
+    }
+}
+
+constexpr int32_t gl_data_type_from_texture_data_type(TextureDataType type) {
+    switch(type) {
+        default: INVALID_CODE_PATH;          return -1;
+        case TextureDataType::UNSIGNED_BYTE: return GL_UNSIGNED_BYTE;
+    }
 }

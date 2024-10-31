@@ -47,9 +47,10 @@ bool Window::initialize(int width, int height, const char *title) {
     ASSERT(!m_sdl_window);
     ASSERT(!m_gl_context);
 
-
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4); // 3
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5); // 3
 
     unsigned int window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
 

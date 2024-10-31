@@ -124,7 +124,7 @@ bool Font::load_from_file(const char *filepath, int32_t height_in_pixels) {
 }
 
 void Font::delete_font(void) {
-    m_atlas.delete_texture_if_exists();
+    m_atlas.delete_texture();
     free_loaded_file(m_font_file);
     free(m_font_stb_info);
     m_glyphs.clear();

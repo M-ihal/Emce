@@ -3,58 +3,40 @@
 
 #include <glew.h>
 
-Framebuffer::Framebuffer(void) {
-    ZERO_STRUCT(*this);
-}
+extern constexpr int32_t gl_filter_from_texture_filter(TextureFilter param);
+extern constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param);
+extern constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format);
+extern constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
+extern constexpr int32_t gl_data_type_from_texture_data_type(TextureDataType type);
 
-/* Unbinds any framebuffer */
-void Framebuffer::bind_no_fbo(void) {
+void bind_no_fbo(void) {
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
-/* Binds this framebuffer */
 void Framebuffer::bind_fbo(void) {
+    ASSERT(m_fbo_id);
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_id));
 }
 
-bool Framebuffer::create_fbo(int32_t width, int32_t height) {
+bool Framebuffer::create_fbo(int32_t width, int32_t height, FboConfig &config) {
+    ASSERT(m_fbo_id == 0);
     ASSERT(width && height);
 
-    m_width  = width;
+    m_width = width;
     m_height = height;
-
-    if(!m_color.load_empty(width, height, TextureDataFormat::RGBA)) {
-        fprintf(stderr, "[Error] Framebuffer: Failed to create color attachement.\n");
-        return false;
-    }
-
-    if(!m_depth.load_empty(width, height, TextureDataFormat::DEPTH24_STENCIL8)) {
-        fprintf(stderr, "[Error] Framebuffer: Failed to create depth attachement.\n");
-        m_color.delete_texture_if_exists();
-        return false;
-    }
-    
-    m_color.set_filter_min(TextureFilter::LINEAR);
-    m_color.set_filter_mag(TextureFilter::LINEAR);
+    m_config = config;
 
     GL_CHECK(glGenFramebuffers(1, &m_fbo_id));
     if(!m_fbo_id) {
         fprintf(stderr, "[Error] Framebuffer: Failed to generate framebuffer id.\n");
-        m_color.delete_texture_if_exists();
-        m_depth.delete_texture_if_exists();
         return false;
     }
 
-    this->bind_fbo();
-    GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_color.m_texture_id, 0));
-    GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, m_depth.m_texture_id, 0));
-    
-    GL_CHECK(bool is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-    if(!is_complete) {
+    this->gen_attachments();
+
+    int32_t fbo_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if(fbo_status != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "[Error] Framebuffer: Framebuffer incomplete!\n");
-        Framebuffer::bind_no_fbo();
-        m_color.delete_texture_if_exists();
-        m_depth.delete_texture_if_exists();
         GL_CHECK(glDeleteFramebuffers(1, &m_fbo_id));
         m_fbo_id = 0;
         return false;
@@ -64,63 +46,181 @@ bool Framebuffer::create_fbo(int32_t width, int32_t height) {
 }
 
 void Framebuffer::delete_fbo(void) {
-    m_color.delete_texture_if_exists();
-    m_depth.delete_texture_if_exists();
     if(m_fbo_id) {
+        this->delete_attachments();
+
         GL_CHECK(glDeleteFramebuffers(1, &m_fbo_id));
         m_fbo_id = 0;
     }
 }
 
-/* @todo Can resize existing fbo? */
-void Framebuffer::resize_fbo(int32_t new_width, int32_t new_height) {
+void Framebuffer::resize_fbo(int32_t width, int32_t height) {
+    FboConfig config = m_config;
+
     this->delete_fbo();
-    this->create_fbo(new_width, new_height);
+    this->create_fbo(width, height, config);
 }
 
-void Framebuffer::set_viewport(void) {
-    GL_CHECK(glViewport(0, 0, this->m_width, this->m_height));
+void Framebuffer::clear_all(const vec4 &color, float depth_value, int32_t stencil_value) {
+    for(uint32_t slot = 0; slot < m_config.color_attachment_count; ++slot) {
+        this->clear_color(slot, color);
+    }
+    this->clear_depth(depth_value, stencil_value);
 }
 
-void Framebuffer::clear_fbo(const vec4 &color, uint32_t flags) {
-    this->bind_fbo();
-    this->set_viewport();
-    GL_CHECK(glClearColor(color.r, color.g, color.b, color.a));
-
-    uint32_t clear_flags = 0x0;
-    if(flags & CLEAR_COLOR)   { clear_flags = clear_flags | GL_COLOR_BUFFER_BIT; }
-    if(flags & CLEAR_DEPTH)   { clear_flags = clear_flags | GL_DEPTH_BUFFER_BIT; }
-    if(flags & CLEAR_STENCIL) { clear_flags = clear_flags | GL_STENCIL_BUFFER_BIT; }
-    GL_CHECK(glClear(clear_flags));
+void Framebuffer::clear_color(uint32_t slot, const vec4 &color) {
+    if(slot >= m_config.color_attachment_count) {
+        return;
+    }
+    GL_CHECK(glClearNamedFramebufferfv(m_fbo_id, GL_COLOR, slot, color.e));
 }
 
-void Framebuffer::blit_whole(int32_t width, int32_t height) {
-    GL_CHECK(glDisable(GL_DEPTH_TEST));
-    GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-
-    mat4 proj_m = mat4::orthographic(0.0f, 0.0f, (float)width, (float)height, -10.0f, 10.0f);
-
-    GL_CHECK(glViewport(0, 0, width, height));
-    SimpleDraw::draw_textured_quad_2d({ 0.0f, 0.0f }, { (float)width, (float)height }, m_color, proj_m);
+void Framebuffer::clear_depth(float depth_value, int32_t stencil_value) {
+    if(!m_config.depth_attachment_set) {
+        return;
+    }
+    GL_CHECK(glClearNamedFramebufferfi(m_fbo_id, GL_DEPTH_STENCIL, 0, depth_value, stencil_value));
 }
 
-const Texture &Framebuffer::get_color_texture(void) const {
-    return m_color;
+uint32_t Framebuffer::get_fbo_id(void) {
+    return m_fbo_id;
 }
 
-const Texture &Framebuffer::get_depth_texture(void) const {
-    return m_depth;
+uint32_t Framebuffer::get_color_attachment_id(uint32_t slot) {
+    ASSERT(slot < m_config.color_attachment_count); // @todo
+    return m_color_attachments[slot];
 }
 
-int32_t Framebuffer::get_width(void) const {
+uint32_t Framebuffer::get_depth_attachment_id(void) {
+    ASSERT(m_config.depth_attachment_set); // @todo
+    return m_depth_attachment;
+}
+
+bool Framebuffer::is_complete(void) {
+    return m_fbo_id != 0 && m_attachments_generated;
+}
+
+int32_t Framebuffer::get_width(void) {
     return m_width;
 }
 
-int32_t Framebuffer::get_height(void) const {
+int32_t Framebuffer::get_height(void) {
     return m_height;
 }
 
-vec2i Framebuffer::get_size(void) const {
+vec2i Framebuffer::get_size(void) {
     return vec2i{ m_width, m_height };
+}
+
+void Framebuffer::gen_attachments(void) {
+    ASSERT(m_config.color_attachment_count <= FBO_COLOR_MAX);
+
+    /* Make sure the fbo is bound */
+    this->bind_fbo();
+
+    /* Generate color attachments */
+    for(uint32_t slot = 0; slot < m_config.color_attachment_count; ++slot) {
+        FboColorConfig color = m_config.color_attachments[slot];
+        
+        int32_t gl_target = 0; /* Set in the switch statement */
+        int32_t gl_format = gl_internal_format_from_texture_data_format(color.format);
+
+        uint32_t attachment_id = 0;
+        switch(color.target) {
+            default: { ASSERT(false); fprintf(stderr, "[Error] Framebuffer: Invalid color attachment target!\n"); } return;
+
+            case FboAttachmentTarget::TEXTURE: {
+                gl_target = GL_TEXTURE_2D;
+
+                GL_CHECK(glCreateTextures(GL_TEXTURE_2D, 1, &attachment_id));
+                GL_CHECK(glBindTexture(GL_TEXTURE_2D, attachment_id));
+                GL_CHECK(glTexStorage2D(GL_TEXTURE_2D, 1, gl_format, m_width, m_height));
+
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+            } break;
+
+            case FboAttachmentTarget::TEXTURE_MULTISAMPLE: {
+                gl_target = GL_TEXTURE_2D_MULTISAMPLE;
+
+                GL_CHECK(glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, &attachment_id));
+                GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, attachment_id));
+                GL_CHECK(glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_config.ms_samples, gl_format, m_width, m_height, GL_FALSE));
+            } break;
+        }
+
+        GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + slot, gl_target, attachment_id, 0));
+        m_color_attachments[slot] = attachment_id;
+    }
+
+    /* Generate depth attachment */
+    if(m_config.depth_attachment_set) {
+        FboDepthConfig depth = m_config.depth_attachment;
+        
+        int32_t gl_target = 0;
+        int32_t gl_format = gl_internal_format_from_texture_data_format(depth.format);
+
+        uint32_t attachment_id = 0;
+        switch(depth.target) {
+            default: { ASSERT(false); fprintf(stderr, "[Error] Framebuffer: Invalid depth attachment target!\n"); } return;
+
+            case FboAttachmentTarget::TEXTURE: {
+                gl_target = GL_TEXTURE_2D;
+
+                GL_CHECK(glCreateTextures(GL_TEXTURE_2D, 1, &attachment_id));
+                GL_CHECK(glBindTexture(GL_TEXTURE_2D, attachment_id));
+                GL_CHECK(glTexStorage2D(GL_TEXTURE_2D, 1, gl_format, m_width, m_height));
+
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+                GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+            } break;
+
+            case FboAttachmentTarget::TEXTURE_MULTISAMPLE: {
+                gl_target = GL_TEXTURE_2D_MULTISAMPLE;
+
+                GL_CHECK(glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, &attachment_id));
+                GL_CHECK(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, attachment_id));
+                GL_CHECK(glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_config.ms_samples, gl_format, m_width, m_height, GL_FALSE));
+            } break;
+        }
+
+        GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gl_target, attachment_id, 0));
+        m_depth_attachment = attachment_id;
+    }
+
+    /* Specify color buffers to be drawn into */
+    if(m_config.color_attachment_count) {
+        const GLenum gl_buffers[FBO_COLOR_MAX] = { 
+            GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, 
+            GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, 
+            GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, 
+            GL_COLOR_ATTACHMENT6, GL_COLOR_ATTACHMENT7 
+        };
+
+        GL_CHECK(glDrawBuffers(m_config.color_attachment_count, gl_buffers));
+    } else {
+        GL_CHECK(glDrawBuffer(GL_NONE));
+    }
+
+    m_attachments_generated = true;
+}
+
+void Framebuffer::delete_attachments(void) {
+    for(uint32_t slot = 0; slot < m_config.color_attachment_count; ++slot) {
+        GL_CHECK(glDeleteTextures(1, &m_color_attachments[slot]));
+    }
+
+    if(m_config.depth_attachment_set) {
+        glDeleteTextures(1, &m_depth_attachment);
+    }
+
+    memset(m_color_attachments, 0, FBO_COLOR_MAX);
+    m_depth_attachment = 0;
+    m_attachments_generated = false;
 }

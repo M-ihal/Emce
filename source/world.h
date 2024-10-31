@@ -7,7 +7,8 @@
 
 #include "meh_hash.h"
 
-class Game;
+class  Game;
+struct WorldStructure;
 
 inline static uint64_t func_hash_chunk_key(const vec2i &key);
 inline static bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
@@ -21,6 +22,8 @@ public:
     
     friend Game;
     friend Chunk;
+
+    static constexpr int32_t ocean_level = 64;
 
     /* @temp */
     explicit World(Game *game);
@@ -52,6 +55,12 @@ public:
 private:
     /* Allocates a chunk and generates terrain for given key (Queues the generation of VAO) */
     Chunk *gen_chunk_really(vec2i chunk_xz);
+
+    /* Fills given height map array with chunk height values */
+    void gen_chunk_height_map(vec2i chunk_xz, int32_t height_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]);
+
+    /* Inserts World structure around given origin, if structure expands out of chunk, generates that chunk */
+    void insert_world_structure(const WorldStructure &structure, const vec3i &origin);
 
     Game          *m_owner;
     int32_t        m_world_gen_seed;
@@ -107,3 +116,14 @@ struct RaycastBlockResult {
 RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec3 &ray_end);
 bool ray_plane_intersection(const vec3 &ray_origin, const vec3 &ray_end, const vec3 &plane_p, const vec3 &plane_normal, float &out_k, vec3 &out_p);
 bool ray_triangle_intersection(const vec3 &ray_origin, const vec3 &ray_end, const vec3 &tri_a, const vec3 &tri_b, const vec3 &tri_c, float &out_k, vec3 &out_p);
+
+struct WorldStructureBlock {
+    BlockType type; /* Type of the block to be inserted */
+    vec3i rel_p;    /* Block position relative to origin */
+};
+
+struct WorldStructure {
+    uint32_t            block_count = 0;
+    WorldStructureBlock blocks[128];
+    void push_block(vec3i rel_p, BlockType type);
+};

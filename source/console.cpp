@@ -190,7 +190,7 @@ void Console::render(int32_t width, int32_t height) {
 
     /* Quad shader */
     m_quad_shader.use_program();
-    m_quad_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(width), float(height), -1.0f, 1.0f).e);
+    m_quad_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(width), float(height), -1.0f, 1.0f));
     m_quad_vao.bind_vao();
 
     m_batcher.begin();
@@ -205,7 +205,7 @@ void Console::render(int32_t width, int32_t height) {
         model_m *= mat4::translate(console_pos.x, console_pos.y, 0.0f);
 
         m_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.85f }.e);
-        m_quad_shader.upload_mat4("u_model", model_m.e);
+        m_quad_shader.upload_mat4("u_model", model_m);
 
         GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
 
@@ -223,7 +223,7 @@ void Console::render(int32_t width, int32_t height) {
         model_m *= mat4::translate(history_pos.x, history_pos.y, 0.0f);
 
         m_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.65f }.e);
-        m_quad_shader.upload_mat4("u_model", model_m.e);
+        m_quad_shader.upload_mat4("u_model", model_m);
 
         GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
 
@@ -247,7 +247,7 @@ void Console::render(int32_t width, int32_t height) {
         model_m *= mat4::translate(cursor_pos.x, cursor_pos.y, 0.0f);
 
         m_quad_shader.upload_vec4("u_color", vec4{ 1.0f, 1.0f, 1.0f, 1.0f }.e);
-        m_quad_shader.upload_mat4("u_model", model_m.e);
+        m_quad_shader.upload_mat4("u_model", model_m);
 
         GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
     }

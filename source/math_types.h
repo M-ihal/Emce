@@ -24,6 +24,8 @@ template <typename T> void clamp_min_v(T &v, const T min);
 template <typename T> void clamp_max_v(T &v, const T max);
 template <typename T> void clamp_v(T &v, const T min, const T max);
 
+template <typename TVal, typename TPerc> TVal lerp(TVal a, TVal b, TPerc t);
+
 struct vec2 {
     union {
         struct {
@@ -226,4 +228,10 @@ void clamp_v(T &v, const T min, const T max) {
     } else if(v > max) {
         v = max;
     }
+}
+
+template <typename TVal, typename TPerc>
+TVal lerp(TVal a, TVal b, TPerc t) {
+    TVal res = t * b + (1 - t) * a;
+    return res;
 }

@@ -1,5 +1,7 @@
 #include "shader.h"
 
+#include "math_types.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <glew.h>
@@ -142,24 +144,24 @@ void Shader::upload_vec2(const char *name, float values[2]) const {
     }
 }
 
-void Shader::upload_vec3(const char *name, float values[2]) const {
+void Shader::upload_vec3(const char *name, float values[3]) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
         GL_CHECK(glUniform3f(location, values[0], values[1], values[2]));
     }
 }
 
-void Shader::upload_vec4(const char *name, float values[2]) const {
+void Shader::upload_vec4(const char *name, float values[3]) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
         GL_CHECK(glUniform4f(location, values[0], values[1], values[2], values[3]));
     }
 }
 
-void Shader::upload_mat4(const char *name, float values[4][4]) const {
+void Shader::upload_mat4(const char *name, const mat4 &mat) const {
     int32_t location = glGetUniformLocation(m_program_id, name);
     if(location != -1) {
-       GL_CHECK(glUniformMatrix4fv(location, 1, false, (float *)values));
+       GL_CHECK(glUniformMatrix4fv(location, 1, false, (float *)mat.e));
     }
 }
 
