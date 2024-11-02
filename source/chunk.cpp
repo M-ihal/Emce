@@ -7,10 +7,6 @@
 
 #include <glew.h>
 
-bool Block::is_solid(void) const {
-    return type != BlockType::AIR;
-}
-
 Chunk::Chunk(class World *world, vec2i chunk_xz) {
     ASSERT(world);
     m_owner = world;
@@ -28,183 +24,40 @@ const VertexArray &Chunk::get_vao(void) {
 }
 
 void Chunk::set_block(const vec3i &rel, BlockType type) {
-    ASSERT(Chunk::is_inside_chunk(rel));
-    m_blocks[rel.x][rel.y][rel.z].type = type;
+    if(is_inside_chunk(rel)) {
+        m_blocks[rel.x][rel.y][rel.z].type = type;
+    }
 }
 
 Block *Chunk::get_block(const vec3i &rel) {
-    if(Chunk::is_inside_chunk(rel)) {
-        return &m_blocks[rel.x][rel.y][rel.z];
+    Block *block = NULL;
+    if(is_inside_chunk(rel)) {
+        block = &m_blocks[rel.x][rel.y][rel.z];
     }
-    return NULL;
+    return block;
+}
+
+Block *Chunk::get_block_neighbour(const vec3i &rel, BlockSide side, bool check_other_chunk) {
+    Block *block = NULL;
+    vec3i nb_rel = rel + get_block_side_dir(side);
+    if(is_inside_chunk(nb_rel)) {
+        block = &m_blocks[nb_rel.x][nb_rel.y][nb_rel.z];
+    } else if(check_other_chunk && nb_rel.y >= 0 && nb_rel.y < CHUNK_SIZE_Y) {
+        const vec3i nb_abs = block_position_from_relative(nb_rel, m_chunk_xz);
+        WorldPosition nb_p = WorldPosition::from_block(nb_abs);
+        Chunk *nb_chunk = this->m_owner->get_chunk(nb_p.chunk);
+        if(nb_chunk != NULL) {
+            block = nb_chunk->get_block(nb_p.block_rel);
+        }
+    }
+    return block;
 }
 
 vec2i Chunk::get_coords(void) {
     return m_chunk_xz;
 }
 
-bool Chunk::is_inside_chunk(const vec3i &rel) {
-    return(rel.x >= 0 && rel.x < CHUNK_SIZE_X
-        && rel.y >= 0 && rel.y < CHUNK_SIZE_Y
-        && rel.z >= 0 && rel.z < CHUNK_SIZE_Z);
-}
-
-static constexpr void fill_positions_and_normals(BlockSide side, ChunkVaoVertex v[4]) {
-    switch(side) {
-        case BlockSide::Z_POS: {
-            v[0].position = vec3{ 0.0f, 0.0f, 1.0f };
-            v[1].position = vec3{ 1.0f, 0.0f, 1.0f };
-            v[2].position = vec3{ 1.0f, 1.0f, 1.0f };
-            v[3].position = vec3{ 0.0f, 1.0f, 1.0f };
-            v[0].normal = vec3{ 0.0f, 0.0f, 1.0f };
-            v[1].normal = vec3{ 0.0f, 0.0f, 1.0f };
-            v[2].normal = vec3{ 0.0f, 0.0f, 1.0f };
-            v[3].normal = vec3{ 0.0f, 0.0f, 1.0f };
-        } break;
-        case BlockSide::Z_NEG: {
-            v[0].position = vec3{ 1.0f, 0.0f, 0.0f };
-            v[1].position = vec3{ 0.0f, 0.0f, 0.0f };
-            v[2].position = vec3{ 0.0f, 1.0f, 0.0f };
-            v[3].position = vec3{ 1.0f, 1.0f, 0.0f };
-            v[0].normal = vec3{ 0.0f, 0.0f, -1.0f };
-            v[1].normal = vec3{ 0.0f, 0.0f, -1.0f };
-            v[2].normal = vec3{ 0.0f, 0.0f, -1.0f };
-            v[3].normal = vec3{ 0.0f, 0.0f, -1.0f };
-        } break;
-        case BlockSide::X_POS: {
-            v[0].position = vec3{ 1.0f, 0.0f, 1.0f };
-            v[1].position = vec3{ 1.0f, 0.0f, 0.0f };
-            v[2].position = vec3{ 1.0f, 1.0f, 0.0f };
-            v[3].position = vec3{ 1.0f, 1.0f, 1.0f };
-            v[0].normal = vec3{ 1.0f, 0.0f, 0.0f };
-            v[1].normal = vec3{ 1.0f, 0.0f, 0.0f };
-            v[2].normal = vec3{ 1.0f, 0.0f, 0.0f };
-            v[3].normal = vec3{ 1.0f, 0.0f, 0.0f };
-        } break;
-        case BlockSide::X_NEG: {
-            v[0].position = vec3{ 0.0f, 0.0f, 0.0f };
-            v[1].position = vec3{ 0.0f, 0.0f, 1.0f };
-            v[2].position = vec3{ 0.0f, 1.0f, 1.0f };
-            v[3].position = vec3{ 0.0f, 1.0f, 0.0f };
-            v[0].normal = vec3{ -1.0f, 0.0f, 0.0f };
-            v[1].normal = vec3{ -1.0f, 0.0f, 0.0f };
-            v[2].normal = vec3{ -1.0f, 0.0f, 0.0f };
-            v[3].normal = vec3{ -1.0f, 0.0f, 0.0f };
-        } break;
-        case BlockSide::Y_POS: {
-            v[0].position = vec3{ 0.0f, 1.0f, 1.0f };
-            v[1].position = vec3{ 1.0f, 1.0f, 1.0f };
-            v[2].position = vec3{ 1.0f, 1.0f, 0.0f };
-            v[3].position = vec3{ 0.0f, 1.0f, 0.0f };
-            v[0].normal = vec3{ 0.0f, 1.0f, 0.0f };
-            v[1].normal = vec3{ 0.0f, 1.0f, 0.0f };
-            v[2].normal = vec3{ 0.0f, 1.0f, 0.0f };
-            v[3].normal = vec3{ 0.0f, 1.0f, 0.0f };
-        } break;
-        case BlockSide::Y_NEG: {
-            v[0].position = vec3{ 0.0f, 0.0f, 0.0f };
-            v[1].position = vec3{ 1.0f, 0.0f, 0.0f };
-            v[2].position = vec3{ 1.0f, 0.0f, 1.0f };
-            v[3].position = vec3{ 0.0f, 0.0f, 1.0f };
-            v[0].normal = vec3{ 0.0f, -1.0f, 0.0f };
-            v[1].normal = vec3{ 0.0f, -1.0f, 0.0f };
-            v[2].normal = vec3{ 0.0f, -1.0f, 0.0f };
-            v[3].normal = vec3{ 0.0f, -1.0f, 0.0f };
-        } break;
-    };
-}
-
-// @todo Hardcoded atlas size
-static constexpr void get_atlas_tex_coords(int32_t x, int32_t y, ChunkVaoVertex v[4]) {
-    v[0].tex_coord = vec2{ x * 16.0f / 512.0f, y * 16.0f / 512.0f };
-    v[1].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, y * 16.0f / 512.0f };
-    v[2].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
-    v[3].tex_coord = vec2{ x * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
-}
-
-static constexpr void fill_tex_coords_for_block(BlockSide side, const Block &block, ChunkVaoVertex v[4]) {
-    switch(block.type) {
-        default: {
-            get_atlas_tex_coords(0, 0, v);
-        } break;
-
-        case BlockType::SAND: {
-            get_atlas_tex_coords(0, 0, v);
-        } break;
-
-        case BlockType::DIRT: {
-            get_atlas_tex_coords(1, 0, v);
-        } break;
-
-        case BlockType::DIRT_WITH_GRASS: {
-            switch(side) {
-                case BlockSide::Y_NEG: {
-                    get_atlas_tex_coords(1, 0, v);
-                } break;
-                case BlockSide::Y_POS: {
-                    get_atlas_tex_coords(1, 2, v);
-                } break;
-                case BlockSide::X_POS:
-                case BlockSide::X_NEG:
-                case BlockSide::Z_POS:
-                case BlockSide::Z_NEG: {
-                    get_atlas_tex_coords(1, 1, v);
-                } break;
-            }
-        } break;
-
-        case BlockType::COBBLESTONE: {
-            get_atlas_tex_coords(2, 0, v);
-        } break;
-
-        case BlockType::STONE: {
-            get_atlas_tex_coords(2, 1, v);
-        } break;
-
-        case BlockType::TREE_LOG: {
-            switch(side) {
-                case BlockSide::Y_POS:
-                case BlockSide::Y_NEG: {
-                    get_atlas_tex_coords(7, 0, v);
-                } break;
-
-                case BlockSide::X_POS:
-                case BlockSide::X_NEG:
-                case BlockSide::Z_POS:
-                case BlockSide::Z_NEG: {
-                    get_atlas_tex_coords(7, 1, v);
-                } break;
-            };
-        } break;
-
-        case BlockType::TREE_LEAVES: {
-            get_atlas_tex_coords(7, 2, v);
-        } break;
-        
-        case BlockType::GLASS: {
-            get_atlas_tex_coords(0, 1, v);
-        } break;
-    }
-}
-
 void Chunk::gen_vao(const ChunkVaoGenData &gen_data) {
-#if 0
-    if(m_chunk_vao.has_been_created() && m_chunk_vao.get_vbo_size() >= gen_data.vertices.size() * sizeof(ChunkVaoVertex) && m_chunk_vao.get_ibo_count() >= gen_data.indices.size()) {
-        m_chunk_vao.upload_vbo_data(gen_data.vertices.data(), gen_data.vertices.size() * sizeof(ChunkVaoVertex), 0);
-        m_chunk_vao.upload_ibo_data(gen_data.indices.data(),  gen_data.indices.size(), 0);
-    } else {
-        BufferLayout layout;
-        layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
-        layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
-        layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
-
-        m_chunk_vao.delete_vao();
-        m_chunk_vao.create_vao(layout, ArrayBufferUsage::STATIC);
-        m_chunk_vao.set_vbo_data(gen_data.vertices.data(), gen_data.vertices.size() * sizeof(ChunkVaoVertex));
-        m_chunk_vao.set_ibo_data(gen_data.indices.data(),  gen_data.indices.size());
-        m_chunk_vao.apply_vao_attributes();
-    }
-#else
     BufferLayout layout;
     layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
     layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
@@ -215,33 +68,22 @@ void Chunk::gen_vao(const ChunkVaoGenData &gen_data) {
     m_chunk_vao.set_vbo_data(gen_data.vertices.data(), gen_data.vertices.size() * sizeof(ChunkVaoVertex));
     m_chunk_vao.set_ibo_data(gen_data.indices.data(),  gen_data.indices.size());
     m_chunk_vao.apply_vao_attributes();
-#endif
 }
 
-void push_block_side(std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t> &indices, BlockSide side, Block &block, int32_t x, int32_t y, int32_t z, bool centered) {
-    ChunkVaoVertex v[4] = { };
-    fill_positions_and_normals(side, v);
-    fill_tex_coords_for_block(side, block, v);
+static constexpr void calc_atlas_tex_coords(int32_t x, int32_t y, ChunkVaoVertex v[4]) {
+    v[0].tex_coord = vec2{ x * 16.0f / 512.0f, y * 16.0f / 512.0f };
+    v[1].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, y * 16.0f / 512.0f };
+    v[2].tex_coord = vec2{ (x + 1) * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
+    v[3].tex_coord = vec2{ x * 16.0f / 512.0f, (y + 1) * 16.0f / 512.0f };
+}
 
-    v[0].position += vec3::make(x, y, z);
-    v[1].position += vec3::make(x, y, z);
-    v[2].position += vec3::make(x, y, z);
-    v[3].position += vec3::make(x, y, z);
-
-    if(centered) {
-        v[0].position -= vec3::make(0.5f);
-        v[1].position -= vec3::make(0.5f);
-        v[2].position -= vec3::make(0.5f);
-        v[3].position -= vec3::make(0.5f);
-    }
-
-    /* Starting index for indices */
+static void push_block_vao_quad(ChunkVaoVertex quad_vertices[4], std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t> &indices) {
     const int32_t start = vertices.size();
 
-    vertices.push_back(v[0]);
-    vertices.push_back(v[1]);
-    vertices.push_back(v[2]);
-    vertices.push_back(v[3]);
+    vertices.push_back(quad_vertices[0]);
+    vertices.push_back(quad_vertices[1]);
+    vertices.push_back(quad_vertices[2]);
+    vertices.push_back(quad_vertices[3]);
 
     indices.push_back(start + 0);
     indices.push_back(start + 1);
@@ -251,100 +93,254 @@ void push_block_side(std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t
     indices.push_back(start + 0);
 }
 
-ChunkVaoGenData Chunk::gen_vao_data(void) {
-    ChunkVaoGenData gen_data = { };
+static void fill_block_cube_vao_vertex(ChunkVaoVertex v[4], BlockSide side, const vec3i &offset) {
+    switch(side) {
+        default: INVALID_CODE_PATH; break;
 
-    // @todo Chunk::get_neighbouring_block(vec2i block, BlockSide side);
-    auto is_relative_block_solid = [&] (const vec3i &other_rel) -> bool {
-        Block *other = NULL;
-        if(Chunk::is_inside_chunk(other_rel)) {
-            other = this->get_block(other_rel);
-        } else {
-            /* always generate quad on top */
-            if(other_rel.y >= CHUNK_SIZE_Y) {
-                return false;
-            }
+        case BlockSide::Z_POS: {
+            v[0].position = vec3{ 0.0f, 0.0f, 1.0f };
+            v[1].position = vec3{ 1.0f, 0.0f, 1.0f };
+            v[2].position = vec3{ 1.0f, 1.0f, 1.0f };
+            v[3].position = vec3{ 0.0f, 1.0f, 1.0f };
+            v[0].normal = vec3{ 0.0f, 0.0f, 1.0f };
+            v[1].normal = vec3{ 0.0f, 0.0f, 1.0f };
+            v[2].normal = vec3{ 0.0f, 0.0f, 1.0f };
+            v[3].normal = vec3{ 0.0f, 0.0f, 1.0f };
+        } break;
 
-            /* Never generate quad at bottom of chunk because there is no point */
-            if(other_rel.y < 0) {
-                return true;
-            }
+        case BlockSide::Z_NEG: {
+            v[0].position = vec3{ 1.0f, 0.0f, 0.0f };
+            v[1].position = vec3{ 0.0f, 0.0f, 0.0f };
+            v[2].position = vec3{ 0.0f, 1.0f, 0.0f };
+            v[3].position = vec3{ 1.0f, 1.0f, 0.0f };
+            v[0].normal = vec3{ 0.0f, 0.0f, -1.0f };
+            v[1].normal = vec3{ 0.0f, 0.0f, -1.0f };
+            v[2].normal = vec3{ 0.0f, 0.0f, -1.0f };
+            v[3].normal = vec3{ 0.0f, 0.0f, -1.0f };
+        } break;
 
-            /* Get neighbouring chunk */
-            vec2i chunk_offset = { };
+        case BlockSide::X_POS: {
+            v[0].position = vec3{ 1.0f, 0.0f, 1.0f };
+            v[1].position = vec3{ 1.0f, 0.0f, 0.0f };
+            v[2].position = vec3{ 1.0f, 1.0f, 0.0f };
+            v[3].position = vec3{ 1.0f, 1.0f, 1.0f };
+            v[0].normal = vec3{ 1.0f, 0.0f, 0.0f };
+            v[1].normal = vec3{ 1.0f, 0.0f, 0.0f };
+            v[2].normal = vec3{ 1.0f, 0.0f, 0.0f };
+            v[3].normal = vec3{ 1.0f, 0.0f, 0.0f };
+        } break;
 
-            if(other_rel.x < 0) {
-                chunk_offset.x = -1;
-            } else if(other_rel.x >= CHUNK_SIZE_X) {
-                chunk_offset.x = +1;
-            }
+        case BlockSide::X_NEG: {
+            v[0].position = vec3{ 0.0f, 0.0f, 0.0f };
+            v[1].position = vec3{ 0.0f, 0.0f, 1.0f };
+            v[2].position = vec3{ 0.0f, 1.0f, 1.0f };
+            v[3].position = vec3{ 0.0f, 1.0f, 0.0f };
+            v[0].normal = vec3{ -1.0f, 0.0f, 0.0f };
+            v[1].normal = vec3{ -1.0f, 0.0f, 0.0f };
+            v[2].normal = vec3{ -1.0f, 0.0f, 0.0f };
+            v[3].normal = vec3{ -1.0f, 0.0f, 0.0f };
+        } break;
 
-            if(other_rel.z < 0) {
-                chunk_offset.y = -1;
-            } else if(other_rel.z >= CHUNK_SIZE_Z) {
-                chunk_offset.y = +1;
-            }
+        case BlockSide::Y_POS: {
+            v[0].position = vec3{ 0.0f, 1.0f, 1.0f };
+            v[1].position = vec3{ 1.0f, 1.0f, 1.0f };
+            v[2].position = vec3{ 1.0f, 1.0f, 0.0f };
+            v[3].position = vec3{ 0.0f, 1.0f, 0.0f };
+            v[0].normal = vec3{ 0.0f, 1.0f, 0.0f };
+            v[1].normal = vec3{ 0.0f, 1.0f, 0.0f };
+            v[2].normal = vec3{ 0.0f, 1.0f, 0.0f };
+            v[3].normal = vec3{ 0.0f, 1.0f, 0.0f };
+        } break;
 
-            Chunk *neighbour = m_owner->get_chunk(m_chunk_xz + chunk_offset, false);
-            if(!neighbour) {
-                return false;
-            }
-
-            vec3i block_xyz;
-            block_xyz.y = other_rel.y;
-
-            if(chunk_offset.x == -1) {
-                block_xyz.x = CHUNK_SIZE_X - 1;
-            } else if(chunk_offset.x == 1) {
-                block_xyz.x = 0;
-            } else {
-                block_xyz.x = other_rel.x;
-            }
-
-            if(chunk_offset.y == -1) {
-                block_xyz.z = CHUNK_SIZE_Z - 1;
-            } else if(chunk_offset.y == 1) {
-                block_xyz.z = 0;
-            } else {
-                block_xyz.z = other_rel.z;
-            }
-
-            other = neighbour->get_block(block_xyz);
-        }
-
-        /* If block is transparent, return true */
-        switch(other->type) {
-            default: break;
-
-            case BlockType::AIR: return false;
-        }
-        return true;
-    };
-
-    for_every_block(x, y, z) {
-        Block *block = this->get_block({ x, y, z });
-        if(block->type != BlockType::AIR) {
-            if(!is_relative_block_solid({ x, y, z + 1 })) {
-                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::Z_POS, *block, x, y, z);
-            }
-            if(!is_relative_block_solid({ x, y, z - 1 })) {
-                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::Z_NEG, *block, x, y, z);
-            }
-            if(!is_relative_block_solid({ x + 1, y, z })) {
-                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::X_POS, *block, x, y, z);
-            }
-            if(!is_relative_block_solid({ x - 1, y, z })) {
-                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::X_NEG, *block, x, y, z);
-            }
-            if(!is_relative_block_solid({ x, y + 1, z })) {
-                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::Y_POS, *block, x, y, z);
-            }
-            if(!is_relative_block_solid({ x, y - 1, z })) {
-                push_block_side(gen_data.vertices, gen_data.indices, BlockSide::Y_NEG, *block, x, y, z);
-            }
-        }
+        case BlockSide::Y_NEG: {
+            v[0].position = vec3{ 0.0f, 0.0f, 0.0f };
+            v[1].position = vec3{ 1.0f, 0.0f, 0.0f };
+            v[2].position = vec3{ 1.0f, 0.0f, 1.0f };
+            v[3].position = vec3{ 0.0f, 0.0f, 1.0f };
+            v[0].normal = vec3{ 0.0f, -1.0f, 0.0f };
+            v[1].normal = vec3{ 0.0f, -1.0f, 0.0f };
+            v[2].normal = vec3{ 0.0f, -1.0f, 0.0f };
+            v[3].normal = vec3{ 0.0f, -1.0f, 0.0f };
+        } break;
     }
 
-    gen_data.chunk = this->m_chunk_xz;
+    v[0].position += vec3::make(offset);
+    v[1].position += vec3::make(offset);
+    v[2].position += vec3::make(offset);
+    v[3].position += vec3::make(offset);
+}
+
+static void fill_block_cube_vao_tex_coords(ChunkVaoVertex v[4], BlockType type, BlockSide side) {
+    switch(type) {
+        default: INVALID_CODE_PATH; break;
+
+        case BlockType::SAND: {
+            calc_atlas_tex_coords(0, 0, v);
+        } break;
+
+        case BlockType::DIRT: {
+            calc_atlas_tex_coords(1, 0, v);
+        } break;
+
+        case BlockType::DIRT_WITH_GRASS: {
+            switch(side) {
+                case BlockSide::Y_NEG: {
+                    calc_atlas_tex_coords(1, 0, v);
+                } break;
+                case BlockSide::Y_POS: {
+                    calc_atlas_tex_coords(1, 2, v);
+                } break;
+                case BlockSide::X_POS:
+                case BlockSide::X_NEG:
+                case BlockSide::Z_POS:
+                case BlockSide::Z_NEG: {
+                    calc_atlas_tex_coords(1, 1, v);
+                } break;
+            }
+        } break;
+
+        case BlockType::COBBLESTONE: {
+            calc_atlas_tex_coords(2, 0, v);
+        } break;
+
+        case BlockType::STONE: {
+            calc_atlas_tex_coords(2, 1, v);
+        } break;
+
+        case BlockType::TREE_LOG: {
+            switch(side) {
+                case BlockSide::Y_POS:
+                case BlockSide::Y_NEG: {
+                    calc_atlas_tex_coords(7, 0, v);
+                } break;
+
+                case BlockSide::X_POS:
+                case BlockSide::X_NEG:
+                case BlockSide::Z_POS:
+                case BlockSide::Z_NEG: {
+                    calc_atlas_tex_coords(7, 1, v);
+                } break;
+            };
+        } break;
+
+        case BlockType::TREE_LEAVES: {
+            calc_atlas_tex_coords(7, 2, v);
+        } break;
+        
+        case BlockType::GLASS: {
+            calc_atlas_tex_coords(0, 1, v);
+        } break;
+
+        case BlockType::WATER: {
+            calc_atlas_tex_coords(31, 0, v);
+        } break;
+    }
+}
+
+static void fill_block_cross_vao_vertex(ChunkVaoVertex v[2][4], const vec3i &offset) {
+
+}
+
+static void fill_block_cross_vao_tex_coords(ChunkVaoVertex v[2][4], BlockType type) {
+
+}
+
+static void push_block_vao_data(BlockType type, std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t> &indices, const vec3i &block_rel, bool opaque_neighbours[BLOCK_SIDE_COUNT]) {
+
+    enum : int32_t { CUBE, CROSS, NOT_SET } block_vis;
+
+    switch(type) {
+        default: {
+            INVALID_CODE_PATH;
+        } break;
+
+        case BlockType::SAND:
+        case BlockType::DIRT:
+        case BlockType::DIRT_WITH_GRASS:
+        case BlockType::COBBLESTONE:
+        case BlockType::STONE:
+        case BlockType::TREE_LOG:
+        case BlockType::TREE_LEAVES:
+        case BlockType::GLASS:
+        case BlockType::WATER: {
+            block_vis = CUBE;
+        } break;
+
+        case BlockType::GRASS: {
+            block_vis = CROSS;
+        } break;
+    }
+
+    switch(block_vis) {
+        default: {
+            INVALID_CODE_PATH;
+        } break;
+
+        case CUBE: {
+            for(int32_t index = 0; index < BLOCK_SIDE_COUNT; ++index) {
+                ChunkVaoVertex v[4] = { };
+                BlockSide side = (BlockSide)index;
+                if(!opaque_neighbours[index]) {
+                    fill_block_cube_vao_vertex(v, side, block_rel);
+                    fill_block_cube_vao_tex_coords(v, type, side);
+                    push_block_vao_quad(v, vertices, indices);
+                }
+            }
+        } break;
+
+        case CROSS: {
+            ChunkVaoVertex v[2][4] = { };
+            fill_block_cross_vao_vertex(v, block_rel);
+            fill_block_cross_vao_tex_coords(v, type);
+            push_block_vao_quad(v[0], vertices, indices);
+            push_block_vao_quad(v[1], vertices, indices);
+        } break;
+    }
+}
+
+void gen_single_block_vao_data(BlockType type, std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t> &indices) {
+    bool opaques[BLOCK_SIDE_COUNT] = {
+        false, false, false, 
+        false, false, false
+    };
+
+    push_block_vao_data(type, vertices, indices, { 0, 0, 0 }, opaques);
+    for(ChunkVaoVertex &v : vertices) {
+        v.position -= vec3::make(0.5f);
+    }
+}
+
+ChunkVaoGenData Chunk::gen_vao_data(void) {
+    ChunkVaoGenData gen_data = { .chunk = this->m_chunk_xz };
+
+    for_every_block(x, y, z) {
+        const vec3i block_rel = { x, y, z };
+
+        Block *block = this->get_block(block_rel);
+        ASSERT(block);
+
+        const uint32_t flags = get_block_flags(block->type);
+        if(flags & IS_NOT_VISIBLE) {
+            continue;
+        }
+
+        /* Get array of opaque neighbouring blocks */
+        bool opaque_neighbours[BLOCK_SIDE_COUNT] = { };
+        for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
+            Block *neighbour = this->get_block_neighbour(block_rel, (BlockSide)side, true);
+            if(neighbour != NULL) {
+                uint32_t nb_flags = get_block_flags(neighbour->type);
+                opaque_neighbours[side] = !(nb_flags & IS_NOT_VISIBLE) && !(nb_flags & HAS_TRANSPARENCY);
+
+                if(flags & HAS_TRANSPARENCY && nb_flags & HAS_TRANSPARENCY && !(nb_flags & IS_NOT_VISIBLE)) {
+                    opaque_neighbours[side] = true;
+                }
+            }       
+        }
+
+        push_block_vao_data(block->type, gen_data.vertices, gen_data.indices, block_rel, opaque_neighbours);
+    }
+
     return gen_data;
 }
+

@@ -8,8 +8,10 @@
 
 #include <glew.h>
 
+// #define DEBUG_DO_NOT_LOAD_NEW_CHUNKS
+
 namespace {
-    static int32_t g_load_radius = 8; //24;
+    static int32_t g_load_radius = 8; // 24;
     static float   g_third_person_distance = 10.0f;
     static bool    g_third_person_mode = false;
 
@@ -179,6 +181,9 @@ void Game::update(Window &window, const Input &input, double delta_time) {
         m_console.update(*this, input, window, delta_time);
     }
 
+    m_world.gen_chunk({ 0, 0 });
+
+#if !defined(DEBUG_DO_NOT_LOAD_NEW_CHUNKS)
     /* Gen new chunks @todo */ {
         WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
         for(int32_t i = 0; i < g_load_radius; ++i) {
@@ -196,6 +201,7 @@ void Game::update(Window &window, const Input &input, double delta_time) {
             }
         }
     }
+#endif
 
     if(input.key_pressed(Key::F05) && !m_console.is_open()) {
         BOOL_TOGGLE(g_third_person_mode);
@@ -238,7 +244,7 @@ void Game::render_frame(void) {
 
     this->render_world(width, height);
 
-    m_fbo.clear_depth();
+    // m_fbo.clear_depth();
 
     this->render_held_block(width, height);
 
@@ -275,15 +281,10 @@ void Game::render_single_block(const mat4 &transform, BlockType type) {
     std::vector<ChunkVaoVertex> vertices;
     std::vector<uint32_t> indices;
 
-    push_block_side(vertices, indices, BlockSide::Z_POS, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::Z_NEG, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::X_POS, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::X_NEG, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::Y_POS, block, 0, 0, 0, true);
-    push_block_side(vertices, indices, BlockSide::Y_NEG, block, 0, 0, 0, true);
+    gen_single_block_vao_data(type, vertices, indices);
 
     const size_t size_vertices = vertices.size() * sizeof(ChunkVaoVertex);
-    ASSERT(m_block_vao.get_vbo_size() == size_vertices);
+    // ASSERT(m_block_vao.get_vbo_size() == size_vertices);
     m_block_vao.set_vbo_data(vertices.data(), size_vertices);
     m_block_vao.set_ibo_data(indices.data(), indices.size());
     m_block_vao.apply_vao_attributes();
@@ -306,6 +307,7 @@ void Game::render_world(int32_t width, int32_t height) {
     GL_CHECK(glDisable(GL_BLEND));
     GL_CHECK(glEnable(GL_DEPTH_TEST));
     GL_CHECK(glDepthFunc(GL_LESS));
+    GL_CHECK(glEnable(GL_MULTISAMPLE));
 
     /* Render Chunks */ {
         g_triangles_rendered_last_frame = 0;

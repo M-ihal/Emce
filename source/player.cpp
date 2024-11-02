@@ -79,7 +79,7 @@ bool Player::check_if_collides_with_any_block(World &world, vec3 position, vec3 
                     continue;
                 }
 
-                if(check_aabb_3d(position, size, block_p.real, { 1.0f, 1.0f, 1.0f }) && block->is_solid()) {
+                if(check_aabb_3d(position, size, block_p.real, { 1.0f, 1.0f, 1.0f }) && get_block_flags(block->type) & IS_SOLID) {
                     return true;
                 }
             }
@@ -104,13 +104,13 @@ void Player::update(Game &game, const Input &input, float delta_time) {
             do {
                 int32_t value = (int32_t)m_held_block;
                 value += unit;
-                if(value >= (int32_t)BlockType::__COUNT) {
+                if(value >= (int32_t)BlockType::_COUNT) {
                     value = 0;
                 } else if(value < 0) {
-                    value = (int32_t)BlockType::__COUNT - 1;
+                    value = (int32_t)BlockType::_COUNT - 1;
                 }
                 m_held_block = (BlockType)value;
-            } while(!is_placable(m_held_block));
+            } while(!(get_block_flags(m_held_block) & IS_PLACABLE));
         }
     }
 
@@ -304,7 +304,7 @@ void Player::move_in_xz(World &world, float delta_time) {
                         continue;
                     }
 
-                    if(!block->is_solid()) {
+                    if(!(get_block_flags(block->type) & IS_SOLID)) {
                         continue;
                     }
 

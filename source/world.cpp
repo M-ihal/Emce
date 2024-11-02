@@ -52,6 +52,7 @@ void World::delete_chunks(void) {
 
     m_chunk_table.clear_table();
     m_load_queue.clear();
+    m_gen_queue.clear();
 
     end_ticket_mutex(mutex_gen_queue);
     end_ticket_mutex(mutex_load_queue);
@@ -274,6 +275,14 @@ Chunk *World::gen_chunk_really(vec2i chunk_xz) {
                     created->set_block({ x, y, z }, BlockType::DIRT);
                 }
                 y -= 1;
+            }
+
+            y = ocean_level;
+            while(y >= 0) {
+                if(created->get_block({ x, y, z})->type != BlockType::AIR) {
+                    break;
+                }
+                created->set_block({ x, y, z }, BlockType::WATER);
             }
         }
     }
@@ -519,7 +528,7 @@ RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec
                 }
 
                 Block *block = chunk->get_block(block_p.block_rel);
-                if(!block || !block->is_solid()) {
+                if(!block || !(get_block_flags(block->type) & IS_SOLID)) {
                     continue;
                 }
 
