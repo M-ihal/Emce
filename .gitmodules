@@ -7,3 +7,6 @@
 [submodule "external/SDL"]
 	path = external/SDL
 	url = https://github.com/libsdl-org/SDL.git
+[submodule "external/meh_dynamic_array"]
+	path = external/meh_dynamic_array
+	url = https://github.com/M-ihal/meh_dynamic_array.git
