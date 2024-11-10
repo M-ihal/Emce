@@ -13,6 +13,10 @@
 
 class Window;
 
+#define UNLOAD_RADIUS_MAX 64
+
+int32_t get_load_radius(void);
+
 class Game {
 public:
     CLASS_COPY_DISABLE(Game);
@@ -21,17 +25,22 @@ public:
     Game(Window &window);
     ~Game(void);
 
+    /* Update the game state */
     void update(Window &window, const Input &input, double delta_time);
 
     /* Renders frame onto backbuffer */
     void render_frame(void);
 
     /* Render single block */
-    void render_single_block(const mat4 &transform, BlockType type);
+    void render_single_block(BlockType type, const mat4 &model_m, const mat4 &proj_m, const mat4 &view_m);
 
+    /* Hotload shaders */
     void hotload_stuff(void);
-    void resize_framebuffers(int32_t new_width, int32_t new_height);
 
+    /* Window size changed callback */
+    void resize(int32_t width, int32_t height);
+
+    /* Getters */
     World   &get_world(void);
     Camera  &get_camera(void);
     Player  &get_player(void);
@@ -41,9 +50,12 @@ private:
     void push_debug_ui(void);
     void add_console_commands(void);
 
-    void render_world(int32_t width, int32_t height);
-    void render_ui(int32_t width, int32_t height);
-    void render_held_block(int32_t width, int32_t height);
+    void render_world(const mat4 &proj_m, const mat4 &view_m);
+    void render_water(const mat4 &proj_m, const mat4 &view_m);
+    void render_skybox(const mat4 &proj_m, const mat4 &view_m);
+    void render_held_block(const mat4 &proj_m, const mat4 &view_m, float aspect_ratio);
+    void render_ui(void);
+    void render_ui_debug_info(void);
 
     double m_time_elapsed;
     double m_delta_time;
@@ -53,14 +65,19 @@ private:
     Player  m_player;
     Console m_console;
  
+    uint32_t m_width;
+    uint32_t m_height;
     Framebuffer m_fbo;
 
     Font m_ui_font;
     Font m_ui_font_big;
+    Font m_ui_font_smooth;
 
-    ShaderFile  m_block_shader;
-    Texture     m_block_atlas;
+    ShaderFile   m_block_shader;
     TextureArray m_block_tex_array;
+
+    ShaderFile   m_water_shader;
+    TextureArray m_water_tex_array;
 
     VertexArray m_skybox_vao;
     ShaderFile  m_skybox_shader;

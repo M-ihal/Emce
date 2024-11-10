@@ -10,7 +10,7 @@
 #define RAD_TO_DEG(rad) ((rad) * (180.0f / M_PI))
 #define SQUARE(v) ((v) * (v))
 
-#define SIGN(v) (((v) < 0) ? -1 : 1)
+#define SIGN(v) (((v) < 0) ? -1 : ((v) > 0) ? 1 : 0)
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) < (b) ? (b) : (a))
 #define ABS(v) ((v) < 0 ? -(v) : (v))

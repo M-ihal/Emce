@@ -36,21 +36,32 @@ public:
     /* Deletes every chunk from the m_chunks map */
     void delete_chunks(void);
 
-    /* Push chunk to vao loading queue */
-    void queue_chunk_vao_load(vec2i chunk_xz);
+    /* Push chunk to vao loading queue, and maybe neighbours if changed_block_rel is on the edge */
+    void queue_chunk_vao_load(vec2i chunk_xz, const vec3i *const changed_block_rel = NULL);
 
-    /* Generate data for VAO generation on main thread, called from different thread */
-    void process_load_queue(void);
-
-    /* Generate VAOs, called on main thread */
+    /* Allocate and generate chunks on different thread */
     void process_gen_queue(void);
+
+    /* Generate chunk vao data on different thread */
+    void process_vao_queue(void);
+
+    /* Upload all chunk vao queue to the gpu */
+    void process_gpu_queue(void);
 
     /* Get chunk or create if doesn't exist */
     Chunk *get_chunk(vec2i chunk_xz, bool create_if_doesnt_exist = false);
-    void   gen_chunk(vec2i chunk_xz);
 
-    /* Get block from absolute block position (not relative to a chunk) */
-    Block *get_block(const vec3i &block);
+    /* Get chunk from absolute position, and optionally chunk */
+    Block *get_block(vec3i block_abs, Chunk **out_chunk = NULL, bool create_if_doesnt_exist = false);
+
+    /* Offload chunk generation to different thread */
+    void gen_chunk(vec2i chunk_xz);
+
+    /* Immediately generate chunk */
+    void gen_chunk_imm(vec2i chunk_xz);
+
+    /* Queue loading chunks around origin if aren't loaded */
+    void gen_chunks(vec2i origin_chunk_xz, uint32_t load_radius);
 
 private:
     /* Allocates a chunk and generates terrain for given key (Queues the generation of VAO) */
@@ -62,14 +73,19 @@ private:
     /* Inserts World structure around given origin, if structure expands out of chunk, generates that chunk */
     void insert_world_structure(const WorldStructure &structure, const vec3i &origin);
 
+    /* Update loaded chunks */
+    void update_loaded_chunks(float delta_time);
+
     Game          *m_owner;
     int32_t        m_world_gen_seed;
     ChunkHashTable m_chunk_table;
 
-    /* Chunk VAO load queue */
-    std::vector<vec2i> m_load_queue;
-    bool m_should_sort_load_queue;
-    std::vector<ChunkVaoGenData> m_gen_queue;
+    /* Chunk load queue */
+    bool m_should_sort_gen_queue;
+    bool m_should_sort_vao_queue;
+    std::vector<vec2i>           m_gen_queue;
+    std::vector<vec2i>           m_vao_queue;
+    std::vector<ChunkVaoGenData> m_gpu_queue;
 };
 
 inline static uint64_t func_hash_chunk_key(const vec2i &key) {
@@ -100,6 +116,7 @@ struct WorldPosition {
 vec3  real_position_from_block(const vec3i &block);
 vec3i block_position_from_real(const vec3 &real);
 vec2i chunk_position_from_block(const vec3i &block);
+vec2i chunk_position_from_real(const vec3 &real);
 vec3i block_origin_from_chunk(const vec2i &chunk);
 vec3i block_relative_from_block(const vec3i &block);
 vec3i block_position_from_relative(const vec3i &block_rel, const vec2i &chunk);
@@ -107,9 +124,10 @@ void  calc_overlapping_blocks(vec3 pos, vec3 size, WorldPosition &min, WorldPosi
 
 struct RaycastBlockResult {
     bool found;
-    vec3 normal;
+    vec3i normal;
     vec3 intersection;
     float distance;
+    BlockSide side;
     WorldPosition block_p;
 };
 

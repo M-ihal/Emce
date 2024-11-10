@@ -2,39 +2,42 @@
 
 #version 330 core
 
-layout (location = 0) in vec3 a_position;
-layout (location = 1) in vec3 a_normal;
-layout (location = 2) in vec2 a_tex_coord;
+// @todo make water faces only facing upwards ??
+
+layout (location = 0) in vec3  a_position;
+layout (location = 1) in vec3  a_normal;
+layout (location = 2) in vec2  a_tex_coord;
 layout (location = 3) in float a_tex_slot;
 
 uniform mat4 u_proj;
 uniform mat4 u_view;
 uniform mat4 u_model;
 
+uniform float u_time_elapsed;
+
 out vec2 v_tex_coord;
 out vec3 v_normal;
-out float v_tex_slot;
+out float v_water_frame;
 
 void main() {
+    vec3 position = a_position;
+    position.y -= 0.15 * (cos(u_time_elapsed * 0.5) * 0.5 + 0.5) + 0.05;
     v_tex_coord = a_tex_coord;
-#if 0
-    v_normal = a_normal;
-#else
     v_normal = mat3(transpose(inverse(u_model))) * a_normal;
-#endif
-    v_tex_slot = a_tex_slot;
-    gl_Position = u_proj * u_view * u_model * vec4(a_position, 1.0);
+    v_water_frame = a_tex_slot;
+    gl_Position = u_proj * u_view * u_model * vec4(position, 1.0);
 }
 
 @shader_fragment
 
 #version 330 core
 
-uniform sampler2DArray u_texture_array;
+uniform sampler2DArray u_water_texture_array;
+
+uniform float u_time_elapsed;
 
 in vec2 v_tex_coord;
 in vec3 v_normal;
-in float v_tex_slot;
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_normal;
@@ -48,14 +51,10 @@ void main() {
     float diff = max(dot(normal, dir_to_sun), 0.35);
     vec3  diffuse = sun_diffuse * diff;
 
-    // vertex sh
-    vec3 tex_arr_coord = vec3(v_tex_coord, floor(v_tex_slot + 0.5));
+    int water_frame = int(u_time_elapsed * 30.0) % 32;
+    vec3 tex_arr_coord = vec3(v_tex_coord, float(water_frame));
 
-    if(texture(u_texture_array, tex_arr_coord).a < 0.1){
-        discard;
-    }
-
-    out_color = vec4(diffuse, 1.0) * texture(u_texture_array, tex_arr_coord);
+    out_color = vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord);
 
     out_normal = vec4(v_normal, 1.0);
 

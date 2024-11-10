@@ -19,19 +19,24 @@
 #include "cubemap.h"
 #include "font.h"
 #include "text_batcher.h"
-#include "debug_ui.h"
 #include "game.h"
 #include "simple_draw.h"
 #include "framebuffer.h"
 #include "draw.h"
 
-int32_t calc_average_fps(double delta_time);
+#include <meh_dynamic_array.h>
 
 namespace {
     constexpr int32_t INIT_WINDOW_WIDTH  = 1280;
     constexpr int32_t INIT_WINDOW_HEIGHT = 720;
     const char       *INIT_WINDOW_TITLE  = "emce";
 }
+
+// @TODO sometimes crashes (probably bc of threads) when exiting
+// @TODO fix player sliding
+// @TODO find data filepath !!!
+// @TODO wait for mutexes to terminate before doing some things
+// @TODO rename queue_chunk_vao_load and then replace all occurances with better stuff
 
 struct MutexTicket {
     int64_t volatile ticket;
@@ -47,15 +52,26 @@ void end_ticket_mutex(MutexTicket &mutex) {
     _InterlockedExchangeAdd64((__int64 volatile *)&mutex.serving, 1);
 }
 
-MutexTicket mutex_load_queue = { };
-MutexTicket mutex_gen_queue  = { };
-MutexTicket mutex_get_chunk  = { };
+MutexTicket mutex_chunk_gen_queue = { };
+MutexTicket mutex_chunk_vao_queue = { };
+MutexTicket mutex_chunk_gpu_queue = { };
+MutexTicket mutex_world_get_chunk = { };
 
 int chunk_gen_thread_func(void *param) {
+    Game *game = static_cast<Game *>(param);
+
+    while(true) {
+        game->get_world().process_gen_queue();
+    }
+
+    return 0;
+}
+
+int chunk_vao_thread_func(void *param) {
     Game *game = (Game *)param;
 
     while(true) {
-        game->get_world().process_load_queue();
+        game->get_world().process_vao_queue();
     }
 
     return 0;
@@ -85,9 +101,7 @@ int SDL_main(int argc, char *argv[]) {
 
     /* Initialize global stuff */
     TextBatcher::initialize();
-    DebugUI::initialize();
     SimpleDraw::initialize();
-
 
     Input input;
     Game  game(window);
@@ -104,23 +118,32 @@ int SDL_main(int argc, char *argv[]) {
     double delta_time   = 0.0;
 
     /* Create threads */
-    const uint32_t chunk_thread_count = 1;
-    SDL_Thread *threads[chunk_thread_count] = { };
-    for(uint32_t index = 0; index < chunk_thread_count; ++index) {
+    const uint32_t chunk_gen_thread_count = 1;
+    const uint32_t chunk_vao_thread_count = 1;
+
+    SDL_Thread *gen_threads[chunk_gen_thread_count] = { };
+    SDL_Thread *vao_threads[chunk_vao_thread_count] = { };
+
+    for(uint32_t index = 0; index < chunk_gen_thread_count; ++index) {
         char thread_name[64];
         sprintf_s(thread_name, ARRAY_COUNT(thread_name), "Chunk gen thread #%u", index);
-        threads[index] = SDL_CreateThread(chunk_gen_thread_func, thread_name, (void *)&game);
-        SDL_DetachThread(threads[index]);
+        gen_threads[index] = SDL_CreateThread(chunk_gen_thread_func, thread_name, (void *)&game);
+        SDL_DetachThread(gen_threads[index]);
+    }
+
+    for(uint32_t index = 0; index < chunk_vao_thread_count; ++index) {
+        char thread_name[64];
+        sprintf_s(thread_name, ARRAY_COUNT(thread_name), "Chunk vao thread #%u", index);
+        vao_threads[index] = SDL_CreateThread(chunk_vao_thread_func, thread_name, (void *)&game);
+        SDL_DetachThread(vao_threads[index]);
     }
 
     while(window.get_should_close()) {
         window.process_events(input);
 
         if(window.size_changed_this_frame()) {
-            game.resize_framebuffers(window.get_width(), window.get_height());
+            game.resize(window.get_width(), window.get_height());
         }
-
-        DebugUI::begin_frame(window.get_width(), window.get_height());
 
         /* Calculate time */ {
             time_now = SDL_GetPerformanceCounter();
@@ -132,23 +155,12 @@ int SDL_main(int argc, char *argv[]) {
             time_last = time_now;
         }
 
-        DebugUI::push_text_left(" --- Frame ---");
-        DebugUI::push_text_left("elapsed time: %.3f", elapsed_time);
-        DebugUI::push_text_left("frame time: %.6f", delta_time);
-        DebugUI::push_text_left("fps: %d", calc_average_fps(delta_time));
-
         /* Hotload stuff here */
         TextBatcher::hotload_shader();
         SimpleDraw::hotload_shader();
         game.hotload_stuff();
 
-        /* Update */ {
-            if(input.key_pressed(Key::F03)) {
-                DebugUI::toggle();
-            }
-
-            game.update(window, input, delta_time);
-        }
+        game.update(window, input, delta_time);
 
         /* Render */ {
             SimpleDraw::set_camera(game.get_camera(), window.calc_aspect());
@@ -165,33 +177,10 @@ int SDL_main(int argc, char *argv[]) {
 
     /* Delete global stuff */
     SimpleDraw::destroy();
-    DebugUI::destroy();
     TextBatcher::destroy();
+
+    fprintf(stdout, "Successfuly exited without a crash...\n");
 
     return 0;
 }
 
-int32_t calc_average_fps(double delta_time) {
-    static int32_t draw_fps = 0;
-    static int32_t frame_times_counter = 0;
-    static double  frame_times[32] = { };
-
-    frame_times_counter++;
-    frame_times_counter %= ARRAY_COUNT(frame_times);
-    frame_times[frame_times_counter] = delta_time;
-
-    double average = 0.0f;
-    for(int32_t i = 0; i < ARRAY_COUNT(frame_times); ++i) {
-        average += frame_times[i];
-    }
-
-    const int32_t num_frames = ARRAY_COUNT(frame_times);
-    average /= double(num_frames);
-
-    int32_t fps = int32_t(1.0 / average);
-    if(frame_times_counter == ARRAY_COUNT(frame_times) - 1) {
-        draw_fps = fps;
-    }
-
-    return draw_fps;
-}

@@ -1,5 +1,4 @@
 #include "text_batcher.h"
-
 #include "vertex_array.h"
 #include "shader.h"
 
@@ -7,13 +6,12 @@
 #include <stdio.h>
 #include <cstdarg>
 #include <cstring>
-
 #include <glew.h>
 
 namespace {
-    bool        g_initialized = false;
+    bool g_initialized = false;
     VertexArray g_vao;
-    ShaderFile  g_shader;
+    ShaderFile g_shader;
 };
 
 void TextBatcher::initialize(void) {

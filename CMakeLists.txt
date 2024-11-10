@@ -54,8 +54,6 @@ set(source_files
     source/chunk.h
     source/world.cpp
     source/world.h
-    source/debug_ui.cpp
-    source/debug_ui.h
     source/console.cpp
     source/console.h
     source/game.cpp
@@ -66,6 +64,8 @@ set(source_files
 
 set(source_files_external
 )
+
+add_definitions(-DBUILD_TYPE=\"${CMAKE_BUILD_TYPE}\")
 
 add_definitions(-DGLEW_STATIC)
 
@@ -81,6 +81,7 @@ target_include_directories(emce
     PUBLIC ${PROJECT_SOURCE_DIR}/external/glew/include/GL
 	PUBLIC ${PROJECT_SOURCE_DIR}/external/stb
     PUBLIC ${PROJECT_SOURCE_DIR}/external/meh_hash
+    PUBLIC ${PROJECT_SOURCE_DIR}/external/meh_dynamic_array
     PUBLIC ${PROJECT_SOURCE_DIR}/external/PerlinNoise
 )
 

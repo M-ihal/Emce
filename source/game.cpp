@@ -1,59 +1,70 @@
 #include "game.h"
 #include "window.h"
-#include "debug_ui.h"
 #include "simple_draw.h"
 
 #define STRING_VIU_CPP_HELPERS
 #include <string_viu.h>
 
+#include <cstdarg>
 #include <glew.h>
 
-// #define DEBUG_DO_NOT_LOAD_NEW_CHUNKS
-
-namespace {
-    static int32_t g_load_radius = 8; // 24;
-    static float   g_third_person_distance = 10.0f;
-    static bool    g_third_person_mode = false;
-
-    static uint32_t g_triangles_rendered_last_frame = 0;
-    static bool g_debug_show_chunk_borders   = false;
-    static bool g_debug_show_player_collider = false;
-    static bool g_debug_chunk_wireframe_mode = false;
-}
-
-constexpr vec3 init_player_pos = { 
-    .x = CHUNK_SIZE_X * 0.5f,
-    .y = 152.0f,
-    .z = CHUNK_SIZE_Z * 0.5f
+enum class WorldBlitMode {
+    COLOR,
+    NORMALS,
+    DEPTH
 };
 
+namespace {
+    static int32_t  g_init_load_radius = 8;
+    static int32_t  g_load_radius = 8; // 24;
+    static float    g_third_person_distance = 10.0f;
+    static bool     g_third_person_mode = false;
+    static uint32_t g_triangles_rendered_last_frame = 0;
+
+    static bool g_debug_show_ui_info = false;
+    static bool g_debug_show_chunk_borders = false;
+    static bool g_debug_show_player_collider = false;
+    static bool g_debug_chunk_wireframe_mode = false;
+    static WorldBlitMode g_debug_world_blit_mode = WorldBlitMode::COLOR;
+}
+
+int32_t get_load_radius(void) {
+    return g_load_radius;
+}
+
 Game::Game(Window &window) : m_world(this) {
-    int32_t width = window.get_width();
-    int32_t height = window.get_height();
+    m_width  = window.get_width();
+    m_height = window.get_height();
 
-    FboConfig fbo_config;
-    fbo_config.ms_samples = 4;
-    fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
-    fbo_config_set_depth(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::DEPTH24_STENCIL8 });
+    /* Initialize framebuffer */ {
+        FboConfig fbo_config;
+        fbo_config.ms_samples = 4;
+        fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
+        fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
+        fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
+        fbo_config_set_depth(fbo_config,  { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::DEPTH24_STENCIL8 });
+        m_fbo.create_fbo(m_width, m_height, fbo_config);
+    }
 
-    m_fbo.create_fbo(width, height, fbo_config);
+    /* Load resources */ {
+        m_ui_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
+        m_ui_font_big.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 40);
+        m_ui_font_smooth.load_from_file("C://dev//emce//data//CascadiaMono.ttf", 20);
 
-    m_ui_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
-    m_ui_font_big.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 40);
+        m_block_shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
+        m_block_tex_array.load_empty_reserve(16, 16, 64, TextureDataFormat::RGBA);
 
-    m_block_shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
-    m_block_atlas.load_from_file("C://dev//emce//data//atlas.png", true);
-    m_block_atlas.set_filter_min(TextureFilter::NEAREST);
-    m_block_atlas.set_filter_mag(TextureFilter::NEAREST);
+        m_water_shader.set_filepath_and_load("C://dev//emce//source//shaders//water.glsl");
+        m_water_tex_array.load_empty_reserve(16, 16, 32, TextureDataFormat::RGBA);
+
+        init_block_texture_array(m_block_tex_array, "C://dev//emce//data//atlas.png");
+        init_water_texture_array(m_water_tex_array, "C://dev//emce//data//water.png");
+    }
 
     /* init skybox */ {
-#if 0
-        const std::string folder = "skybox_clear_ocean";
-        const std::string extension = ".png";
-#else
         const std::string folder = "skybox_blue";
         const std::string extension = ".jpg";
-#endif
+
         const std::string filepaths[6] = {
             "C://dev//emce//data//" + folder + "//right" + extension,
             "C://dev//emce//data//" + folder + "//left" + extension,
@@ -104,11 +115,12 @@ Game::Game(Window &window) : m_world(this) {
         m_skybox_vao.set_ibo_data(sv_indices, ARRAY_COUNT(sv_indices));
     }
 
-    /* Init single block vao with dummy data */ {
+    /* Init single block vao with temp data */ {
         BufferLayout layout;
         layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
         layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
         layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
+        layout.push_attribute("a_tex_slot", 1, BufferDataType::FLOAT);
 
         const uint32_t num_vertices = 6 * 4;
         const uint32_t num_indices  = 6 * 6;
@@ -119,14 +131,18 @@ Game::Game(Window &window) : m_world(this) {
         m_block_vao.apply_vao_attributes();
     }
 
+    m_console.initialize();
     m_world.initialize_world(14);
-    m_console.initialize(width, height);
 
     m_player.initialize(m_console);
-    m_player.set_position(init_player_pos);
+    m_player.set_position({
+        .x = CHUNK_SIZE_X * 0.5f,
+        .y = 152.0f,
+        .z = CHUNK_SIZE_Z * 0.5f
+    });
 
-    m_camera.set_position(m_player.get_position());
-    m_camera.set_rotation({ DEG_TO_RAD(90.0f), DEG_TO_RAD(-45.0f) });
+    /* Initialize-load chunks at startup */
+    m_world.gen_chunks(m_player.get_position_chunk(), g_init_load_radius);
 
     this->add_console_commands();
 }
@@ -136,9 +152,13 @@ Game::~Game(void) {
 
     m_ui_font.delete_font();
     m_ui_font_big.delete_font();
+    m_ui_font_smooth.delete_font();
 
     m_block_shader.delete_shader();
-    m_block_atlas.delete_texture();
+    m_block_tex_array.delete_texture_array();
+
+    m_water_shader.delete_shader();
+    m_water_tex_array.delete_texture_array();
 
     m_skybox_vao.delete_vao();
     m_skybox_shader.delete_shader();
@@ -150,7 +170,6 @@ Game::~Game(void) {
 }
 
 void Game::update(Window &window, const Input &input, double delta_time) {
-
     m_delta_time = delta_time;
     m_time_elapsed += delta_time;
 
@@ -158,6 +177,11 @@ void Game::update(Window &window, const Input &input, double delta_time) {
     if(!m_console.is_open() && input.key_pressed(Key::ESCAPE)) {
         window.set_should_close();
         return;
+    }
+
+    /* Toggle debug ui */
+    if(input.key_pressed(Key::F03)) {
+        BOOL_TOGGLE(g_debug_show_ui_info);
     }
 
     /* Update Console */ {
@@ -181,32 +205,12 @@ void Game::update(Window &window, const Input &input, double delta_time) {
         m_console.update(*this, input, window, delta_time);
     }
 
-    m_world.gen_chunk({ 0, 0 });
-
-#if !defined(DEBUG_DO_NOT_LOAD_NEW_CHUNKS)
-    /* Gen new chunks @todo */ {
-        WorldPosition camera_position = WorldPosition::from_real(m_camera.get_position());
-        for(int32_t i = 0; i < g_load_radius; ++i) {
-            for(int32_t load_x = -i; load_x <= i; ++load_x) {
-                vec2i load_xz = camera_position.chunk + vec2i{ load_x, i };
-                m_world.gen_chunk(load_xz);
-                load_xz = camera_position.chunk + vec2i{ load_x, -i };
-                m_world.gen_chunk(load_xz);
-            }
-            for(int32_t load_z = -i + 1; load_z <= (i - 1); ++load_z) {
-                vec2i load_xz = camera_position.chunk + vec2i{ i, load_z };
-                m_world.gen_chunk(load_xz);
-                load_xz = camera_position.chunk + vec2i{ -i, load_z };
-                m_world.gen_chunk(load_xz);
-            }
-        }
-    }
-#endif
-
+    /* Toggle third person camera */
     if(input.key_pressed(Key::F05) && !m_console.is_open()) {
         BOOL_TOGGLE(g_third_person_mode);
     }
 
+    /* Zoom in/out third person camera */
     if(g_third_person_mode && (input.key_is_down(Key::PAGE_UP) || input.key_is_down(Key::PAGE_DOWN)) && !m_console.is_open()) {
         float dir = 0.0f;
         if(input.key_is_down(Key::PAGE_UP))   { dir -= 1.0f; } 
@@ -216,172 +220,140 @@ void Game::update(Window &window, const Input &input, double delta_time) {
         clamp_v(g_third_person_distance, 1.0f, 20.0f);
     }
 
+    /* Update player state */
     m_player.update(*this, input, delta_time);
-    m_camera = m_player.get_head_camera();
 
+    /* Set render camera */
     if(g_third_person_mode) {
-        vec3 dir = m_camera.calc_direction();
-        m_camera.set_position(m_camera.get_position() - dir * g_third_person_distance);
+        m_camera = m_player.get_3rd_person_camera(g_third_person_distance);
+    } else {
+        m_camera = m_player.get_head_camera();
     }
 
-    /* Upload generated chunk mesh data */
-    m_world.process_gen_queue();
+    /* Maybe load new chunks if player moved chunks */
+    if(m_player.moved_chunk_last_frame()) {
+        m_world.gen_chunks(m_player.get_position_chunk(), g_load_radius);
 
-    this->push_debug_ui();
+        /* Make sure chunks around the player are loaded */
+        for(int32_t x = -1; x <= 1; ++x) {
+            for(int32_t z = -1; z <= 1; ++z) {
+                m_world.gen_chunk_imm(m_player.get_position_chunk() + vec2i{ x, z });
+            }
+        }
+    }
+
+    m_world.update_loaded_chunks(delta_time);
+
+    /* Upload generated chunk mesh data by different threads */
+    m_world.process_gpu_queue();
 }
 
 void Game::render_frame(void) {
-    const int32_t width  = m_fbo.get_width();
-    const int32_t height = m_fbo.get_height();
-    const float aspect = (float)width / (float)height;
+    const float aspect_ratio = (float)m_fbo.get_width() / (float)m_fbo.get_height();
+    mat4 proj_m = m_camera.calc_proj(aspect_ratio);
+    mat4 view_m = m_camera.calc_view();
+ 
+    /* Gathers chunk vao triangles rendered */
+    g_triangles_rendered_last_frame = 0;
 
-    m_block_shader.use_program();
-    m_block_shader.upload_mat4("u_proj", m_camera.calc_proj(aspect));
-    m_block_shader.upload_mat4("u_view", m_camera.calc_view());
+    // @todo @GL
+    glViewport(0, 0, m_width, m_height);
 
     m_fbo.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
     m_fbo.bind_fbo();
 
-    this->render_world(width, height);
+    this->render_world(proj_m, view_m);
+    this->render_water(proj_m, view_m);
+    this->render_skybox(proj_m, view_m);
 
-    // m_fbo.clear_depth();
-
-    this->render_held_block(width, height);
-
-#if 0
-    m_fbo_ms.clear_fbo({ 0.0f, 0.0f, 0.0f, 0.0f }, CLEAR_DEPTH);
-
-        this->render_held_block(width, height);
-#endif
-
- //   m_fbo_ms.blit_on_framebuffer(m_fbo);
-
-#if 0
-
-    m_fbo.bind_fbo();
-    m_fbo.set_viewport();
-
-#endif
-
-   // m_fbo.blit_on_backbuffer(width, height);
-   //
-   
-    bind_no_fbo();
-
-    GL_CHECK(glBlitNamedFramebuffer(m_fbo.get_fbo_id(), 0, 0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+    /* Clear depth and render held block */
+    m_fbo.clear_depth();
+    this->render_held_block(proj_m, view_m, aspect_ratio);
 
     bind_no_fbo();
-    this->render_ui(width, height);
+
+    switch(g_debug_world_blit_mode) {
+        case WorldBlitMode::COLOR: {
+            glNamedFramebufferReadBuffer(m_fbo.get_fbo_id(), GL_COLOR_ATTACHMENT0);
+        } break;
+
+        case WorldBlitMode::NORMALS: {
+            glNamedFramebufferReadBuffer(m_fbo.get_fbo_id(), GL_COLOR_ATTACHMENT1);
+        } break;
+
+        case WorldBlitMode::DEPTH: {
+            glNamedFramebufferReadBuffer(m_fbo.get_fbo_id(), GL_COLOR_ATTACHMENT2);
+        } break;
+    }
+
+    glNamedFramebufferReadBuffer(0, GL_COLOR_ATTACHMENT0);
+    GL_CHECK(glBlitNamedFramebuffer(m_fbo.get_fbo_id(), 0, 0, 0, m_fbo.get_width(), m_fbo.get_height(), 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+
+    bind_no_fbo();
+    this->render_ui();
 }
 
-void Game::render_single_block(const mat4 &transform, BlockType type) {
-    Block block = { .type = type };
-
-    /* @todo Do not do this every frame */
-    std::vector<ChunkVaoVertex> vertices;
-    std::vector<uint32_t> indices;
-
-    gen_single_block_vao_data(type, vertices, indices);
-
-    const size_t size_vertices = vertices.size() * sizeof(ChunkVaoVertex);
-    // ASSERT(m_block_vao.get_vbo_size() == size_vertices);
-    m_block_vao.set_vbo_data(vertices.data(), size_vertices);
-    m_block_vao.set_ibo_data(indices.data(), indices.size());
-    m_block_vao.apply_vao_attributes();
-
-    /* All the uniforms must be uploaded before this */
+void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
     m_block_shader.use_program();
-    m_block_shader.upload_mat4("u_model", transform);
-    m_block_shader.upload_int("u_atlas", 0);
-    m_block_atlas.bind_texture_unit(0);
+    m_block_shader.upload_mat4("u_proj", proj_m);
+    m_block_shader.upload_mat4("u_view", view_m);
+    m_block_shader.upload_int("u_texture_array", 0);
+    m_block_tex_array.bind_texture_unit(0);
 
-    glEnable(GL_DEPTH_TEST);
-
-    m_block_vao.bind_vao();
-    GL_CHECK(glDrawElements(GL_TRIANGLES, m_block_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
-}
-
-void Game::render_world(int32_t width, int32_t height) {
-    const float aspect = (float)width / (float)height;
-
+    /* @todo @GL */
     GL_CHECK(glDisable(GL_BLEND));
     GL_CHECK(glEnable(GL_DEPTH_TEST));
     GL_CHECK(glDepthFunc(GL_LESS));
     GL_CHECK(glEnable(GL_MULTISAMPLE));
 
-    /* Render Chunks */ {
-        g_triangles_rendered_last_frame = 0;
-
-        m_block_shader.use_program();
-        m_block_shader.upload_mat4("u_proj", m_camera.calc_proj(aspect));
-        m_block_shader.upload_mat4("u_view", m_camera.calc_view());
-        m_block_atlas.bind_texture_unit(0);
-
-        if(g_debug_chunk_wireframe_mode ) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        }
-
-        ChunkHashTable::Iterator iter;
-        while(m_world.m_chunk_table.iterate_all(iter)) {
-            Chunk *chunk = *iter.value;
-
-            const VertexArray &chunk_vao = chunk->get_vao();
-            if(!chunk_vao.has_been_created()) {
-                continue;
-            }
-
-            const int32_t x = iter.key.x;
-            const int32_t z = iter.key.y;
-            m_block_shader.upload_mat4("u_model", mat4::translate(vec3{ float(x * CHUNK_SIZE_X), 0.0f, float(z * CHUNK_SIZE_Z) }));
-
-            chunk_vao.bind_vao();
-            GL_CHECK(glDrawElements(GL_TRIANGLES, chunk_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
-
-            g_triangles_rendered_last_frame += chunk_vao.get_ibo_count() / 3;
-        }
-
-        if(g_debug_chunk_wireframe_mode) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }
-
+    if(g_debug_chunk_wireframe_mode ) {
+        glLineWidth(1.0f);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
 
-    /* Render collider in third person mode */
-    if(g_third_person_mode && !g_debug_show_player_collider) {
+    ChunkHashTable::Iterator iter;
+    while(m_world.m_chunk_table.iterate_all(iter)) {
+        Chunk *chunk = iter.value;
+
+        const VertexArray &chunk_vao = chunk->get_vao();
+        if(!chunk_vao.has_been_created() || !chunk_vao.get_ibo_count()) {
+            continue;
+        }
+
+        const vec3 chunk_translate = {
+            .x = (float)(iter.key.x * CHUNK_SIZE_X),
+            .y = 0.0f,
+            .z = (float)(iter.key.y * CHUNK_SIZE_Z)
+        };
+
+        m_block_shader.upload_mat4("u_model", mat4::translate(chunk_translate));
+
+        /* @todo @GL */
+        chunk_vao.bind_vao();
+        GL_CHECK(glDrawElements(GL_TRIANGLES, chunk_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+
+        g_triangles_rendered_last_frame += chunk_vao.get_ibo_count() / 3;
+    }
+
+    if(g_debug_chunk_wireframe_mode) {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+
+    /* Render shape in third person mode */
+    if(g_third_person_mode) {
         const Color color = { 0.7f, 0.9f, 0.6f, 1.0f };
-        SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 2.0f / 32.0f, color);
+        SimpleDraw::draw_cube_outline(m_player.get_position_origin(), m_player.get_collider_size(), 2.0f / 32.0f, color);
     }
 
     if(g_debug_show_player_collider) {
-        /* Player collider */
-        const Color collider_color = { 0.9f, 0.9f, 0.6f, 1.0f };
-        SimpleDraw::draw_cube_outline(m_player.get_position(), m_player.get_size(), 1.0f / 32.0f, collider_color);
-
-        /* Ground check collider */
-        const Color ground_collider_color = m_player.is_grounded() ? Color{ 0.0f, 1.0f, 0.0f, 1.0f } : Color{ 1.0f, 0.0f, 0.0f, 1.0f };
-        vec3 ground_collider_pos;
-        vec3 ground_collider_size;
-        m_player.get_ground_collider_info(ground_collider_pos, ground_collider_size);
-        SimpleDraw::draw_cube_outline(ground_collider_pos, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
-
-        const vec3 velocity = m_player.get_velocity();
-        SimpleDraw::draw_line(m_player.get_position_center(), m_player.get_position_center() + vec3{ velocity.x, 0.0f, velocity.z }, 2.0f, Color{ 1.0f, 0.0f, 1.0f, 1.0f });
-        SimpleDraw::draw_line(m_player.get_position_center(), m_player.get_position_center() + vec3{ 0.0f, velocity.y, 0.0f }, 2.0f, Color{ 0.0f, 1.0f, 0.0f, 1.0f });
-
-        const float _xyz_len = 4.0f;
-        const vec3  _xyz_off = { 5.0f, 0.0f, 0.05f };
-        const vec3  _xyz_base = _xyz_off + m_player.get_position_center();
-        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ _xyz_len, 0.0f, 0.0f }, 2.0f, Color{ 1.0f, 0.0f, 0.0f, 1.0f });
-        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ 0.0f, _xyz_len, 0.0f }, 2.0f, Color{ 0.0f, 1.0f, 0.0f, 1.0f });
-        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ 0.0f, 0.0f, _xyz_len }, 2.0f, Color{ 0.0f, 0.0f, 1.0f, 1.0f });
-
         m_player.debug_render(*this);
     }
 
+    /* Render chunk borders */
     if(g_debug_show_chunk_borders) {
         ChunkHashTable::Iterator iter;
         while(m_world.m_chunk_table.iterate_all(iter)) {
-            Chunk *chunk = *iter.value;
+            Chunk *chunk = iter.value;
             vec3 chunk_pos = { 
                 float(chunk->get_coords().x * CHUNK_SIZE_X),
                 0.0f,
@@ -404,41 +376,65 @@ void Game::render_world(int32_t width, int32_t height) {
             SimpleDraw::draw_cube_outline(target.intersection - vec3::make(point_size * 0.5f), vec3::make(point_size), 1.0f / 96.0f, { 1.0f, 1.0f, 1.0f, 1.0f });
 
             /* Normal block */
-            const WorldPosition next = WorldPosition::from_block(target.block_p.block + vec3i::make(target.normal));
+            const WorldPosition next = WorldPosition::from_block(target.block_p.block + target.normal);
             // SimpleDraw::draw_cube_outline(next.real, vec3::make(1), 1.0f / 32.0f, { 1.0f, 1.0f, 1.0f, 1.0f });
             SimpleDraw::draw_line(target.block_p.real + vec3::make(0.5f), next.real + vec3::make(0.5f), 4.0f, { 1.0f, 1.0f, 1.0f, 1.0f });
         }
-        glEnable(GL_DEPTH_TEST);
-    }
-
-    /* Render skybox */ {
-        glDepthFunc(GL_LEQUAL);
-        m_skybox_shader.use_program();
-        m_skybox_shader.upload_mat4("u_proj", this->get_camera().calc_proj(aspect));
-        m_skybox_shader.upload_mat4("u_view", this->get_camera().calc_view());
-        m_skybox_vao.bind_vao();
-        m_skybox_cubemap.bind_cubemap();
-        GL_CHECK(glDrawElements(GL_TRIANGLES, m_skybox_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
     }
 }
 
-void Game::render_ui(int32_t width, int32_t height) {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+void Game::render_water(const mat4 &proj_m, const mat4 &view_m) {
+    GL_CHECK(glEnable(GL_BLEND));
+    GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CHECK(glEnable(GL_DEPTH_TEST));
+    GL_CHECK(glDepthFunc(GL_LESS));
 
-    TextBatcher batcher;
-    batcher.begin();
-    const vec2 text_pos = vec2{ 6.0f, -m_ui_font_big.get_descent() * m_ui_font_big.get_scale_for_pixel_height() };
-    batcher.push_text_formatted(text_pos, m_ui_font_big, "Held block: %s", block_type_string[(int32_t)m_player.get_held_block()]);
-    batcher.render(width, height, m_ui_font_big, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
+    m_water_shader.use_program();
+    m_water_shader.upload_mat4("u_proj", proj_m);
+    m_water_shader.upload_mat4("u_view", view_m);
+    m_water_shader.upload_float("u_time_elapsed", m_time_elapsed);
+    m_water_shader.upload_int("u_water_texture_array", 0);
+    m_water_tex_array.bind_texture_unit(0);
 
-    DebugUI::render();
-    m_console.render(width, height);
+    /* Go through loaded chunks and render water */
+    ChunkHashTable::Iterator iter;
+    while(m_world.m_chunk_table.iterate_all(iter)) {
+        Chunk *chunk = iter.value;
+
+        const VertexArray &water_vao = chunk->get_water_vao();
+        if(!water_vao.has_been_created() || !water_vao.get_ibo_count()) {
+            continue;
+        }
+
+        const vec3 chunk_translate = {
+            .x = (float)(iter.key.x * CHUNK_SIZE_X),
+            .y = 0.0f,
+            .z = (float)(iter.key.y * CHUNK_SIZE_Z)
+        };
+
+        m_water_shader.upload_mat4("u_model", mat4::translate(chunk_translate));
+
+        water_vao.bind_vao();
+        GL_CHECK(glDrawElements(GL_TRIANGLES, water_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+
+        g_triangles_rendered_last_frame += water_vao.get_ibo_count() / 3;
+    }
 }
 
-void Game::render_held_block(int32_t width, int32_t height) {
-    const float aspect = (float)width / (float)height;
+void Game::render_skybox(const mat4 &proj_m, const mat4 &view_m) {
+    GL_CHECK(glDisable(GL_BLEND));
+    GL_CHECK(glEnable(GL_DEPTH_TEST));
+    GL_CHECK(glDepthFunc(GL_LEQUAL));
 
+    m_skybox_shader.use_program();
+    m_skybox_shader.upload_mat4("u_proj", proj_m);
+    m_skybox_shader.upload_mat4("u_view", view_m);
+    m_skybox_vao.bind_vao();
+    m_skybox_cubemap.bind_cubemap();
+    GL_CHECK(glDrawElements(GL_TRIANGLES, m_skybox_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+}
+
+void Game::render_held_block(const mat4 &proj_m, const mat4 &view_m, float aspect_ratio) {
     const Camera &head_cam = m_player.get_head_camera();
     const float exp_rot = cosf(m_time_elapsed * 0.8f) * 0.1f;
     const float exp_pos = sinf(m_time_elapsed * 1.2f) * 0.035f;
@@ -451,24 +447,141 @@ void Game::render_held_block(int32_t width, int32_t height) {
     const float rotate_z = head_cam.get_rotation().y;
 
     const vec3 size = vec3::make(0.2f);
-    const vec3 position = head_cam.get_position() + vec_fw * 0.5f + vec_rt * 0.185f * aspect - vec_up * (0.2f + exp_pos);
+    const vec3 position = head_cam.get_position() + vec_fw * 0.5f + vec_rt * 0.185f * aspect_ratio - vec_up * (0.2f + exp_pos);
 
-    mat4 transform = mat4::identity();
-    transform *= mat4::scale(size);        
+    mat4 transform;
+    transform = mat4::scale(size);        
     transform *= mat4::rotate_z(-rotate_z);
     transform *= mat4::rotate_y(rotate_y);
     transform *= mat4::translate(position);
 
-    this->render_single_block(transform, m_player.get_held_block());
+    BlockType held_block = m_player.get_held_block();
+    // this->render_single_block(held_block, transform, proj_m, view_m);
+}
+
+void Game::render_single_block(BlockType type, const mat4 &model_m, const mat4 &proj_m, const mat4 &view_m) {
+    Block block = { .type = type };
+
+    /* @todo Do not do this every frame */
+    std::vector<ChunkVaoVertex> vertices;
+    std::vector<uint32_t> indices;
+
+    gen_single_block_vao_data(type, vertices, indices);
+
+    m_block_vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(ChunkVaoVertex));
+    m_block_vao.set_ibo_data(indices.data(), indices.size());
+    m_block_vao.apply_vao_attributes();
+
+    m_block_shader.use_program();
+    m_block_shader.upload_mat4("u_proj", proj_m);
+    m_block_shader.upload_mat4("u_view", view_m);
+    m_block_shader.upload_mat4("u_model", model_m);
+    m_block_shader.upload_int("u_texture_array", 0);
+    m_block_tex_array.bind_texture_unit(0);
+
+    GL_CHECK(glEnable(GL_BLEND));
+    GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CHECK(glEnable(GL_DEPTH_TEST));
+    GL_CHECK(glDepthFunc(GL_LESS));
+
+    m_block_vao.bind_vao();
+    GL_CHECK(glDrawElements(GL_TRIANGLES, m_block_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+}
+
+void Game::render_ui(void) {
+    GL_CHECK(glEnable(GL_BLEND));
+    GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CHECK(glEnable(GL_DEPTH_TEST));
+    GL_CHECK(glDepthFunc(GL_LESS));
+
+    /* Render held block text */ {
+        TextBatcher batcher;
+        batcher.begin();
+        const vec2 text_pos = vec2{ 6.0f, -m_ui_font_big.get_descent() * m_ui_font_big.get_scale_for_pixel_height() };
+        batcher.push_text_formatted(text_pos, m_ui_font_big, "Held block: %s", block_type_string[(int32_t)m_player.get_held_block()]);
+        batcher.render(m_width, m_height, m_ui_font_big, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
+    }
+
+    if(g_debug_show_ui_info) {
+        this->render_ui_debug_info();
+    }
+
+    m_console.render(m_width, m_height);
+}
+
+static int32_t calc_fps(double delta_time);
+
+void Game::render_ui_debug_info(void) {
+    Font &font = m_ui_font_smooth;
+
+    const float spacing = 8.0f;
+    const vec2  padding = { 4.0f, 4.0f };
+    const float baseline = m_height - padding.y - font.get_ascent() * font.get_scale_for_pixel_height();
+
+    float cursor_x = padding.x;
+    float cursor_y = baseline;
+
+    TextBatcher batcher;
+    batcher.begin();
+
+    auto debug_line = [&] (const char *format, ...) {
+        if(format != NULL) {
+            va_list args;
+            va_start(args, format);
+            batcher.push_text_va_args({ cursor_x, cursor_y }, font, format, args);
+            va_end(args);
+        }
+        cursor_y -= font.get_height() + spacing;
+    };
+
+    WorldPosition player_p = WorldPosition::from_real(m_player.get_position());
+
+    /* Push debug text here */ {
+        debug_line("Build: %s", BUILD_TYPE);
+        debug_line(NULL);
+
+        debug_line("--- Frame ---");
+        debug_line("fps: %d", calc_fps(m_delta_time));
+        debug_line("delta time:   %f", m_delta_time);
+        debug_line("elapsed time: %f", m_time_elapsed);
+        debug_line(NULL);
+
+        debug_line("--- Render ---");
+        debug_line("triangles rendered: %u (%.3fmln)", g_triangles_rendered_last_frame, (double)g_triangles_rendered_last_frame / 1000000.0);
+        debug_line(NULL);
+
+        debug_line("--- World ---");
+        debug_line("world seed: %u", m_world.get_seed());
+        debug_line("load radius: %d", g_load_radius);
+        debug_line("loaded chunks: %u", m_world.m_chunk_table.get_count());
+        debug_line("chunk buckets: %u", m_world.m_chunk_table.get_size());
+        debug_line("chunk gen queue: %d", m_world.m_gen_queue.size());
+        debug_line("chunk vao queue: %d", m_world.m_vao_queue.size());
+        debug_line("chunk gpu queue: %d", m_world.m_gpu_queue.size());
+        debug_line(NULL);
+
+        debug_line("--- Player ---");
+        debug_line("real:      %+.2f, %+.2f, %+.2f", player_p.real.x, player_p.real.y, player_p.real.z);
+        debug_line("block:     %+02d, %+02d, %+02d", player_p.block.x, player_p.block.y, player_p.block.z);
+        debug_line("block_rel: %+02d, %+02d, %+02d", player_p.block_rel.x, player_p.block_rel.y, player_p.block_rel.z);
+        debug_line("chunk:     %+02d, %+02d", player_p.chunk.x, player_p.chunk.y);
+        // debug_line(NULL);
+
+    }
+
+    batcher.render(m_width, m_height, font, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
 }
 
 void Game::hotload_stuff(void) {
     m_block_shader.hotload();
+    m_water_shader.hotload();
     m_skybox_shader.hotload();
 }
 
-void Game::resize_framebuffers(int32_t new_width, int32_t new_height) {
-    m_fbo.resize_fbo(new_width, new_height);
+void Game::resize(int32_t width, int32_t height) {
+    m_width = width;
+    m_height = height;
+    m_fbo.resize_fbo(width, height);
 }
 
 World &Game::get_world(void) {
@@ -487,44 +600,11 @@ Console &Game::get_console(void) {
     return m_console;
 }
 
-void Game::push_debug_ui(void) {
-    const vec3 camera_direction = m_camera.calc_direction();
-    const vec3 camera_position  = m_camera.get_position();
-    const vec2 camera_rotation  = m_camera.get_rotation();
-
-    const vec3 player_position = m_player.get_position();
-    const vec3 player_velocity = m_player.get_velocity();
-
-    DebugUI::push_text_left(NULL);
-    DebugUI::push_text_left(" --- World state ---");
-    DebugUI::push_text_left("gen seed:    %d", m_world.get_seed());
-    DebugUI::push_text_left("load radius: %d", g_load_radius);
-    DebugUI::push_text_left("loaded chunks: %u", m_world.m_chunk_table.get_count());
-    DebugUI::push_text_left("chunk buckets available: %u", m_world.m_chunk_table.get_size());
-    DebugUI::push_text_left("chunk load queue: %d", m_world.m_load_queue.size());
-    DebugUI::push_text_left("chunk gen  queue: %d", m_world.m_gen_queue.size());
-    DebugUI::push_text_left("triangles rendered: %u (%.3fmln)", g_triangles_rendered_last_frame, (double)g_triangles_rendered_last_frame / 1000000.0);
-
-    DebugUI::push_text_left(NULL);
-    DebugUI::push_text_left(" --- Player ---");
-    DebugUI::push_text_left("position: %.2f, %.2f, %.2f", player_position.x, player_position.y, player_position.z);
-    DebugUI::push_text_left("velocity: %.2f, %.2f, %.2f", player_velocity.x, player_velocity.y, player_velocity.z);
-    DebugUI::push_text_left("xz speed: %.3f", vec2::length(player_velocity.get_xz()));
-    DebugUI::push_text_left("is_grounded: %s", BOOL_STR(m_player.is_grounded()));
-
-    DebugUI::push_text_left(NULL);
-    DebugUI::push_text_left(" --- Camera ---");
-    DebugUI::push_text_left("fov:      %.2f", RAD_TO_DEG(m_camera.get_fov()));
-    DebugUI::push_text_left("real:     %+.2f, %+.2f, %+.2f", camera_position.x, camera_position.y, camera_position.z);
-    DebugUI::push_text_left("direction: %.3f, %.3f, %.3f", camera_direction.x, camera_direction.y, camera_direction.z);
-    DebugUI::push_text_left("rotation H: %+.3f", RAD_TO_DEG(camera_rotation.x));
-    DebugUI::push_text_left("rotation V: %+.3f", RAD_TO_DEG(camera_rotation.y));
-}
-
 void Game::add_console_commands(void) {
     m_console.set_command("reset_world", { CONSOLE_COMMAND_LAMBDA {
             const int32_t seed = args.size() > 0 ? std::stoi(s_viu_to_std_string(args[0])) : game.get_world().get_seed();
             game.get_world().initialize_world(seed);
+            game.get_world().gen_chunks(chunk_position_from_real(game.get_player().get_position()), g_init_load_radius);
         }
     });
 
@@ -538,6 +618,23 @@ void Game::add_console_commands(void) {
                 char buffer[32];
                 sprintf_s(buffer, 32, "> radius set to %d", radius);
                 console.add_to_history(buffer);
+                game.get_world().gen_chunks(game.get_player().get_position_chunk(), g_load_radius);
+            }
+        }
+    });
+
+    m_console.set_command("blit_mode", { CONSOLE_COMMAND_LAMBDA {
+            if(args.size() < 1) {
+                console.add_to_history("> Missing argument/s");
+                return;
+            }
+
+            if(args[0] == "color") {
+                g_debug_world_blit_mode = WorldBlitMode::COLOR;
+            } else if(args[0] == "normals") {
+                g_debug_world_blit_mode = WorldBlitMode::NORMALS;
+            } else if(args[0] == "depth") {
+                g_debug_world_blit_mode = WorldBlitMode::DEPTH;
             }
         }
     });
@@ -579,7 +676,7 @@ void Game::add_console_commands(void) {
         }
     });
 
-    m_console.set_command("spawn_cobble", { CONSOLE_COMMAND_LAMBDA {
+    m_console.set_command("spawn_stuff", { CONSOLE_COMMAND_LAMBDA {
             World &world = game.get_world();
 
             ChunkHashTable::Iterator iter = {};
@@ -587,9 +684,19 @@ void Game::add_console_commands(void) {
                 for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
                     for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
                         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
-                            Block *block = (*iter.value)->get_block({ x, y, z });
+                            Block *block = iter.value->get_block({ x, y, z });
                             if(rand() % 100 == 0) {
+#if 0
                                 block->type = BlockType::COBBLESTONE;
+#else
+                                BlockType type;
+                                type = BlockType::SAND;
+                                type = (BlockType)(rand() % ((int32_t)BlockType::_COUNT - 1));
+//                                do {
+//                                    
+//                                } while(get_block_flags(type) & IS_PLACABLE);
+                                block->type = type;
+#endif
                             }
                         }
                     }
@@ -599,4 +706,29 @@ void Game::add_console_commands(void) {
             }
         }
     });
+}
+
+static int32_t calc_fps(double delta_time) {
+    static int32_t draw_fps = 0;
+    static int32_t frame_times_counter = 0;
+    static double  frame_times[32] = { };
+
+    frame_times_counter++;
+    frame_times_counter %= ARRAY_COUNT(frame_times);
+    frame_times[frame_times_counter] = delta_time;
+
+    double average = 0.0f;
+    for(int32_t i = 0; i < ARRAY_COUNT(frame_times); ++i) {
+        average += frame_times[i];
+    }
+
+    const int32_t num_frames = ARRAY_COUNT(frame_times);
+    average /= double(num_frames);
+
+    int32_t fps = int32_t(1.0 / average);
+    if(frame_times_counter == ARRAY_COUNT(frame_times) - 1) {
+        draw_fps = fps;
+    }
+
+    return draw_fps;
 }

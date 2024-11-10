@@ -5,11 +5,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-constexpr int32_t gl_filter_from_texture_filter(TextureFilter param);
-constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param);
-constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format);
-constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
-constexpr int32_t gl_data_type_from_texture_data_type(TextureDataType type);
+int32_t gl_filter_from_texture_filter(TextureFilter param);
+int32_t gl_wrap_from_texture_wrap(TextureWrap param);
+int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format);
+int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
+int32_t gl_data_type_from_texture_data_type(TextureDataType type);
 
 void Texture::delete_texture(void) {
     if(m_tex_id) {
@@ -172,7 +172,7 @@ vec2i Texture::get_size(void) const {
 }
 
 /* Get equivalent opengl enums for custom enum classes */
-constexpr int32_t gl_filter_from_texture_filter(TextureFilter param) {
+int32_t gl_filter_from_texture_filter(TextureFilter param) {
     switch(param) {
         default: INVALID_CODE_PATH;  return -1;
         case TextureFilter::NEAREST: return GL_NEAREST;
@@ -180,7 +180,7 @@ constexpr int32_t gl_filter_from_texture_filter(TextureFilter param) {
     }
 }
 
-constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
+int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
     switch(param) {
         default: INVALID_CODE_PATH; return -1;
         case TextureWrap::CLAMP:    return GL_CLAMP_TO_EDGE;
@@ -188,7 +188,7 @@ constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param) {
     }
 }
 
-constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format) {
+int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format) {
     switch(format) {
         default: INVALID_CODE_PATH;   return -1;
         case TextureDataFormat::RED:  return GL_R8;
@@ -198,7 +198,7 @@ constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat 
     }
 }
 
-constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format) {
+int32_t gl_data_format_from_texture_data_format(TextureDataFormat format) {
     switch(format) {
         default: INVALID_CODE_PATH;   return -1;
         case TextureDataFormat::RED:  return GL_RED;
@@ -208,7 +208,7 @@ constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat form
     }
 }
 
-constexpr int32_t gl_data_type_from_texture_data_type(TextureDataType type) {
+int32_t gl_data_type_from_texture_data_type(TextureDataType type) {
     switch(type) {
         default: INVALID_CODE_PATH;          return -1;
         case TextureDataType::UNSIGNED_BYTE: return GL_UNSIGNED_BYTE;

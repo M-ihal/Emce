@@ -30,13 +30,14 @@ void main() {
 uniform samplerCube u_skybox;
 
 in vec3 v_tex_coord;
-out vec4 final_color;
+
+layout (location = 0) out vec4 out_color;
 
 void main() {
     vec3 tex_coord = v_tex_coord;
     //tex_coord.y = -tex_coord.y;
     // :w
     // tex_coord.x = -tex_coord.x;
-    final_color = texture(u_skybox, tex_coord);
+    out_color = texture(u_skybox, tex_coord);
     // final_color = vec4(v_tex_coord,1.0);
 }

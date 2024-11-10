@@ -10,9 +10,11 @@
 
 #include <meh_hash.h>
 
-void Console::initialize(int32_t width, int32_t height) {
+void Console::initialize(void) {
     ASSERT(!m_initialized);
     m_initialized = true;
+
+    m_commands.initialize_table(64);
 
     /* Load font */
     m_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
@@ -50,6 +52,7 @@ void Console::destroy(void) {
     m_font.delete_font();
     m_quad_shader.delete_shader_file();
     m_quad_vao.delete_vao();
+    m_commands.delete_table();
     m_initialized = false;
 }
 

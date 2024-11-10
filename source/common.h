@@ -5,6 +5,10 @@
 /* Typedefs */
 #include <stdint.h>
 
+#if !defined(BUILD_TYPE)
+#define BUILD_TYPE "Unknown"
+#endif
+
 #define IN_BOUNDS(val, min, max) ((val) >= (min) && (val) <= (max))
 
 /* @todo */

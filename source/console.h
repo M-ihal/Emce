@@ -42,7 +42,7 @@ public:
     Console(void)  = default;
     ~Console(void) = default;
 
-    void initialize(int32_t width, int32_t height);
+    void initialize(void);
 
     void destroy(void);
 

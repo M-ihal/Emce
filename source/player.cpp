@@ -3,7 +3,6 @@
 #include "game.h"
 #include "world.h"
 #include "input.h"
-#include "debug_ui.h"
 #include "console.h"
 
 #include "simple_draw.h"
@@ -34,21 +33,14 @@ void Player::initialize(Console &console) {
     m_position = vec3::zero();
     m_velocity = vec3::zero();
     m_is_sprinting = false;
-    
     m_held_block = BlockType::TREE_LOG;
 
-    console.set_command("jumper", { CONSOLE_COMMAND_LAMBDA {
-            BOOL_TOGGLE(g_debug_infinite_jump);
-        }
-    });
-
-    console.set_command("fly", { CONSOLE_COMMAND_LAMBDA {
-            BOOL_TOGGLE(g_debug_flying);
-        }
-    });
+    console.set_command("jumper", { CONSOLE_COMMAND_LAMBDA { BOOL_TOGGLE(g_debug_infinite_jump); } });
+    console.set_command("fly",    { CONSOLE_COMMAND_LAMBDA { BOOL_TOGGLE(g_debug_flying); } });
 }
 
 void Player::destroy(void) {
+
 }
 
 bool check_aabb_3d(vec3 pos_1, vec3 size_1, vec3 pos_2, vec3 size_2) {
@@ -95,91 +87,98 @@ void Player::update(Game &game, const Input &input, float delta_time) {
     m_debug_min_checked_block = vec3i{ 1000000, 1000000, 1000000 };
     m_debug_max_checked_block = vec3i{ -1000000, -1000000, -1000000 };
 
-    if(!game.get_console().is_open()) {
-        m_camera.rotate_by(-input.mouse_rel_y(), input.mouse_rel_x(), delta_time);
+    /* Can get input for update */
+    const bool can_get_input = !game.get_console().is_open();
 
-        if(input.scroll_move() != 0) {
-            int32_t unit = SIGN(input.scroll_move());
+    int32_t rotate_v = 0;
+    int32_t rotate_h = 0;
+    int32_t held_delta = 0;
 
-            do {
-                int32_t value = (int32_t)m_held_block;
-                value += unit;
-                if(value >= (int32_t)BlockType::_COUNT) {
-                    value = 0;
-                } else if(value < 0) {
-                    value = (int32_t)BlockType::_COUNT - 1;
-                }
-                m_held_block = (BlockType)value;
-            } while(!(get_block_flags(m_held_block) & IS_PLACABLE));
-        }
+    int32_t move_forw = 0;
+    int32_t move_side = 0;
+    bool    move_fast = false;
+    bool    try_jump  = false;
+
+    int32_t fly_dir = 0;
+    bool    fly_fast = false;
+
+    bool block_destroy = false;
+    bool block_place   = false;
+
+    if(can_get_input) {
+        rotate_v = -input.mouse_rel_y();
+        rotate_h = input.mouse_rel_x();
+        held_delta = SIGN(input.scroll_move());
+
+        if(input.key_is_down(Key::W)) { move_forw += 1; }
+        if(input.key_is_down(Key::S)) { move_forw -= 1; }
+        if(input.key_is_down(Key::D)) { move_side += 1; }
+        if(input.key_is_down(Key::A)) { move_side -= 1; }
+        if(input.key_pressed(Key::SPACE)) { try_jump = true; }
+
+        if(input.key_is_down(Key::SPACE))      { fly_dir += 1; }
+        if(input.key_is_down(Key::LEFT_SHIFT)) { fly_dir -= 1; }
+        if(input.key_is_down(Key::LEFT_CTRL))  { fly_fast = true; }
+
+        if(input.button_pressed(Button::LEFT))  { block_destroy = true; }
+        if(input.button_pressed(Button::RIGHT)) { block_place = true; }
     }
 
-    const vec3 dir_xz   = m_camera.calc_direction_xz();
-    const vec3 dir_side = m_camera.calc_direction_side();
-    const bool is_grounded_now = m_is_grounded;
-
-    m_is_sprinting = false;
-
-    int32_t move = 0, move_side = 0;
-    if(!game.get_console().is_open()) {
-        if(input.key_is_down(Key::W)) {
-            move += 1;
-        }
-        if(input.key_is_down(Key::S)) {
-            move -= 1;
-        }
-        if(input.key_is_down(Key::D)) {
-            move_side += 1;
-        }
-        if(input.key_is_down(Key::A)) {
-            move_side -= 1;
-        }
-
-        if(g_debug_flying) {
-            m_velocity.y = 0;
-            if(input.key_is_down(Key::SPACE)) {
-                m_velocity.y = 100.0f;
-            }
-            if(input.key_is_down(Key::LEFT_SHIFT)) {
-                m_velocity.y = -100.0f;
-            }
-            if(input.key_is_down(Key::LEFT_CTRL)) {
-                m_is_sprinting = true;
-            }
-
-        } else {
-            if(input.key_pressed(Key::SPACE) && (is_grounded_now || g_debug_infinite_jump)) {
-                m_velocity.y = PLAYER_JUMP_FORCE;
-            }
-        }
+    /* Rotate camera */
+    if(rotate_v != 0 || rotate_h != 0) {
+        m_head_camera.rotate_by(rotate_v, rotate_h, delta_time);
     }
 
-    const bool move_input = move != 0 || move_side != 0;
-    vec3 dir = move * dir_xz + move_side * dir_side;
-    if(move_input) {
-        dir = vec3::normalize(dir);
+    /* Change held block */
+    if(held_delta != 0) {
+        do {
+            int32_t held_block = (int32_t)m_held_block;
+            held_block += held_delta;
+            if(held_block >= (int32_t)BlockType::_COUNT) {
+                held_block = 0;
+            } else if(held_block < 0) {
+                held_block = (int32_t)BlockType::_COUNT - 1;
+            }
+            m_held_block = (BlockType)held_block;
+        } while(!(get_block_flags(m_held_block) & IS_PLACABLE));
     }
 
-    if(!g_debug_flying) {
+    const bool can_jump = m_is_grounded || g_debug_infinite_jump;
+    const vec3 dir_xz = m_head_camera.calc_direction_xz();
+    const vec3 dir_side = m_head_camera.calc_direction_side();
+
+    if(g_debug_flying) {
+        m_is_sprinting = fly_fast;
+        m_velocity.y   = fly_dir * 100.0f;
+    } else {
+        m_is_sprinting = move_fast;
+        if(try_jump && can_jump) {
+            m_velocity.y = PLAYER_JUMP_FORCE;
+        }
+
         m_velocity.y += PLAYER_GRAVITY * delta_time;
     }
 
+    const bool move_input = move_forw || move_side;
+    const vec3 move_dir = move_input ? vec3::normalize(move_forw * dir_xz + move_side * dir_side) : vec3::zero();
+
+    /* Apply acceleration or decceleration */
     if(move_input) {
         m_velocity += vec3{ 
-            .x = dir.x * PLAYER_ACCELERATION * delta_time,
-            .z = dir.z * PLAYER_ACCELERATION * delta_time,
+            .x = move_dir.x * PLAYER_ACCELERATION * delta_time,
+            .z = move_dir.z * PLAYER_ACCELERATION * delta_time,
         };
     } else {
         const float deceleration = PLAYER_DECELERATION * delta_time;
         const float epsilon = 0.1f;
 
-        vec2 vel_xz = { m_velocity.x, m_velocity.z };
-        vec2 unit_v = vec2::normalize(vel_xz);
-        float vel_len = vec2::length(vel_xz);
+        vec2  vel_xz = { m_velocity.x, m_velocity.z };
+        vec2  vel_xz_norm = vec2::normalize(vel_xz);
+        float vel_xz_len = vec2::length(vel_xz);
 
-        if(vel_len > epsilon) {
-            m_velocity.x -= deceleration * unit_v.x;
-            m_velocity.z -= deceleration * unit_v.y;
+        if(vel_xz_len > epsilon) {
+            m_velocity.x -= deceleration * vel_xz_norm.x;
+            m_velocity.z -= deceleration * vel_xz_norm.y;
         } else {
             m_velocity.x = 0.0f;
             m_velocity.z = 0.0f;
@@ -191,16 +190,21 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         }
     }
 
-    vec2  velocity_xz = { m_velocity.x, m_velocity.z };
-    float velocity_xz_len = vec2::length(velocity_xz);
-    if(velocity_xz_len && move_input) {
-        vec2 velocity_xz_unit = vec2::normalize(velocity_xz);
-        clamp_max_v(velocity_xz_len, m_is_sprinting ? PLAYER_SPRINT_MAX_SPEED : PLAYER_MAX_SPEED);
-        velocity_xz = velocity_xz_unit * velocity_xz_len;
-        m_velocity.x = velocity_xz.x;
-        m_velocity.z = velocity_xz.y;
+    /* Clamp speed to max */
+    vec2  vel_xz = { m_velocity.x, m_velocity.z };
+    float vel_xz_len = vec2::length(vel_xz);
+    if(vel_xz_len && move_input) {
+        vec2 vel_xz_norm = vec2::normalize(vel_xz);
+        clamp_max_v(vel_xz_len, m_is_sprinting ? PLAYER_SPRINT_MAX_SPEED : PLAYER_MAX_SPEED);
+        vel_xz = vel_xz_norm * vel_xz_len;
+        m_velocity.x = vel_xz.x;
+        m_velocity.z = vel_xz.y;
     }
 
+    /* Position before the move */
+    WorldPosition world_p_last = WorldPosition::from_real(this->get_position());
+
+    /* Do the move */
     if(g_debug_flying && g_debug_no_collision_when_flying) {
         vec3 move_delta = m_velocity * delta_time;
         m_position += move_delta;
@@ -208,45 +212,47 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         this->move_in_xz(world, delta_time);
         this->move_in_y(world, delta_time);
     }
+    m_head_camera.set_position(this->get_position_head());
 
-    m_camera.set_position(this->get_position_head());
+    /* Position after the move */
+    WorldPosition world_p_curr = WorldPosition::from_real(this->get_position());
+
+    m_moved_chunk_last_frame = false;
+    if(world_p_last.chunk != world_p_curr.chunk) {
+        m_moved_chunk_last_frame = true;
+    }
 
     const Camera head_camera = this->get_head_camera();
     const vec3   ray_origin  = head_camera.get_position();
     const vec3   ray_end     = ray_origin + head_camera.calc_direction() * PLAYER_RAYCAST_DIST;
 
-    RaycastBlockResult raycast_result = raycast_block(world, ray_origin, ray_end);
+    /* Target block and/or put/destroy it */
 
-    if(raycast_result.found) {
-        m_targeted_block = raycast_result;
-    } else {
-        m_targeted_block = { };
-    }
+    m_targeted_block = raycast_block(world, ray_origin, ray_end);
 
-    if(raycast_result.found && input.button_pressed(Button::RIGHT)) {
-        WorldPosition target = WorldPosition::from_block(raycast_result.block_p.block + vec3i::make(raycast_result.normal));
-        Chunk *chunk = world.get_chunk(target.chunk);
-        if(chunk) {
-            Block *block = chunk->get_block(target.block_rel);
-            if(block) {
-                // @todo Stupid check if would collide with placed block
-                if(!check_aabb_3d(this->get_position(), PLAYER_COLLIDER_SIZE, target.real, vec3::make(1))) {
-                    block->type = m_held_block;
-                    world.queue_chunk_vao_load(chunk->get_coords());
+    if(m_targeted_block.found) {
+        Chunk *target_chunk = NULL;
+        Block *target = world.get_block(m_targeted_block.block_p.block, &target_chunk);
+        if(target != NULL) {
+            if(block_place) {
+                WorldPosition place_block_p = WorldPosition::from_block(m_targeted_block.block_p.block + get_block_side_dir(m_targeted_block.side));
+                Block *place_block = world.get_block(place_block_p.block);
+                if(place_block != NULL) {
+                    // @todo
+                    bool would_collide = check_aabb_3d(this->get_position(), PLAYER_COLLIDER_SIZE, place_block_p.real, vec3::make(1));
+                    if(!would_collide) {
+                        place_block->type = m_held_block;
+                        world.queue_chunk_vao_load(place_block_p.chunk, &place_block_p.block_rel);
+                    }
                 }
             }
-        }
-    } else if(raycast_result.found && input.button_pressed(Button::LEFT)) {
-        Chunk *chunk = world.get_chunk(raycast_result.block_p.chunk);
-        if(chunk) {
-            Block *block = chunk->get_block(raycast_result.block_p.block_rel);
-            if(block) {
-                block->type = BlockType::AIR;
-                world.queue_chunk_vao_load(chunk->get_coords());
+
+            if(block_destroy) {
+                target->type = BlockType::AIR;
+                world.queue_chunk_vao_load(m_targeted_block.block_p.chunk, &m_targeted_block.block_p.block_rel);
             }
         }
     }
-
 }
 
 #define _ADD_TO_DEBUG_RANGE(min, max)\
@@ -260,8 +266,8 @@ void Player::update(Game &game, const Input &input, float delta_time) {
 static void calc_range_to_check_move(vec3 pos, vec3 size, vec3 move_delta, WorldPosition &min, WorldPosition &max) {
     vec3i block_min_p = block_position_from_real(pos + move_delta);
     vec3i block_max_p = block_position_from_real(pos + move_delta + size);
-    min = WorldPosition::from_block(block_min_p - vec3i{ 1, 1, 1 });
-    max = WorldPosition::from_block(block_max_p + vec3i{ 1, 1, 1 });
+    min = WorldPosition::from_block(block_min_p);
+    max = WorldPosition::from_block(block_max_p);
 }
 
 void Player::move_in_xz(World &world, float delta_time) {
@@ -377,26 +383,48 @@ void Player::move_in_y(World &world, float delta_time) {
 }
 
 void Player::debug_render(class Game &game) {
+    /* Collider */
+    const Color collider_color = { 0.9f, 0.9f, 0.6f, 1.0f };
+    SimpleDraw::draw_cube_outline(this->get_position_origin(), this->get_collider_size(), 1.0f / 32.0f, collider_color);
+
+    /* Ground check collider */
+    const Color ground_collider_color = m_is_grounded ? Color{ 0.0f, 1.0f, 0.0f, 1.0f } : Color{ 1.0f, 0.0f, 0.0f, 1.0f };
+    vec3 ground_collider_pos;
+    vec3 ground_collider_size;
+    this->get_ground_collider_info(ground_collider_pos, ground_collider_size);
+    SimpleDraw::draw_cube_outline(ground_collider_pos, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
+
+    /* Velocity lines */
+    SimpleDraw::draw_line(this->get_position(), this->get_position() + vec3{ m_velocity.x, 0.0f, m_velocity.z }, 2.0f, Color{ 1.0f, 0.0f, 1.0f, 1.0f });
+    SimpleDraw::draw_line(this->get_position(), this->get_position() + vec3{ 0.0f, m_velocity.y, 0.0f }, 2.0f, Color{ 0.0f, 1.0f, 0.0f, 1.0f });
+
+#if 0
+    /* XYZ Axis */ {
+        const float _xyz_len = 4.0f;
+        const vec3  _xyz_off = { 5.0f, 0.0f, 0.05f };
+        const vec3  _xyz_base = _xyz_off + m_player.get_position_center();
+        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ _xyz_len, 0.0f, 0.0f }, 2.0f, Color{ 1.0f, 0.0f, 0.0f, 1.0f });
+        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ 0.0f, _xyz_len, 0.0f }, 2.0f, Color{ 0.0f, 1.0f, 0.0f, 1.0f });
+        SimpleDraw::draw_line(_xyz_base, _xyz_base + vec3{ 0.0f, 0.0f, _xyz_len }, 2.0f, Color{ 0.0f, 0.0f, 1.0f, 1.0f });
+    }
+#endif
+
+    /* Blocks checked when checking collisions */
     vec3 min_pos = real_position_from_block(m_debug_min_checked_block);
     vec3 max_pos = real_position_from_block(m_debug_max_checked_block) + vec3{ 1.0f, 1.0f, 1.0f };
-
     SimpleDraw::draw_cube_outline(min_pos, max_pos - min_pos, 0.05f, Color{ 0.8f, 0.5f, 0.9f, 0.0f}); 
 }
 
-vec3 Player::get_size(void) const {
+vec3 Player::get_collider_size(void) const {
     return PLAYER_COLLIDER_SIZE;
 }
 
-void Player::set_position(const vec3 &position) {
-    m_position = position;
-}
-
-vec3 Player::get_position(void) const {
+vec3 Player::get_position_origin(void) const {
     return m_position;
 }
 
-vec3 Player::get_position_center(void) const {
-    return m_position + PLAYER_COLLIDER_SIZE * 0.5f;
+vec3 Player::get_position(void) const {
+    return m_position + vec3{ PLAYER_COLLIDER_SIZE.x * 0.5f, 0.0f, PLAYER_COLLIDER_SIZE.z * 0.5f };
 }
 
 vec3 Player::get_position_head(void) const {
@@ -407,8 +435,32 @@ vec3 Player::get_position_head(void) const {
     };
 }
 
-Camera &Player::get_head_camera(void) {
-    return m_camera;
+void Player::set_position_origin(const vec3 &real) {
+    m_position = real;
+}
+
+void Player::set_position(const vec3 &real) {
+    m_position = real - vec3{ PLAYER_COLLIDER_SIZE.x * 0.5f, 0.0f, PLAYER_COLLIDER_SIZE.z * 0.5f };
+}
+
+vec2i Player::get_position_chunk(void) {
+    return chunk_position_from_real(this->get_position());
+}
+
+Camera Player::get_head_camera(void) {
+    return m_head_camera;
+}
+
+Camera Player::get_3rd_person_camera(float distance) {
+    clamp_min_v(distance, 0.0f);
+
+    Camera camera = this->get_head_camera();
+    camera.set_position(camera.get_position() - camera.calc_direction() * distance);
+    return camera;
+}
+
+bool Player::moved_chunk_last_frame(void) const {
+    return m_moved_chunk_last_frame;
 }
 
 bool Player::is_grounded(void) const {
