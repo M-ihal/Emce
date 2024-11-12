@@ -5,6 +5,9 @@
 #define STRING_VIU_CPP_HELPERS
 #include <string_viu.h>
 
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_thread.h>
+
 #include <cstdarg>
 #include <glew.h>
 
@@ -141,13 +144,17 @@ Game::Game(Window &window) : m_world(this) {
         .z = CHUNK_SIZE_Z * 0.5f
     });
 
-    /* Initialize-load chunks at startup */
-    m_world.gen_chunks(m_player.get_position_chunk(), g_init_load_radius);
+    // Init create chunks
+    m_world.create_chunks_in_range(m_player.get_position_chunk(), g_load_radius);
 
     this->add_console_commands();
+
+    this->create_threads();
 }
 
 Game::~Game(void) {
+    this->delete_threads();
+
     m_fbo.delete_fbo();
 
     m_ui_font.delete_font();
@@ -230,22 +237,152 @@ void Game::update(Window &window, const Input &input, double delta_time) {
         m_camera = m_player.get_head_camera();
     }
 
-    /* Maybe load new chunks if player moved chunks */
+    // Main thread
     if(m_player.moved_chunk_last_frame()) {
-        m_world.gen_chunks(m_player.get_position_chunk(), g_load_radius);
+        m_world.create_chunks_in_range_offload(m_player.get_position_chunk(), g_load_radius);
+    }
 
-        /* Make sure chunks around the player are loaded */
-        for(int32_t x = -1; x <= 1; ++x) {
-            for(int32_t z = -1; z <= 1; ++z) {
-                m_world.gen_chunk_imm(m_player.get_position_chunk() + vec2i{ x, z });
-            }
+    // this->thread_gen_chunks_proc();
+
+    // Main Thread
+    while(m_world.m_generated_chunks.size()) {
+        SDL_LockMutex(m_world.m_lock_chunk_gen);
+        ChunkGenData gen_data = m_world.m_generated_chunks.back();
+        m_world.m_generated_chunks.pop_back();
+        SDL_UnlockMutex(m_world.m_lock_chunk_gen);
+
+        Chunk *chunk = new Chunk(&m_world, gen_data.chunk_xz);
+        memcpy(chunk->m_blocks, gen_data.blocks, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block));
+        m_world.m_chunk_table.insert(gen_data.chunk_xz, chunk);
+
+        SDL_LockMutex(m_world.m_lock_mesh_gen);
+        ChunkMeshGenData mesh_data;
+        chunk_mesh_gen_data_init(mesh_data, m_world, gen_data.chunk_xz);
+        m_world.m_meshes_to_build.push_back(mesh_data);
+        SDL_UnlockMutex(m_world.m_lock_mesh_gen);
+    }
+
+    // this->thread_gen_meshes_proc();
+
+    // Main Thread
+    while(m_world.m_built_meshes.size()) {
+        SDL_LockMutex(m_world.m_lock_mesh_gen);
+        ChunkMeshGenData mesh_data = m_world.m_built_meshes.back();
+        m_world.m_built_meshes.pop_back();
+        SDL_UnlockMutex(m_world.m_lock_mesh_gen);
+
+        Chunk *chunk = m_world.get_chunk(mesh_data.chunk_xz);
+        ASSERT(chunk);
+        chunk->set_mesh_vao(mesh_data);
+        chunk_mesh_gen_data_free(mesh_data);
+    }
+}
+
+int32_t Game::thread_gen_chunks_proc(void) {
+    int32_t ret_val = 0;
+
+    for(; m_threads_keep_looping ;) {
+        bool found = false;
+        ChunkGenData gen_data;
+        SDL_LockMutex(m_world.m_lock_chunk_gen);
+        if(!m_world.m_chunks_to_generate.empty()) {
+            ChunkGenData _gen_data = m_world.m_chunks_to_generate.back();
+            m_world.m_chunks_to_generate.pop_back();
+            gen_data = _gen_data;
+            found = true;
+        }
+        SDL_UnlockMutex(m_world.m_lock_chunk_gen);
+
+        if(found && is_chunk_in_range(m_player.get_position_chunk(), gen_data.chunk_xz, g_load_radius)) {
+            chunk_gen(gen_data);
+
+            SDL_LockMutex(m_world.m_lock_chunk_gen);
+            m_world.m_generated_chunks.push_back(gen_data);
+            SDL_UnlockMutex(m_world.m_lock_chunk_gen);
         }
     }
 
-    m_world.update_loaded_chunks(delta_time);
+    return ret_val;
+}
 
-    /* Upload generated chunk mesh data by different threads */
-    m_world.process_gpu_queue();
+int32_t Game::thread_gen_meshes_proc(void) {
+    int32_t ret_val = 0;
+
+    for(; m_threads_keep_looping ;) {
+        bool found2 = false;
+        ChunkMeshGenData mesh_data;
+        SDL_LockMutex(m_world.m_lock_mesh_gen);
+        if(!m_world.m_meshes_to_build.empty()) {
+            ChunkMeshGenData _mesh_data = m_world.m_meshes_to_build.back();
+            m_world.m_meshes_to_build.pop_back();
+            mesh_data = _mesh_data;
+            found2 = true;
+        }
+        SDL_UnlockMutex(m_world.m_lock_mesh_gen);
+
+        if(found2) {
+            chunk_mesh_gen(mesh_data);
+
+            SDL_LockMutex(m_world.m_lock_mesh_gen);
+            m_world.m_built_meshes.push_back(mesh_data);
+            SDL_UnlockMutex(m_world.m_lock_mesh_gen);
+        }
+    }
+
+    return ret_val;
+}
+
+static int _thread_gen_chunks_proc(void *game_ptr) {
+    Game *game = static_cast<Game *>(game_ptr);
+    return game->thread_gen_chunks_proc();
+}
+
+static int _thread_gen_meshes_proc(void *game_ptr) {
+    Game *game = static_cast<Game *>(game_ptr);
+    return game->thread_gen_meshes_proc();
+}
+
+void Game::create_threads(void) {
+    this->delete_threads();
+    m_threads_keep_looping = true;
+
+    m_gen_chunks_thread_num = 0;
+    m_gen_meshes_thread_num = 0;
+
+    for(uint32_t index = 0; index < gen_chunks_thread_count; ++index) {
+        char thread_name[64];
+        sprintf_s(thread_name, ARRAY_COUNT(thread_name), "Chunk gen thread #%u", index);
+        m_gen_chunks_threads[index] = SDL_CreateThread(_thread_gen_chunks_proc, thread_name, (void *)this);
+        m_gen_chunks_thread_num++;
+    }
+
+    for(uint32_t index = 0; index < gen_meshes_thread_count; ++index) {
+        char thread_name[64];
+        sprintf_s(thread_name, ARRAY_COUNT(thread_name), "Chunk vao thread #%u", index);
+        m_gen_meshes_threads[index] = SDL_CreateThread(_thread_gen_meshes_proc, thread_name, (void *)this);
+        m_gen_meshes_thread_num++;
+    }
+}
+
+void Game::delete_threads(void) {
+    /* Make threads finish */
+    m_threads_keep_looping = false;
+
+    /* Wait for all threads to finish */
+    for(uint32_t index = 0; index < gen_chunks_thread_count; ++index) {
+        if(m_gen_chunks_threads[index]) {
+            SDL_WaitThread(m_gen_chunks_threads[index], NULL);
+            m_gen_chunks_thread_num--;
+            m_gen_chunks_threads[index] = NULL;
+        }
+    }
+    for(uint32_t index = 0; index < gen_meshes_thread_count; ++index) {
+        if(m_gen_meshes_threads[index]) {
+            SDL_WaitThread(m_gen_meshes_threads[index], NULL);
+            m_gen_meshes_thread_num--;
+            m_gen_meshes_threads[index] = NULL;
+        }
+    }
 }
 
 void Game::render_frame(void) {
@@ -355,9 +492,9 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
         while(m_world.m_chunk_table.iterate_all(iter)) {
             Chunk *chunk = iter.value;
             vec3 chunk_pos = { 
-                float(chunk->get_coords().x * CHUNK_SIZE_X),
+                float(chunk->get_chunk_xz().x * CHUNK_SIZE_X),
                 0.0f,
-                float(chunk->get_coords().y * CHUNK_SIZE_Z)
+                float(chunk->get_chunk_xz().y * CHUNK_SIZE_Z)
             };
             SimpleDraw::draw_cube_outline(chunk_pos, { CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }, 8.0f / 16.0f, { 1.0f, 1.0f, 1.0f, 1.0f });
         }
@@ -456,20 +593,18 @@ void Game::render_held_block(const mat4 &proj_m, const mat4 &view_m, float aspec
     transform *= mat4::translate(position);
 
     BlockType held_block = m_player.get_held_block();
-    // this->render_single_block(held_block, transform, proj_m, view_m);
+    this->render_single_block(held_block, transform, proj_m, view_m);
 }
 
 void Game::render_single_block(BlockType type, const mat4 &model_m, const mat4 &proj_m, const mat4 &view_m) {
     Block block = { .type = type };
 
-    /* @todo Do not do this every frame */
-    std::vector<ChunkVaoVertex> vertices;
-    std::vector<uint32_t> indices;
+    /* @todo Do not do this every frame @TODO */
 
-    gen_single_block_vao_data(type, vertices, indices);
+    ChunkMeshData mesh_data = chunk_mesh_gen_single_block(type);
 
-    m_block_vao.set_vbo_data(vertices.data(), vertices.size() * sizeof(ChunkVaoVertex));
-    m_block_vao.set_ibo_data(indices.data(), indices.size());
+    m_block_vao.set_vbo_data(mesh_data.vertices.data(), mesh_data.vertices.size() * sizeof(ChunkVaoVertex));
+    m_block_vao.set_ibo_data(mesh_data.indices.data(), mesh_data.indices.size());
     m_block_vao.apply_vao_attributes();
 
     m_block_shader.use_program();
@@ -524,6 +659,7 @@ void Game::render_ui_debug_info(void) {
     TextBatcher batcher;
     batcher.begin();
 
+    /* Labda that outputs next line in the debug panel */
     auto debug_line = [&] (const char *format, ...) {
         if(format != NULL) {
             va_list args;
@@ -551,13 +687,16 @@ void Game::render_ui_debug_info(void) {
         debug_line(NULL);
 
         debug_line("--- World ---");
-        debug_line("world seed: %u", m_world.get_seed());
+        debug_line("world seed: %u", m_world.get_gen_seed().seed);
         debug_line("load radius: %d", g_load_radius);
         debug_line("loaded chunks: %u", m_world.m_chunk_table.get_count());
         debug_line("chunk buckets: %u", m_world.m_chunk_table.get_size());
-        debug_line("chunk gen queue: %d", m_world.m_gen_queue.size());
-        debug_line("chunk vao queue: %d", m_world.m_vao_queue.size());
-        debug_line("chunk gpu queue: %d", m_world.m_gpu_queue.size());
+        debug_line("gen meshes threads: %d", m_gen_meshes_thread_num);
+        debug_line("gen chunks threads: %d", m_gen_chunks_thread_num);
+        debug_line("chunks to gen:    %d", m_world.m_chunks_to_generate.size());
+        debug_line("generated chunks: %d", m_world.m_generated_chunks.size());
+        debug_line("meshes to build:  %d", m_world.m_meshes_to_build.size());
+        debug_line("built meshes:     %d", m_world.m_built_meshes.size());
         debug_line(NULL);
 
         debug_line("--- Player ---");
@@ -601,10 +740,26 @@ Console &Game::get_console(void) {
 }
 
 void Game::add_console_commands(void) {
+    m_console.set_command("thread", { CONSOLE_COMMAND_LAMBDA {
+            if(args.size() >= 1) {
+                if(args[0] == "off") {
+                    game.delete_threads();
+                } else if(args[0] == "on") {
+                    game.create_threads();
+                }
+            }
+        }
+    });
+
     m_console.set_command("reset_world", { CONSOLE_COMMAND_LAMBDA {
-            const int32_t seed = args.size() > 0 ? std::stoi(s_viu_to_std_string(args[0])) : game.get_world().get_seed();
+            int32_t seed = game.get_world().get_gen_seed().seed;
+            if(args.size() > 0) {
+                seed = std::stoi(s_viu_to_std_string(args[0]));
+            }
+
+            game.delete_threads();
             game.get_world().initialize_world(seed);
-            game.get_world().gen_chunks(chunk_position_from_real(game.get_player().get_position()), g_init_load_radius);
+            game.create_threads();
         }
     });
 
@@ -618,7 +773,6 @@ void Game::add_console_commands(void) {
                 char buffer[32];
                 sprintf_s(buffer, 32, "> radius set to %d", radius);
                 console.add_to_history(buffer);
-                game.get_world().gen_chunks(game.get_player().get_position_chunk(), g_load_radius);
             }
         }
     });
@@ -686,23 +840,16 @@ void Game::add_console_commands(void) {
                         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
                             Block *block = iter.value->get_block({ x, y, z });
                             if(rand() % 100 == 0) {
-#if 0
-                                block->type = BlockType::COBBLESTONE;
-#else
                                 BlockType type;
                                 type = BlockType::SAND;
                                 type = (BlockType)(rand() % ((int32_t)BlockType::_COUNT - 1));
-//                                do {
-//                                    
-//                                } while(get_block_flags(type) & IS_PLACABLE);
                                 block->type = type;
-#endif
                             }
                         }
                     }
                 }
 
-                world.queue_chunk_vao_load(iter.key);
+                iter.value->set_vao_dirty();
             }
         }
     });

@@ -32,51 +32,6 @@ namespace {
     const char       *INIT_WINDOW_TITLE  = "emce";
 }
 
-// @TODO sometimes crashes (probably bc of threads) when exiting
-// @TODO fix player sliding
-// @TODO find data filepath !!!
-// @TODO wait for mutexes to terminate before doing some things
-// @TODO rename queue_chunk_vao_load and then replace all occurances with better stuff
-
-struct MutexTicket {
-    int64_t volatile ticket;
-    int64_t volatile serving;
-};
-
-void begin_ticket_mutex(MutexTicket &mutex) {
-    int64_t ticket = _InterlockedExchangeAdd64((__int64 volatile *)&mutex.ticket, 1);
-    while(ticket != mutex.serving);
-}
-
-void end_ticket_mutex(MutexTicket &mutex) {
-    _InterlockedExchangeAdd64((__int64 volatile *)&mutex.serving, 1);
-}
-
-MutexTicket mutex_chunk_gen_queue = { };
-MutexTicket mutex_chunk_vao_queue = { };
-MutexTicket mutex_chunk_gpu_queue = { };
-MutexTicket mutex_world_get_chunk = { };
-
-int chunk_gen_thread_func(void *param) {
-    Game *game = static_cast<Game *>(param);
-
-    while(true) {
-        game->get_world().process_gen_queue();
-    }
-
-    return 0;
-}
-
-int chunk_vao_thread_func(void *param) {
-    Game *game = (Game *)param;
-
-    while(true) {
-        game->get_world().process_vao_queue();
-    }
-
-    return 0;
-}
-
 int SDL_main(int argc, char *argv[]) {
     /* init std randomizer */
     srand(time(NULL));
@@ -117,26 +72,6 @@ int SDL_main(int argc, char *argv[]) {
     double elapsed_time = 0.0;
     double delta_time   = 0.0;
 
-    /* Create threads */
-    const uint32_t chunk_gen_thread_count = 1;
-    const uint32_t chunk_vao_thread_count = 1;
-
-    SDL_Thread *gen_threads[chunk_gen_thread_count] = { };
-    SDL_Thread *vao_threads[chunk_vao_thread_count] = { };
-
-    for(uint32_t index = 0; index < chunk_gen_thread_count; ++index) {
-        char thread_name[64];
-        sprintf_s(thread_name, ARRAY_COUNT(thread_name), "Chunk gen thread #%u", index);
-        gen_threads[index] = SDL_CreateThread(chunk_gen_thread_func, thread_name, (void *)&game);
-        SDL_DetachThread(gen_threads[index]);
-    }
-
-    for(uint32_t index = 0; index < chunk_vao_thread_count; ++index) {
-        char thread_name[64];
-        sprintf_s(thread_name, ARRAY_COUNT(thread_name), "Chunk vao thread #%u", index);
-        vao_threads[index] = SDL_CreateThread(chunk_vao_thread_func, thread_name, (void *)&game);
-        SDL_DetachThread(vao_threads[index]);
-    }
 
     while(window.get_should_close()) {
         window.process_events(input);

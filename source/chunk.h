@@ -6,18 +6,11 @@
 #include "texture.h"
 #include "texture_array.h"
 
-#include <meh_dynamic_array.h>
-
-#include <vector>
-
-inline constexpr int32_t CHUNK_SIZE_X = 32;
+inline constexpr int32_t CHUNK_SIZE_X = 16;
 inline constexpr int32_t CHUNK_SIZE_Y = 256;
-inline constexpr int32_t CHUNK_SIZE_Z = 32;
+inline constexpr int32_t CHUNK_SIZE_Z = 16;
 
-#define for_every_block(var_x, var_y, var_z)\
-    for(int32_t var_y = 0; var_y < CHUNK_SIZE_Y; ++var_y)\
-        for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)\
-            for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)
+struct ChunkMeshGenData;
 
 struct ChunkVaoVertex {
     vec3 position;
@@ -26,17 +19,10 @@ struct ChunkVaoVertex {
     float tex_slot;
 };
 
-struct ChunkVaoGenData {
-    vec2i chunk;
-
-    std::vector<ChunkVaoVertex> chunk_vertices;
-    std::vector<uint32_t>       chunk_indices;
-    std::vector<ChunkVaoVertex> water_vertices;
-    std::vector<uint32_t>       water_indices;
-};
-
-void init_chunk_vao_gen_data(ChunkVaoGenData &gen_data);
-void free_chunk_vao_gen_data(ChunkVaoGenData &gen_data);
+#define for_every_block(var_x, var_y, var_z)\
+    for(int32_t var_y = 0; var_y < CHUNK_SIZE_Y; ++var_y)\
+        for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)\
+            for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)
 
 #define BLOCK_SIDE_COUNT 6
 enum class BlockSide : uint8_t {
@@ -157,9 +143,6 @@ void init_block_texture_array(TextureArray &texture_array, const char *atlas_fil
 /* Upload water pixels from image to TextureArray */
 void init_water_texture_array(TextureArray &texture_array, const char *water_filepath);
 
-/* Generate vertices for single block vao, centered */
-void gen_single_block_vao_data(BlockType type, std::vector<ChunkVaoVertex> &vertices, std::vector<uint32_t> &indices);
-
 struct Block {
     BlockType type;
 };
@@ -169,6 +152,7 @@ public:
     CLASS_COPY_DISABLE(Chunk);
 
     friend class World;
+    friend class Game;
 
     explicit Chunk(World *world, vec2i chunk_xz);
     ~Chunk(void);
@@ -188,21 +172,26 @@ public:
     /* Gets neighbouring block to rel block */
     Block *get_block_neighbour(const vec3i &rel, BlockSide side, bool check_other_chunk = false);
 
+    /* Get pointer to block data */
+    Block *get_block_data(void);
+
     /* Get chunk xz position */
-    vec2i get_coords(void);
+    vec2i get_chunk_xz(void);
     
+    /* */
+    void set_vao_dirty(void);
+
 private:
     /* Re/Generates vao for this chunk based on gen data */
-    void gen_vao(ChunkVaoGenData &gen_data);
-
-    /* Generates data for creating VAO */
-    ChunkVaoGenData gen_vao_data(void);
+    void set_mesh_vao(ChunkMeshGenData &gen_data);
 
     class World *m_owner;
     vec2i        m_chunk_xz;
     VertexArray  m_chunk_vao;
     VertexArray  m_water_vao;
-    Block        m_blocks[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z];
+    Block        m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+
+    bool m_vao_is_dirty;
 
     bool  m_should_unload;
     float m_unload_timer;

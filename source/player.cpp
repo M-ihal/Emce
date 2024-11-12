@@ -7,8 +7,6 @@
 
 #include "simple_draw.h"
 
-// TODO@ Bug with movement when sliding
-
 namespace {
     constexpr float PLAYER_ACCELERATION     = 35.0f;
     constexpr float PLAYER_DECELERATION     = 18.0f;
@@ -16,7 +14,6 @@ namespace {
     constexpr float PLAYER_SPRINT_MAX_SPEED = 212.0f; // @todo
     constexpr float PLAYER_JUMP_FORCE       = 8.5f;
     constexpr float PLAYER_GRAVITY          = -9.81f * 2.0f;
-
     constexpr float PLAYER_GROUND_COLLIDER_HEIGHT = 0.2f;
     constexpr vec3  PLAYER_COLLIDER_SIZE = vec3{ 0.6f, 1.85f, 0.6f };
     constexpr float PLAYER_HEAD_OFFSET_PERC = 0.1f; // Head offset from the top of player size in percents
@@ -242,14 +239,21 @@ void Player::update(Game &game, const Input &input, float delta_time) {
                     bool would_collide = check_aabb_3d(this->get_position(), PLAYER_COLLIDER_SIZE, place_block_p.real, vec3::make(1));
                     if(!would_collide) {
                         place_block->type = m_held_block;
-                        world.queue_chunk_vao_load(place_block_p.chunk, &place_block_p.block_rel);
+                        Chunk *chunk = world.get_chunk(place_block_p.chunk);
+                        ASSERT(chunk);
+                        chunk->set_vao_dirty();
                     }
                 }
             }
 
             if(block_destroy) {
                 target->type = BlockType::AIR;
-                world.queue_chunk_vao_load(m_targeted_block.block_p.chunk, &m_targeted_block.block_p.block_rel);
+
+                Chunk *chunk = world.get_chunk(m_targeted_block.block_p.chunk);
+                ASSERT(chunk);
+                chunk->set_vao_dirty();
+
+                // change point m_targeted_block.block_p.block_rel;
             }
         }
     }

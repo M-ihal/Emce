@@ -46,6 +46,14 @@ public:
     Player  &get_player(void);
     Console &get_console(void);
 
+    /* THREAD */
+    int32_t thread_gen_chunks_proc(void);
+    int32_t thread_gen_meshes_proc(void);
+
+    void create_threads(void);
+    void delete_threads(void);
+
+
 private:
     void push_debug_ui(void);
     void add_console_commands(void);
@@ -56,6 +64,15 @@ private:
     void render_held_block(const mat4 &proj_m, const mat4 &view_m, float aspect_ratio);
     void render_ui(void);
     void render_ui_debug_info(void);
+
+    
+    static const uint32_t gen_chunks_thread_count = 1;
+    static const uint32_t gen_meshes_thread_count = 1;
+    SDL_Thread *m_gen_chunks_threads[gen_chunks_thread_count] = { };
+    SDL_Thread *m_gen_meshes_threads[gen_meshes_thread_count] = { };
+    bool m_threads_keep_looping;
+    int32_t m_gen_chunks_thread_num;
+    int32_t m_gen_meshes_thread_num;
 
     double m_time_elapsed;
     double m_delta_time;

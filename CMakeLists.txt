@@ -60,6 +60,12 @@ set(source_files
     source/game.h
     source/player.cpp
     source/player.h
+    source/chunk_mesh_gen.cpp
+    source/chunk_mesh_gen.h
+    source/chunk_gen.cpp
+    source/chunk_gen.h
+    source/world_utils.cpp
+    source/world_utils.h
 )
 
 set(source_files_external

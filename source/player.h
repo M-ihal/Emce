@@ -4,6 +4,7 @@
 #include "math_types.h"
 #include "camera.h"
 #include "world.h"
+#include "world_utils.h"
 
 class Input;
 class Game;
