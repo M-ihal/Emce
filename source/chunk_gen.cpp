@@ -1,6 +1,28 @@
 #include "chunk_gen.h"
 #include <PerlinNoise.hpp>
 
+struct BlockOffset {
+    BlockType type;
+    vec3i offset;
+};
+
+BlockOffset oak_tree_blocks[] = {
+    // Trunk
+    { BlockType::TREE_LOG, {0, 0, 0} },
+    { BlockType::TREE_LOG, {0, 1, 0} },
+    { BlockType::TREE_LOG, {0, 2, 0} },
+    { BlockType::TREE_LOG, {0, 3, 0} },
+    
+    // Leaves Layer 1 (around trunk at height 3)
+    { BlockType::TREE_LEAVES, { 1, 3, 0 } }, { BlockType::TREE_LEAVES, { -1, 3, 0 } },
+    { BlockType::TREE_LEAVES, { 0, 3, 1 } }, { BlockType::TREE_LEAVES, { 0, 3, -1 } },
+    
+    // Leaves Layer 2 (cross shape on top)
+    { BlockType::TREE_LEAVES, { 0, 4, 0 } },
+    { BlockType::TREE_LEAVES, { 1, 4, 0 } }, { BlockType::TREE_LEAVES, { -1, 4, 0 } },
+    { BlockType::TREE_LEAVES, { 0, 4, 1 } }, { BlockType::TREE_LEAVES, { 0, 4, -1 } },
+};
+
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
     return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
 }
@@ -25,6 +47,8 @@ void chunk_gen(ChunkGenData &gen) {
     int32_t height_map[CHUNK_SIZE_X][CHUNK_SIZE_Z];
     chunk_gen_height_map(gen, height_map);
 
+    int32_t ocean_level = 64;
+
     for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
 
@@ -33,8 +57,46 @@ void chunk_gen(ChunkGenData &gen) {
                 set_block(gen, vec3i{ x, y, z }, BlockType::STONE);
             }
 
-            if(rand() % 3 == 0) {
-                set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+            /* Fill Ground section */
+            const int32_t ground_height = 3;
+            for(int32_t y = height_map[x][z] - 1; y >= height_map[x][z] - 1 - ground_height; y -= 1) {
+                if(y <= ocean_level ) {
+                    set_block(gen, vec3i{ x, y, z }, BlockType::SAND);
+                } else {
+                    if(y == height_map[x][z] - 1) {
+                        set_block(gen, vec3i{ x, y, z }, BlockType::DIRT_WITH_GRASS);
+                    } else {
+                        set_block(gen, vec3i{ x, y, z }, BlockType::DIRT);
+                    }
+                }
+            }
+
+            // @TEMP STUFF
+
+            if(height_map[x][z] > ocean_level) {
+                // PLANT GRASS
+                if(rand() % 3 == 0) {
+                    set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+                }
+
+                // TREES
+                if(rand() % 45 == 0) {
+                    if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
+                        for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
+                            BlockOffset block = oak_tree_blocks[index];
+
+                            vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
+                            if(get_block(gen, block_rel).type == BlockType::AIR) {
+                                set_block(gen, block_rel, block.type);
+                            }
+                        }
+                    }
+                }
+            } else {
+                int32_t y = ocean_level;
+                while(y-- > height_map[x][z]) {
+                    set_block(gen, vec3i{ x, y, z }, BlockType::WATER);
+                }
             }
         }
     }
@@ -59,9 +121,9 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
                 int32_t height_left; 
                 int32_t height_right; 
             } segments[] = {
-                { 0.00, 0.25, 40 + 0,   40 + 16  },
-                { 0.25, 0.30, 40 + 16,  40 + 32  },
-                { 0.30, 0.65, 40 + 32,  40 + 80  },
+                { 0.00, 0.25, 40 + 0,   40 + 6  },
+                { 0.25, 0.30, 40 + 6,   40 + 14  },
+                { 0.30, 0.65, 40 + 14,  40 + 80  },
                 { 0.65, 0.68, 40 + 80,  40 + 96 },
                 { 0.68, 0.75, 40 + 96,  40 + 128 },
                 { 0.75, 0.80, 40 + 128, 40 + 164 },

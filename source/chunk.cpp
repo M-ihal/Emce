@@ -84,11 +84,13 @@ Chunk::Chunk(class World *world, vec2i chunk_xz) {
 
     m_should_unload = false;
     m_unload_timer  = 0.0f;
-    m_vao_is_dirty = false;
+
+    m_state = ChunkState::GENERATING;
+    m_mesh_state = ChunkMeshState::NOT_LOADED;
 }
 
 Chunk::~Chunk(void) {
-    m_chunk_vao.delete_vao();
+    this->delete_vaos();
     m_owner = NULL;
 }
 
@@ -98,6 +100,11 @@ const VertexArray &Chunk::get_vao(void) {
 
 const VertexArray &Chunk::get_water_vao(void) {
     return m_water_vao;
+}
+
+void Chunk::delete_vaos(void) {
+    m_chunk_vao.delete_vao();
+    m_water_vao.delete_vao();
 }
 
 void Chunk::set_block(const vec3i &rel, BlockType type) {
@@ -139,11 +146,7 @@ vec2i Chunk::get_chunk_xz(void) {
     return m_chunk_xz;
 }
 
-void Chunk::set_vao_dirty(void) {
-    m_vao_is_dirty = true;
-}
-
-void Chunk::set_mesh_vao(ChunkMeshGenData &gen_data) {
+void Chunk::set_mesh_vao(ChunkMeshGenData *gen_data) {
     BufferLayout layout;
     layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
     layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
@@ -152,13 +155,13 @@ void Chunk::set_mesh_vao(ChunkMeshGenData &gen_data) {
 
     m_chunk_vao.delete_vao();
     m_chunk_vao.create_vao(layout, ArrayBufferUsage::STATIC);
-    m_chunk_vao.set_vbo_data(gen_data.chunk.vertices.data(), gen_data.chunk.vertices.size() * sizeof(ChunkVaoVertex));
-    m_chunk_vao.set_ibo_data(gen_data.chunk.indices.data(),  gen_data.chunk.indices.size());
+    m_chunk_vao.set_vbo_data(gen_data->chunk.vertices.data(), gen_data->chunk.vertices.size() * sizeof(ChunkVaoVertex));
+    m_chunk_vao.set_ibo_data(gen_data->chunk.indices.data(),  gen_data->chunk.indices.size());
     m_chunk_vao.apply_vao_attributes();
 
     m_water_vao.delete_vao();
     m_water_vao.create_vao(layout, ArrayBufferUsage::STATIC);
-    m_water_vao.set_vbo_data(gen_data.water.vertices.data(), gen_data.water.vertices.size() * sizeof(ChunkVaoVertex));
-    m_water_vao.set_ibo_data(gen_data.water.indices.data(),  gen_data.water.indices.size());
+    m_water_vao.set_vbo_data(gen_data->water.vertices.data(), gen_data->water.vertices.size() * sizeof(ChunkVaoVertex));
+    m_water_vao.set_ibo_data(gen_data->water.indices.data(),  gen_data->water.indices.size());
     m_water_vao.apply_vao_attributes();
 }

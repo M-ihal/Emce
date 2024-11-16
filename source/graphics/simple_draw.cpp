@@ -176,7 +176,7 @@ void SimpleDraw::draw_triangle(const vec3 &tri_a, const vec3 &tri_b, const vec3 
     GL_CHECK(glDrawElements(GL_TRIANGLES, g_triangle_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
 }
 
-void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float width, const Color &color) {
+void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float width, const vec3 &color, float border_perc, const vec3 &border_color) {
     mat4 view = g_set_camera.calc_view();
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
     mat4 model = mat4::scale(size.x, size.y, size.z);
@@ -189,7 +189,9 @@ void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float
     g_cube_outline_shader.upload_vec3("u_color", (float *)color.e);
     g_cube_outline_shader.upload_vec3("u_size", (float *)size.e);
     g_cube_outline_shader.upload_float("u_width", width);
-
+    g_cube_outline_shader.upload_float("u_border_perc", border_perc);
+    g_cube_outline_shader.upload_vec3("u_border_color", (float *)border_color.e);
+ 
     g_cube_outline_vao.bind_vao();
 
     GL_CHECK(glDrawElements(GL_TRIANGLES, g_cube_outline_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));

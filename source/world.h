@@ -10,9 +10,10 @@
 
 #include <SDL3/SDL.h>
 #include <vector>
+#include <queue>
 
-inline static uint64_t func_hash_chunk_key(const vec2i &key);
-inline static bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
+inline uint64_t func_hash_chunk_key(const vec2i &key);
+inline bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
 typedef meh::Table<vec2i, Chunk *, func_hash_chunk_key, func_compare_chunk_key> ChunkHashTable;
 
 
@@ -34,30 +35,34 @@ public:
     /* Deletes chunks and gen queues, NEED STOP THREADS BEFORE CALLING */
     void delete_chunks(void);
 
+    /* Update chunks */
+    void update_loaded_chunks(float delta_time);
+
     /* Current gen seed */
     WorldGenSeed get_gen_seed(void);
 
-    /* Returns chunk if exists */
-    Chunk *get_chunk(vec2i chunk_xz);
+    /* Access chunk hash table */
+    ChunkHashTable *get_chunk_table(void);
 
-    /* Immediately creates chunk and returns it, Only call on main thread */
-    Chunk *get_chunk_create(vec2i chunk_xz);
+    /* Returns chunk if has been generated */
+    Chunk *get_chunk(vec2i chunk_xz);
 
     /* Returns Block and _opt_ Chunk from absolute position */
     Block *get_block(vec3i block_abs, Chunk **out_chunk = NULL);
 
-    /* Immediately create chunks, Only call on main thread */
-    void create_chunks_in_range(vec2i origin, int32_t radius);
-
-    /* Offload chunk creationto other thread */
+    /* Offload chunk creati onto other thread */
     void create_chunk_offload(vec2i chunk_xz);
 
     /* Offload chunks creation to other thread */
     void create_chunks_in_range_offload(vec2i origin, int32_t radius);
 
+    /* Offload chunk mesh generation */
+    void gen_chunk_mesh_offload(vec2i chunk_xz);
+
+    /* Checks if chunk's neighbours are generated */
+    bool chunk_neighbours_generated(vec2i chunk_xz);
+
 private:
-    /* Immediately generate vao for chunk, Only call on main thread */
-    void gen_chunk_vao_imm(vec2i chunk_xz);
 
     /* Pointer to the Game class where world lives */
     Game *m_owner;
@@ -68,15 +73,15 @@ private:
     SDL_Mutex *m_lock_chunk_gen;
     SDL_Mutex *m_lock_mesh_gen;
 
-    std::vector<ChunkGenData> m_chunks_to_generate;
-    std::vector<ChunkGenData> m_generated_chunks;
-    std::vector<ChunkMeshGenData> m_meshes_to_build;
-    std::vector<ChunkMeshGenData> m_built_meshes;
+    std::queue<ChunkGenData>  m_chunks_to_generate;
+    std::vector<ChunkGenData> m_chunks_generated;
+    std::queue<ChunkMeshGenData *>  m_meshes_to_build;
+    std::vector<ChunkMeshGenData *> m_meshes_built;
 
     WorldGenSeed m_gen_seed;
 };
 
-inline static uint64_t func_hash_chunk_key(const vec2i &key) {
+inline uint64_t func_hash_chunk_key(const vec2i &key) {
     vec2i x = key;
     x.x += 0;
     x.y += 0;
@@ -86,7 +91,7 @@ inline static uint64_t func_hash_chunk_key(const vec2i &key) {
     return hash;
 }
 
-inline static bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b) {
+inline bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b) {
     bool equal = key_a.x == key_b.x && key_a.y == key_b.y;
     return equal;
 }

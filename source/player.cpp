@@ -231,6 +231,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
         Chunk *target_chunk = NULL;
         Block *target = world.get_block(m_targeted_block.block_p.block, &target_chunk);
         if(target != NULL) {
+
             if(block_place) {
                 WorldPosition place_block_p = WorldPosition::from_block(m_targeted_block.block_p.block + get_block_side_dir(m_targeted_block.side));
                 Block *place_block = world.get_block(place_block_p.block);
@@ -239,9 +240,9 @@ void Player::update(Game &game, const Input &input, float delta_time) {
                     bool would_collide = check_aabb_3d(this->get_position(), PLAYER_COLLIDER_SIZE, place_block_p.real, vec3::make(1));
                     if(!would_collide) {
                         place_block->type = m_held_block;
-                        Chunk *chunk = world.get_chunk(place_block_p.chunk);
-                        ASSERT(chunk);
-                        chunk->set_vao_dirty();
+
+                        // @TODO : fails if no neighbours
+                        world.gen_chunk_mesh_offload(place_block_p.chunk);
                     }
                 }
             }
@@ -249,11 +250,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
             if(block_destroy) {
                 target->type = BlockType::AIR;
 
-                Chunk *chunk = world.get_chunk(m_targeted_block.block_p.chunk);
-                ASSERT(chunk);
-                chunk->set_vao_dirty();
-
-                // change point m_targeted_block.block_p.block_rel;
+                world.gen_chunk_mesh_offload(m_targeted_block.block_p.chunk);
             }
         }
     }
@@ -388,11 +385,11 @@ void Player::move_in_y(World &world, float delta_time) {
 
 void Player::debug_render(class Game &game) {
     /* Collider */
-    const Color collider_color = { 0.9f, 0.9f, 0.6f, 1.0f };
+    const vec3 collider_color = { 0.9f, 0.9f, 0.6f };
     SimpleDraw::draw_cube_outline(this->get_position_origin(), this->get_collider_size(), 1.0f / 32.0f, collider_color);
 
     /* Ground check collider */
-    const Color ground_collider_color = m_is_grounded ? Color{ 0.0f, 1.0f, 0.0f, 1.0f } : Color{ 1.0f, 0.0f, 0.0f, 1.0f };
+    const vec3 ground_collider_color = m_is_grounded ? vec3{ 0.0f, 1.0f, 0.0f } : vec3{ 1.0f, 0.0f, 0.0f };
     vec3 ground_collider_pos;
     vec3 ground_collider_size;
     this->get_ground_collider_info(ground_collider_pos, ground_collider_size);
@@ -416,7 +413,7 @@ void Player::debug_render(class Game &game) {
     /* Blocks checked when checking collisions */
     vec3 min_pos = real_position_from_block(m_debug_min_checked_block);
     vec3 max_pos = real_position_from_block(m_debug_max_checked_block) + vec3{ 1.0f, 1.0f, 1.0f };
-    SimpleDraw::draw_cube_outline(min_pos, max_pos - min_pos, 0.05f, Color{ 0.8f, 0.5f, 0.9f, 0.0f}); 
+    SimpleDraw::draw_cube_outline(min_pos, max_pos - min_pos, 0.05f, { 0.8f, 0.5f, 0.9f }); 
 }
 
 vec3 Player::get_collider_size(void) const {

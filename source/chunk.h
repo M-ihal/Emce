@@ -6,9 +6,14 @@
 #include "texture.h"
 #include "texture_array.h"
 
-inline constexpr int32_t CHUNK_SIZE_X = 16;
+inline constexpr int32_t CHUNK_SIZE_X = 32;
 inline constexpr int32_t CHUNK_SIZE_Y = 256;
-inline constexpr int32_t CHUNK_SIZE_Z = 16;
+inline constexpr int32_t CHUNK_SIZE_Z = 32;
+
+#define for_every_block(var_x, var_y, var_z)\
+    for(int32_t var_y = 0; var_y < CHUNK_SIZE_Y; ++var_y)\
+        for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)\
+            for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)
 
 struct ChunkMeshGenData;
 
@@ -18,11 +23,6 @@ struct ChunkVaoVertex {
     vec2 tex_coord;
     float tex_slot;
 };
-
-#define for_every_block(var_x, var_y, var_z)\
-    for(int32_t var_y = 0; var_y < CHUNK_SIZE_Y; ++var_y)\
-        for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)\
-            for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)
 
 #define BLOCK_SIDE_COUNT 6
 enum class BlockSide : uint8_t {
@@ -143,6 +143,18 @@ void init_block_texture_array(TextureArray &texture_array, const char *atlas_fil
 /* Upload water pixels from image to TextureArray */
 void init_water_texture_array(TextureArray &texture_array, const char *water_filepath);
 
+enum class ChunkState {
+    GENERATING,
+    GENERATED
+};
+
+enum class ChunkMeshState {
+    NOT_LOADED,
+    WAITING,
+    QUEUED,   
+    LOADED,
+};
+
 struct Block {
     BlockType type;
 };
@@ -163,6 +175,9 @@ public:
     /* Access water vao */
     const VertexArray &get_water_vao(void);
 
+    /* Delete all vaos */
+    void delete_vaos(void);
+
     /* Sets relative block */
     void set_block(const vec3i &rel, BlockType type);
 
@@ -177,13 +192,10 @@ public:
 
     /* Get chunk xz position */
     vec2i get_chunk_xz(void);
-    
-    /* */
-    void set_vao_dirty(void);
 
 private:
     /* Re/Generates vao for this chunk based on gen data */
-    void set_mesh_vao(ChunkMeshGenData &gen_data);
+    void set_mesh_vao(ChunkMeshGenData *gen_data);
 
     class World *m_owner;
     vec2i        m_chunk_xz;
@@ -191,7 +203,8 @@ private:
     VertexArray  m_water_vao;
     Block        m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
 
-    bool m_vao_is_dirty;
+    ChunkState m_state;
+    ChunkMeshState m_mesh_state;
 
     bool  m_should_unload;
     float m_unload_timer;

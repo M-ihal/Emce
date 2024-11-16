@@ -11,9 +11,10 @@
 #include "console.h"
 #include "texture_array.h"
 
-class Window;
+#define MAX_GEN_CHUNKS_THREADS 2
+#define MAX_GEN_MESHES_THREADS 4
 
-#define UNLOAD_RADIUS_MAX 64
+class Window;
 
 int32_t get_load_radius(void);
 
@@ -50,9 +51,9 @@ public:
     int32_t thread_gen_chunks_proc(void);
     int32_t thread_gen_meshes_proc(void);
 
-    void create_threads(void);
+    void create_threads(int32_t chunks_threads, int32_t meshes_threads);
+    void create_threads(void); // Creates threads with last amount
     void delete_threads(void);
-
 
 private:
     void push_debug_ui(void);
@@ -65,14 +66,12 @@ private:
     void render_ui(void);
     void render_ui_debug_info(void);
 
-    
-    static const uint32_t gen_chunks_thread_count = 1;
-    static const uint32_t gen_meshes_thread_count = 1;
-    SDL_Thread *m_gen_chunks_threads[gen_chunks_thread_count] = { };
-    SDL_Thread *m_gen_meshes_threads[gen_meshes_thread_count] = { };
+    int32_t m_gen_chunks_thread_num = 0;
+    int32_t m_gen_meshes_thread_num = 0;
+    SDL_Thread *m_gen_chunks_threads[MAX_GEN_CHUNKS_THREADS] = { };
+    SDL_Thread *m_gen_meshes_threads[MAX_GEN_MESHES_THREADS] = { };
+    bool m_threads_created = false;
     bool m_threads_keep_looping;
-    int32_t m_gen_chunks_thread_num;
-    int32_t m_gen_meshes_thread_num;
 
     double m_time_elapsed;
     double m_delta_time;
