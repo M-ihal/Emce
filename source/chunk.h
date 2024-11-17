@@ -216,6 +216,34 @@ inline bool is_inside_chunk(const vec3i &block_rel) {
         && block_rel.z >= 0 && block_rel.z < CHUNK_SIZE_Z;
 }
 
+/* Ignores Y edges... */
+inline bool is_block_on_chunk_edge(const vec3i block_rel, BlockSide side) {
+    switch(side) {
+        default: {
+            INVALID_CODE_PATH;
+            return false;
+        }
+        case BlockSide::X_NEG: {
+            return block_rel.x == 0;
+        }
+        case BlockSide::X_POS: {
+            return block_rel.x == CHUNK_SIZE_X - 1;
+        }
+        case BlockSide::Z_NEG: {
+            return block_rel.z == 0;
+        }
+        case BlockSide::Z_POS: {
+            return block_rel.z == CHUNK_SIZE_Z - 1;
+        }
+        case BlockSide::Y_NEG: {
+            return block_rel.y == 0;
+        }
+        case BlockSide::Y_POS: {
+            return block_rel.y == CHUNK_SIZE_Y - 1;
+        }
+    }
+}
+
 inline bool is_block_on_x_neg_edge(const vec3i &block_rel) {
     return block_rel.x == 0;
 }

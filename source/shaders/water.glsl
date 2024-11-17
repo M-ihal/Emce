@@ -20,12 +20,23 @@ out vec3 v_normal;
 out float v_water_frame;
 
 void main() {
-    vec3 position = a_position;
-    position.y -= 0.15 * (cos(u_time_elapsed * 0.5) * 0.5 + 0.5) + 0.05;
+    vec4 position = u_model * vec4(a_position, 1.0);
+
+    /* Wave animation */ {
+        float wave_speed = 0.8;
+        float wave_height = 0.18;
+        float wave_frequency = 32.0;
+
+        position.y += wave_height * sin(u_time_elapsed * wave_speed + position.x * wave_frequency) 
+            * cos(u_time_elapsed * wave_speed + position.z * wave_frequency);
+        
+        position.y -= 0.2;
+    }
+
     v_tex_coord = a_tex_coord;
     v_normal = mat3(transpose(inverse(u_model))) * a_normal;
     v_water_frame = a_tex_slot;
-    gl_Position = u_proj * u_view * u_model * vec4(position, 1.0);
+    gl_Position = u_proj * u_view * position;
 }
 
 @shader_fragment

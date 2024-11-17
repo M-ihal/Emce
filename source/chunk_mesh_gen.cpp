@@ -339,6 +339,48 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
 
         /* Water goes to different vao */
         if(block.type == BlockType::WATER) {
+            bool connect_wall[8] = { };
+            for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
+                vec3i nb_block_rel = block_rel + get_block_side_dir((BlockSide)side);
+
+                Block nb_block = { .type = BlockType::AIR };
+                if(!is_inside_chunk(nb_block_rel)) {
+                    BlockSide side_e = (BlockSide)side;
+
+                    if(side_e == BlockSide::Y_NEG || side_e == BlockSide::Y_POS) {
+                        continue;
+                    }
+
+                    if(side_e == BlockSide::Z_NEG) {
+                        nb_block_rel.z = CHUNK_SIZE_Z - 1;
+                        nb_block = gen_data->chunk_z_neg[get_block_array_index(nb_block_rel)];
+                    } else if(side_e == BlockSide::Z_POS) {
+                        nb_block_rel.z = 0;
+                        nb_block = gen_data->chunk_z_pos[get_block_array_index(nb_block_rel)];
+                    } else if(side_e == BlockSide::X_NEG) {
+                        nb_block_rel.x = CHUNK_SIZE_X - 1;
+                        nb_block = gen_data->chunk_x_neg[get_block_array_index(nb_block_rel)];
+                    } else if(side_e == BlockSide::X_POS) {
+                        nb_block_rel.x = 0;
+                        nb_block = gen_data->chunk_x_pos[get_block_array_index(nb_block_rel)];
+                    }
+
+                } else {
+                    nb_block = get_block(gen_data, nb_block_rel);
+                }
+
+                if(nb_block.type != BlockType::AIR) {
+                    uint32_t nb_flags = get_block_flags(nb_block.type);
+                    connect_wall[side] = !(nb_flags & IS_NOT_VISIBLE) && !(nb_flags & HAS_TRANSPARENCY);
+
+
+                    if(nb_block.type == BlockType::WATER) {
+                        connect_wall[side] = true;
+                    }
+                }
+            }
+
+            push_water_vao_data(gen_data->water, block_rel, connect_wall);
             continue;
         }
 
@@ -385,66 +427,13 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
             if(nb_block.type == BlockType::WATER) {
                 connect_wall[side] = false;
             } else {
-                if(flags & HAS_TRANSPARENCY && nb_flags & HAS_TRANSPARENCY && !(nb_flags & IS_NOT_VISIBLE)) {
+                if(flags & HAS_TRANSPARENCY && nb_flags & HAS_TRANSPARENCY && !(nb_flags & IS_NOT_VISIBLE) && block.type == nb_block.type) {
                     connect_wall[side] = true;
                 }
             }
         }
 
         push_block_vao_data(block.type, gen_data->chunk, block_rel, connect_wall);
-    }
-
-    /* Generate water vao data */
-    for_every_block(x, y, z) {
-        const vec3i block_rel = { x, y, z };
-
-        Block block = get_block(gen_data, block_rel);
-        if(block.type != BlockType::WATER) {
-            continue;
-        }
-
-        bool connect_wall[8] = { };
-        for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
-            vec3i nb_block_rel = block_rel + get_block_side_dir((BlockSide)side);
-
-            Block nb_block = { .type = BlockType::AIR };
-            if(!is_inside_chunk(nb_block_rel)) {
-                BlockSide side_e = (BlockSide)side;
-
-                if(side_e == BlockSide::Y_NEG || side_e == BlockSide::Y_POS) {
-                    continue;
-                }
-
-                if(side_e == BlockSide::Z_NEG) {
-                    nb_block_rel.z = CHUNK_SIZE_Z - 1;
-                    nb_block = gen_data->chunk_z_neg[get_block_array_index(nb_block_rel)];
-                } else if(side_e == BlockSide::Z_POS) {
-                    nb_block_rel.z = 0;
-                    nb_block = gen_data->chunk_z_pos[get_block_array_index(nb_block_rel)];
-                } else if(side_e == BlockSide::X_NEG) {
-                    nb_block_rel.x = CHUNK_SIZE_X - 1;
-                    nb_block = gen_data->chunk_x_neg[get_block_array_index(nb_block_rel)];
-                } else if(side_e == BlockSide::X_POS) {
-                    nb_block_rel.x = 0;
-                    nb_block = gen_data->chunk_x_pos[get_block_array_index(nb_block_rel)];
-                }
-
-            } else {
-                nb_block = get_block(gen_data, nb_block_rel);
-            }
-
-            if(nb_block.type != BlockType::AIR) {
-                uint32_t nb_flags = get_block_flags(nb_block.type);
-                connect_wall[side] = !(nb_flags & IS_NOT_VISIBLE) && !(nb_flags & HAS_TRANSPARENCY);
-
-
-                if(nb_block.type == BlockType::WATER) {
-                    connect_wall[side] = true;
-                }
-            }
-        }
-
-        push_water_vao_data(gen_data->water, block_rel, connect_wall);
     }
 }
 

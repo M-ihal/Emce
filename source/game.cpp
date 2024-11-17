@@ -47,7 +47,7 @@ Game::Game(Window &window) : m_world(this) {
         fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_set_depth(fbo_config,  { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::DEPTH24_STENCIL8 });
-        m_fbo.create_fbo(m_width, m_height, fbo_config);
+        m_fbo_ms.create_fbo(m_width, m_height, fbo_config);
     }
 
     /* Load resources */ {
@@ -124,7 +124,7 @@ Game::Game(Window &window) : m_world(this) {
         layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
         layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
         layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
-        layout.push_attribute("a_tex_slot", 1, BufferDataType::FLOAT);
+        layout.push_attribute("a_tex_slot",  1, BufferDataType::FLOAT);
 
         const uint32_t num_vertices = 6 * 4;
         const uint32_t num_indices  = 6 * 6;
@@ -133,6 +133,31 @@ Game::Game(Window &window) : m_world(this) {
         m_block_vao.set_vbo_data(NULL,  num_vertices * sizeof(ChunkVaoVertex));
         m_block_vao.set_ibo_data(NULL,  num_indices);
         m_block_vao.apply_vao_attributes();
+    }
+
+    /* Init post process rect vao and shader */ {
+        m_post_process_shader.set_filepath_and_load("C://dev//emce//source//shaders//post_process.glsl");
+
+        BufferLayout rect_layout;
+        rect_layout.push_attribute("a_position", 2, BufferDataType::FLOAT);
+        rect_layout.push_attribute("a_tex_coords", 2, BufferDataType::FLOAT);
+
+        float rect_vertices[4 * 4] = {
+            0.0f, 0.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 1.0f, 1.0f,
+            0.0f, 1.0f, 0.0f, 1.0f
+        };
+
+        uint32_t rect_indices[2 * 3] = {
+            0, 1, 2,
+            2, 3, 0
+        };
+
+        m_post_process_vao.create_vao(rect_layout, ArrayBufferUsage::STATIC);
+        m_post_process_vao.set_vbo_data(rect_vertices, 4 * 4 * sizeof(float));
+        m_post_process_vao.set_ibo_data(rect_indices, 2 * 3);
+        m_post_process_vao.apply_vao_attributes();
     }
 
     m_console.initialize();
@@ -156,21 +181,24 @@ Game::Game(Window &window) : m_world(this) {
 Game::~Game(void) {
     this->delete_threads();
 
-    m_fbo.delete_fbo();
+    m_fbo_ms.delete_fbo();
 
     m_ui_font.delete_font();
     m_ui_font_big.delete_font();
     m_ui_font_smooth.delete_font();
 
-    m_block_shader.delete_shader();
+    m_block_shader.delete_shader_file();
     m_block_tex_array.delete_texture_array();
 
-    m_water_shader.delete_shader();
+    m_water_shader.delete_shader_file();
     m_water_tex_array.delete_texture_array();
 
     m_skybox_vao.delete_vao();
-    m_skybox_shader.delete_shader();
+    m_skybox_shader.delete_shader_file();
     m_skybox_cubemap.delete_cubemap();
+
+    m_post_process_shader.delete_shader_file();
+    m_post_process_vao.delete_vao();
 
     m_block_vao.delete_vao();
 
@@ -409,45 +437,78 @@ void Game::delete_threads(void) {
 }
 
 void Game::render_frame(void) {
-    const float aspect_ratio = (float)m_fbo.get_width() / (float)m_fbo.get_height();
+    const float aspect_ratio = (float)m_fbo_ms.get_width() / (float)m_fbo_ms.get_height();
     mat4 proj_m = m_camera.calc_proj(aspect_ratio);
     mat4 view_m = m_camera.calc_view();
  
     /* Gathers chunk vao triangles rendered */
     g_triangles_rendered_last_frame = 0;
 
-    // @todo @GL
+    // @TODO
     glViewport(0, 0, m_width, m_height);
 
-    m_fbo.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
-    m_fbo.bind_fbo();
+    m_fbo_ms.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
+    m_fbo_ms.bind_fbo();
 
     this->render_world(proj_m, view_m);
     this->render_water(proj_m, view_m);
     this->render_skybox(proj_m, view_m);
 
     /* Clear depth and render held block */
-    m_fbo.clear_depth();
+    m_fbo_ms.clear_depth();
     this->render_held_block(proj_m, view_m, aspect_ratio);
 
     bind_no_fbo();
 
+    // @TODO @TODO
+
     switch(g_debug_world_blit_mode) {
         case WorldBlitMode::COLOR: {
-            glNamedFramebufferReadBuffer(m_fbo.get_fbo_id(), GL_COLOR_ATTACHMENT0);
+            FboConfig config;
+            fbo_config_push_color(config, { .target = FboAttachmentTarget::TEXTURE, .format = TextureDataFormat::RGBA });
+
+            Framebuffer fbo;
+            fbo.create_fbo(m_width, m_height, config);
+            fbo.clear_all({0.1f,0.1f,0.1f,1.0f});
+
+            glNamedFramebufferReadBuffer(m_fbo_ms.get_fbo_id(), GL_COLOR_ATTACHMENT0);
+
+            GL_CHECK(glBlitNamedFramebuffer(m_fbo_ms.get_fbo_id(), fbo.get_fbo_id(), 0, 0, m_fbo_ms.get_width(), m_fbo_ms.get_height(), 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+
+            m_post_process_shader.use_program();
+            m_post_process_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, 1.0f, 1.0f, -1.0f, 1.0f));
+            m_post_process_shader.upload_int("u_in_water", 0);
+            m_post_process_shader.upload_int("u_texture", 0);
+
+            // @TODO
+            if(m_world.get_block(WorldPosition::from_real(m_player.get_head_camera().get_position()).block)->type == BlockType::WATER) {
+                m_post_process_shader.upload_int("u_in_water", 1);
+            }
+
+            m_post_process_shader.upload_int("u_texture", 0);
+            glBindTextureUnit(0, fbo.get_color_attachment_id(0));
+
+            bind_no_fbo();
+            m_post_process_vao.bind_vao();
+            GL_CHECK(glDrawElements(GL_TRIANGLES, m_post_process_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+
+            fbo.delete_fbo();
         } break;
 
         case WorldBlitMode::NORMALS: {
-            glNamedFramebufferReadBuffer(m_fbo.get_fbo_id(), GL_COLOR_ATTACHMENT1);
+            glNamedFramebufferReadBuffer(m_fbo_ms.get_fbo_id(), GL_COLOR_ATTACHMENT1);
+            glNamedFramebufferReadBuffer(0, GL_COLOR_ATTACHMENT0);
+            GL_CHECK(glBlitNamedFramebuffer(m_fbo_ms.get_fbo_id(), 0, 0, 0, m_fbo_ms.get_width(), m_fbo_ms.get_height(), 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+
         } break;
 
         case WorldBlitMode::DEPTH: {
-            glNamedFramebufferReadBuffer(m_fbo.get_fbo_id(), GL_COLOR_ATTACHMENT2);
+            glNamedFramebufferReadBuffer(m_fbo_ms.get_fbo_id(), GL_COLOR_ATTACHMENT2);
+            glNamedFramebufferReadBuffer(0, GL_COLOR_ATTACHMENT0);
+            GL_CHECK(glBlitNamedFramebuffer(m_fbo_ms.get_fbo_id(), 0, 0, 0, m_fbo_ms.get_width(), m_fbo_ms.get_height(), 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+
         } break;
     }
-
-    glNamedFramebufferReadBuffer(0, GL_COLOR_ATTACHMENT0);
-    GL_CHECK(glBlitNamedFramebuffer(m_fbo.get_fbo_id(), 0, 0, 0, m_fbo.get_width(), m_fbo.get_height(), 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 
     bind_no_fbo();
     this->render_ui();
@@ -759,12 +820,13 @@ void Game::hotload_stuff(void) {
     m_block_shader.hotload();
     m_water_shader.hotload();
     m_skybox_shader.hotload();
+    m_post_process_shader.hotload();
 }
 
 void Game::resize(int32_t width, int32_t height) {
     m_width = width;
     m_height = height;
-    m_fbo.resize_fbo(width, height);
+    m_fbo_ms.resize_fbo(width, height);
 }
 
 World &Game::get_world(void) {

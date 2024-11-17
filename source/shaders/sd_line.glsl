@@ -17,8 +17,8 @@ void main() {
 
 uniform vec3 u_color;
 
-out vec3 final_color;
+out vec4 final_color;
 
 void main() {
-    final_color = u_color;
+    final_color = vec4(u_color, 1.0);
 }

@@ -12,15 +12,77 @@ BlockOffset oak_tree_blocks[] = {
     { BlockType::TREE_LOG, {0, 1, 0} },
     { BlockType::TREE_LOG, {0, 2, 0} },
     { BlockType::TREE_LOG, {0, 3, 0} },
+    { BlockType::TREE_LOG, {0, 4, 0} },
+    { BlockType::TREE_LOG, {0, 5, 0} },
     
-    // Leaves Layer 1 (around trunk at height 3)
-    { BlockType::TREE_LEAVES, { 1, 3, 0 } }, { BlockType::TREE_LEAVES, { -1, 3, 0 } },
-    { BlockType::TREE_LEAVES, { 0, 3, 1 } }, { BlockType::TREE_LEAVES, { 0, 3, -1 } },
+    { BlockType::TREE_LEAVES, { 0, 6, 0 } },
+    { BlockType::TREE_LEAVES, {-1, 6, 0 } },
+    { BlockType::TREE_LEAVES, { 1, 6, 0 } },
+    { BlockType::TREE_LEAVES, { 0, 6, -1} },
+    { BlockType::TREE_LEAVES, { 0, 6, +1} },
+
+    { BlockType::TREE_LEAVES, {-1, 5, 0 } },
+    { BlockType::TREE_LEAVES, { 1, 5, 0 } },
+    { BlockType::TREE_LEAVES, { 0, 5, -1} },
+    { BlockType::TREE_LEAVES, { 0, 5, +1} },
+
+    { BlockType::TREE_LEAVES, { +1, 5, +1} },
+    { BlockType::TREE_LEAVES, { -1, 5, -1} },
+
+    { BlockType::TREE_LEAVES, {-1, 4, 0 } },
+    { BlockType::TREE_LEAVES, { 1, 4, 0 } },
+    { BlockType::TREE_LEAVES, { 0, 4, -1} },
+    { BlockType::TREE_LEAVES, { 0, 4, +1} },
+    { BlockType::TREE_LEAVES, {-1, 4, -1 } },
+    { BlockType::TREE_LEAVES, { 1, 4, 1 } },
+    { BlockType::TREE_LEAVES, {-1, 4, 1} },
+    { BlockType::TREE_LEAVES, { 1, 4, -1} },
+
+    { BlockType::TREE_LEAVES, {-1, 3, 0 } },
+    { BlockType::TREE_LEAVES, { 1, 3, 0 } },
+    { BlockType::TREE_LEAVES, { 0, 3, -1} },
+    { BlockType::TREE_LEAVES, { 0, 3, +1} },
+    { BlockType::TREE_LEAVES, {-1, 3, -1 } },
+    { BlockType::TREE_LEAVES, { 1, 3, 1 } },
+    { BlockType::TREE_LEAVES, {-1, 3, 1} },
+    { BlockType::TREE_LEAVES, { 1, 3, -1} },
+
+
+    { BlockType::TREE_LEAVES, {-2, 4, 0 } },
+    { BlockType::TREE_LEAVES, {-2, 4, 1 } },
+    { BlockType::TREE_LEAVES, {-2, 4, -1 } },
+
+    { BlockType::TREE_LEAVES, { 2, 4, 0 } },
+    { BlockType::TREE_LEAVES, { 2, 4, 1 } },
+    { BlockType::TREE_LEAVES, { 2, 4, -1 } },
+
+    { BlockType::TREE_LEAVES, { 0, 4, -2} },
+    { BlockType::TREE_LEAVES, { -1, 4, -2} },
+    { BlockType::TREE_LEAVES, { 1, 4, -2} },
+
+    { BlockType::TREE_LEAVES, { 0, 4, 2} },
+    { BlockType::TREE_LEAVES, { -1, 4, 2} },
+    { BlockType::TREE_LEAVES, { 1, 4, 2} },
+
+
+    { BlockType::TREE_LEAVES, {-2, 3, 0 } },
+    { BlockType::TREE_LEAVES, {-2, 3, 1 } },
+    { BlockType::TREE_LEAVES, {-2, 3, -1 } },
+
+    { BlockType::TREE_LEAVES, { 2, 3, 0 } },
+    { BlockType::TREE_LEAVES, { 2, 3, 1 } },
+    { BlockType::TREE_LEAVES, { 2, 3, -1 } },
+
+    { BlockType::TREE_LEAVES, { 0, 3, -2} },
+    { BlockType::TREE_LEAVES, { -1, 3, -2} },
+    { BlockType::TREE_LEAVES, { 1, 3, -2} },
+
+    { BlockType::TREE_LEAVES, { 0, 3, 2} },
+    { BlockType::TREE_LEAVES, { -1, 3, 2} },
+    { BlockType::TREE_LEAVES, { 1, 3, 2} },
+
+
     
-    // Leaves Layer 2 (cross shape on top)
-    { BlockType::TREE_LEAVES, { 0, 4, 0 } },
-    { BlockType::TREE_LEAVES, { 1, 4, 0 } }, { BlockType::TREE_LEAVES, { -1, 4, 0 } },
-    { BlockType::TREE_LEAVES, { 0, 4, 1 } }, { BlockType::TREE_LEAVES, { 0, 4, -1 } },
 };
 
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
@@ -75,12 +137,14 @@ void chunk_gen(ChunkGenData &gen) {
 
             if(height_map[x][z] > ocean_level) {
                 // PLANT GRASS
-                if(rand() % 3 == 0) {
-                    set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+                if(rand() % 10 == 0) {
+                    if(get_block(gen, vec3i{ x, height_map[x][z], z }).type == BlockType::AIR) {
+                        set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+                    }
                 }
 
                 // TREES
-                if(rand() % 45 == 0) {
+                if(rand() % 585 == 0) {
                     if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
                         for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
                             BlockOffset block = oak_tree_blocks[index];

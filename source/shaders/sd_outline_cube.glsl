@@ -64,7 +64,7 @@ void main() {
     if(should_discard) {
         discard;
     } else {
-        final_color = vec4(diffuse, 0.0);
+        final_color = vec4(diffuse, 1.0);
     }
 }
 

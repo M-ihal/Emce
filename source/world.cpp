@@ -185,6 +185,17 @@ void World::gen_chunk_mesh_offload(vec2i chunk_xz) {
     SDL_UnlockMutex(m_lock_mesh_gen);
 }
 
+void World::gen_chunk_mesh_imm(vec2i chunk_xz) {
+    ChunkMeshGenData *mesh_data;
+    chunk_mesh_gen_data_init(&mesh_data, *this, chunk_xz);
+    chunk_mesh_gen(mesh_data);
+    Chunk *chunk = this->get_chunk(mesh_data->chunk_xz);
+    ASSERT(chunk);
+    chunk->set_mesh_vao(mesh_data);
+    chunk_mesh_gen_data_free(&mesh_data);
+    chunk->m_mesh_state = ChunkMeshState::LOADED;
+}
+
 bool World::chunk_neighbours_generated(vec2i chunk_xz) {
     Chunk *x_neg = this->get_chunk(chunk_xz + vec2i{ -1,  0 });
     Chunk *x_pos = this->get_chunk(chunk_xz + vec2i{ +1,  0 });

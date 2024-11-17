@@ -83,7 +83,8 @@ private:
  
     uint32_t m_width;
     uint32_t m_height;
-    Framebuffer m_fbo;
+    Framebuffer m_fbo_ms;
+    // Framebuffer m_fbo;
 
     Font m_ui_font;
     Font m_ui_font_big;
@@ -98,6 +99,9 @@ private:
     VertexArray m_skybox_vao;
     ShaderFile  m_skybox_shader;
     Cubemap     m_skybox_cubemap;
+
+    ShaderFile  m_post_process_shader;
+    VertexArray m_post_process_vao;
 
     VertexArray m_block_vao; /* VAO for single block rendering, centered */
 };
