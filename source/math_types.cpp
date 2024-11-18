@@ -148,6 +148,10 @@ vec3 vec3::make(const vec3i &v) {
     return vec3{ float(v.x), float(v.y), float(v.z) };
 }
 
+vec3 vec3::absolute(const vec3 &vec) {
+    return vec3{ ABS(vec.x), ABS(vec.y), ABS(vec.z) };
+}
+
 float vec3::length_sq(const vec3 &vec) {
     return vec3::dot(vec, vec);
 }

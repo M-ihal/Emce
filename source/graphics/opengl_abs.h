@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "math_types.h"
 
 /* 
     Abstraction for opengl to avoid confusing gl* calls... 
@@ -8,7 +9,7 @@
 
 enum class BlendFunc {
     DISABLE,
-    SRC_ALPHA__ONE_MINUS_SRC_ALPHA
+    STANDARD
 };
 
 enum class DepthFunc {
@@ -21,7 +22,12 @@ struct RenderSetup {
     BlendFunc blend = BlendFunc::DISABLE;
     DepthFunc depth = DepthFunc::DISABLE;
     bool multisample = true;
+    bool cull_faces = false;
 };
+
+void set_viewport(const vec4i &viewport);
+
+void set_polygon_mode(bool enable);
 
 void set_render_state(const RenderSetup &setup);
 

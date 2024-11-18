@@ -82,6 +82,22 @@ void Framebuffer::clear_depth(float depth_value, int32_t stencil_value) {
     GL_CHECK(glClearNamedFramebufferfi(m_fbo_id, GL_DEPTH_STENCIL, 0, depth_value, stencil_value));
 }
 
+void Framebuffer::set_draw_buffers(void) {
+    /* Specify color buffers to be drawn into */
+    if(m_config.color_attachment_count) {
+        const GLenum gl_buffers[FBO_COLOR_MAX] = { 
+            GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, 
+            GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, 
+            GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, 
+            GL_COLOR_ATTACHMENT6, GL_COLOR_ATTACHMENT7 
+        };
+
+        GL_CHECK(glDrawBuffers(m_config.color_attachment_count, gl_buffers));
+    } else {
+        GL_CHECK(glDrawBuffer(GL_NONE));
+    }
+}
+
 uint32_t Framebuffer::get_fbo_id(void) {
     return m_fbo_id;
 }
@@ -94,6 +110,21 @@ uint32_t Framebuffer::get_color_attachment_id(uint32_t slot) {
 uint32_t Framebuffer::get_depth_attachment_id(void) {
     ASSERT(m_config.depth_attachment_set); // @todo
     return m_depth_attachment;
+}
+
+void Framebuffer::bind_color_texture_unit(uint32_t unit, uint32_t slot) {
+    GL_CHECK(glBindTextureUnit(unit, this->get_color_attachment_id(slot)));
+}
+
+void Framebuffer::blit_color_attachment(uint32_t slot, Framebuffer &dest, uint32_t dest_slot) {
+    GL_CHECK(glNamedFramebufferReadBuffer(m_fbo_id, GL_COLOR_ATTACHMENT0 + slot));
+    GL_CHECK(glNamedFramebufferDrawBuffer(dest.get_fbo_id(), GL_COLOR_ATTACHMENT0 + dest_slot));
+    GL_CHECK(glBlitNamedFramebuffer(m_fbo_id, dest.get_fbo_id(), 0, 0, m_width, m_height, 0, 0, dest.get_width(), dest.get_height(), GL_COLOR_BUFFER_BIT, GL_NEAREST));
+}
+
+void Framebuffer::blit_color_attachment(uint32_t slot, int32_t width, int32_t height) {
+    GL_CHECK(glNamedFramebufferReadBuffer(m_fbo_id, GL_COLOR_ATTACHMENT0 + slot));
+    GL_CHECK(glBlitNamedFramebuffer(m_fbo_id, 0, 0, 0, m_width, m_height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 }
 
 bool Framebuffer::is_complete(void) {
@@ -194,19 +225,7 @@ void Framebuffer::gen_attachments(void) {
         m_depth_attachment = attachment_id;
     }
 
-    /* Specify color buffers to be drawn into */
-    if(m_config.color_attachment_count) {
-        const GLenum gl_buffers[FBO_COLOR_MAX] = { 
-            GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, 
-            GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, 
-            GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, 
-            GL_COLOR_ATTACHMENT6, GL_COLOR_ATTACHMENT7 
-        };
-
-        GL_CHECK(glDrawBuffers(m_config.color_attachment_count, gl_buffers));
-    } else {
-        GL_CHECK(glDrawBuffer(GL_NONE));
-    }
+    this->set_draw_buffers();
 
     m_attachments_generated = true;
 }

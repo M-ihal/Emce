@@ -176,7 +176,7 @@ static void fill_block_cube_vao_tex_coords(ChunkVaoVertex v[4], BlockType type, 
     fill_tex_slots(v, texture_id);
 }
 
-static void fill_block_cross_vao_vertex(ChunkVaoVertex v[2][4], const vec3i &offset) {
+static void fill_block_cross_vao_vertex(ChunkVaoVertex v[4][4], const vec3i &offset) {
     v[0][0].position = vec3{ 0.0f, 0.0f, 0.0f };
     v[0][1].position = vec3{ 1.0f, 0.0f, 1.0f };
     v[0][2].position = vec3{ 1.0f, 1.0f, 1.0f };
@@ -197,11 +197,33 @@ static void fill_block_cross_vao_vertex(ChunkVaoVertex v[2][4], const vec3i &off
     v[1][2].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
     v[1][3].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
 
+    v[2][1].position = vec3{ 0.0f, 0.0f, 0.0f };
+    v[2][0].position = vec3{ 1.0f, 0.0f, 1.0f };
+    v[2][3].position = vec3{ 1.0f, 1.0f, 1.0f };
+    v[2][2].position = vec3{ 0.0f, 1.0f, 0.0f };
+
+    v[3][1].position = vec3{ 0.0f, 0.0f, 1.0f };
+    v[3][0].position = vec3{ 1.0f, 0.0f, 0.0f };
+    v[3][3].position = vec3{ 1.0f, 1.0f, 0.0f };
+    v[3][2].position = vec3{ 0.0f, 1.0f, 1.0f };
+
+    v[2][0].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
+    v[2][1].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
+    v[2][2].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
+    v[2][3].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
+
+    v[3][0].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
+    v[3][1].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
+    v[3][2].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
+    v[3][3].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
+
     offset_vertices(v[0], offset);
     offset_vertices(v[1], offset);
+    offset_vertices(v[2], offset);
+    offset_vertices(v[3], offset);
 }
 
-static void fill_block_cross_vao_tex_coords(ChunkVaoVertex v[2][4], BlockType type) {
+static void fill_block_cross_vao_tex_coords(ChunkVaoVertex v[4][4], BlockType type) {
     BlockTextureID texture_id = TEX_SAND;
     switch(type) {
         default: break;
@@ -213,8 +235,13 @@ static void fill_block_cross_vao_tex_coords(ChunkVaoVertex v[2][4], BlockType ty
 
     fill_tex_coords(v[0]);
     fill_tex_coords(v[1]);
+    fill_tex_coords(v[2]);
+    fill_tex_coords(v[3]);
+
     fill_tex_slots(v[0], texture_id);
     fill_tex_slots(v[1], texture_id);
+    fill_tex_slots(v[2], texture_id);
+    fill_tex_slots(v[3], texture_id);
 }
 
 static void push_vao_quad(ChunkVaoVertex quad_vertices[4], ChunkMeshData &data) {
@@ -288,11 +315,14 @@ static void push_block_vao_data(BlockType type, ChunkMeshData &data, const vec3i
         } break;
 
         case CROSS: {
-            ChunkVaoVertex v[2][4] = { };
+            /* Pushing 4 quads for crosses because of face culling */
+            ChunkVaoVertex v[4][4] = { };
             fill_block_cross_vao_vertex(v, block_rel);
             fill_block_cross_vao_tex_coords(v, type);
             push_vao_quad(v[0], data);
             push_vao_quad(v[1], data);
+            push_vao_quad(v[2], data);
+            push_vao_quad(v[3], data);
         } break;
     }
 }

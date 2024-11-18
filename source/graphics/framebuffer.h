@@ -51,11 +51,20 @@ public:
 
     void clear_depth(float depth_value = 1.0f, int32_t stencil_value = 0);
 
+    void set_draw_buffers(void);
+
     uint32_t get_fbo_id(void);
 
     uint32_t get_color_attachment_id(uint32_t slot);
 
     uint32_t get_depth_attachment_id(void);
+
+    void bind_color_texture_unit(uint32_t unit, uint32_t slot);
+
+    void blit_color_attachment(uint32_t slot, Framebuffer &dest, uint32_t dest_slot);
+
+    /* Blit onto backbuffer */
+    void blit_color_attachment(uint32_t slot, int32_t width, int32_t height);
 
     bool is_complete(void); /* Is fbo valid && are attachments generated */
 

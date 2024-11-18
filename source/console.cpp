@@ -199,7 +199,7 @@ void Console::render(int32_t width, int32_t height) {
     m_batcher.begin();
 
     set_render_state({
-        .blend = BlendFunc::SRC_ALPHA__ONE_MINUS_SRC_ALPHA,
+        .blend = BlendFunc::STANDARD,
         .depth = DepthFunc::DISABLE,
         .multisample = true
     });

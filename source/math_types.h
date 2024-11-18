@@ -93,6 +93,7 @@ struct vec3 {
     static vec3 make(const vec2 &v, float z);
     static vec3 make(const struct vec3i &v);
 
+    static vec3  absolute(const vec3 &vec);
     static float length_sq(const vec3 &vec);
     static float length(const vec3 &vec);
     static vec3  normalize(const vec3 &vec);
@@ -142,6 +143,24 @@ struct vec4 {
             float a;
         };
         float e[4];
+    };
+};
+
+struct vec4i {
+    union {
+        struct {
+            int32_t x;
+            int32_t y;
+            int32_t z;
+            int32_t w;
+        };
+        struct {
+             int32_t left;
+             int32_t bottom;
+             int32_t right;
+             int32_t top;
+        };
+        int32_t e[4];
     };
 };
 

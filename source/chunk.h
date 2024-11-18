@@ -82,6 +82,7 @@ enum BlockTypeFlags : uint32_t {
     IS_PLACABLE      = 1 << 0,
     IS_SOLID         = 1 << 1,
     IS_NOT_VISIBLE   = 1 << 2,
+    IS_NOT_TARGETABLE = 1 << 4,
     HAS_TRANSPARENCY = 1 << 16,
 };
 

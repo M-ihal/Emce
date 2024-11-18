@@ -78,7 +78,7 @@ void TextBatcher::begin(void) {
 void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 color, vec2i shadow_offset) {
 
     set_render_state({
-        .blend = BlendFunc::SRC_ALPHA__ONE_MINUS_SRC_ALPHA,
+        .blend = BlendFunc::STANDARD,
         .depth = DepthFunc::DISABLE,
         .multisample = true,
     });

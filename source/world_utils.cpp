@@ -243,7 +243,7 @@ RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec
                 }
 
                 Block *block = chunk->get_block(block_p.block_rel);
-                if(!block || !(get_block_flags(block->type) & IS_SOLID)) {
+                if(!block || block->type == BlockType::AIR || get_block_flags(block->type) & IS_NOT_TARGETABLE) {
                     continue;
                 }
 

@@ -1,6 +1,7 @@
 #include "game.h"
 #include "window.h"
 #include "simple_draw.h"
+#include "opengl_abs.h"
 
 #define STRING_VIU_CPP_HELPERS
 #include <string_viu.h>
@@ -9,9 +10,6 @@
 #include <SDL3/SDL_thread.h>
 
 #include <cstdarg>
-#include <glew.h>
-
-// @TODO : Duplication in chunk mesh gen queue !!
 
 enum class WorldBlitMode {
     COLOR,
@@ -444,8 +442,7 @@ void Game::render_frame(void) {
     /* Gathers chunk vao triangles rendered */
     g_triangles_rendered_last_frame = 0;
 
-    // @TODO
-    glViewport(0, 0, m_width, m_height);
+    set_viewport({ 0, 0, m_width, m_height });
 
     m_fbo_ms.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
     m_fbo_ms.bind_fbo();
@@ -453,6 +450,29 @@ void Game::render_frame(void) {
     this->render_world(proj_m, view_m);
     this->render_water(proj_m, view_m);
     this->render_skybox(proj_m, view_m);
+
+    /* Render targeted block outline */ {
+        RaycastBlockResult target = m_player.get_targeted_block();
+        if(target.found) {
+            set_render_state({
+                .blend = BlendFunc::DISABLE,
+                .depth = DepthFunc::DISABLE,
+                .multisample = true,
+            });
+
+            /* The targeted block */
+            SimpleDraw::draw_cube_outline(target.block_p.real, vec3::make(1), 1.0f / 64.0f, { 1.0f, 1.0f, 1.0f });
+
+            /* Itersection point */
+            const float point_size = 0.1f;
+            SimpleDraw::draw_cube_outline(target.intersection - vec3::make(point_size * 0.5f), vec3::make(point_size), 1.0f / 128.0f, { 1.0f, 1.0f, 1.0f });
+
+            /* Normal block */
+            const WorldPosition next = WorldPosition::from_block(target.block_p.block + target.normal);
+            SimpleDraw::draw_line(target.block_p.real + vec3::make(0.5f), next.real + vec3::make(0.5f), 2.0f, vec3::absolute(vec3::make(get_block_side_dir(target.side))));
+        }
+    }
+
 
     /* Clear depth and render held block */
     m_fbo_ms.clear_depth();
@@ -471,9 +491,7 @@ void Game::render_frame(void) {
             fbo.create_fbo(m_width, m_height, config);
             fbo.clear_all({0.1f,0.1f,0.1f,1.0f});
 
-            glNamedFramebufferReadBuffer(m_fbo_ms.get_fbo_id(), GL_COLOR_ATTACHMENT0);
-
-            GL_CHECK(glBlitNamedFramebuffer(m_fbo_ms.get_fbo_id(), fbo.get_fbo_id(), 0, 0, m_fbo_ms.get_width(), m_fbo_ms.get_height(), 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+            m_fbo_ms.blit_color_attachment(0, fbo, 0);
 
             m_post_process_shader.use_program();
             m_post_process_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, 1.0f, 1.0f, -1.0f, 1.0f));
@@ -488,27 +506,21 @@ void Game::render_frame(void) {
             }
 
             m_post_process_shader.upload_int("u_texture", 0);
-            glBindTextureUnit(0, fbo.get_color_attachment_id(0));
+            fbo.bind_color_texture_unit(0, 0);
 
             bind_no_fbo();
             m_post_process_vao.bind_vao();
-            GL_CHECK(glDrawElements(GL_TRIANGLES, m_post_process_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+            draw_elements_triangles(m_post_process_vao.get_ibo_count());
 
             fbo.delete_fbo();
         } break;
 
         case WorldBlitMode::NORMALS: {
-            glNamedFramebufferReadBuffer(m_fbo_ms.get_fbo_id(), GL_COLOR_ATTACHMENT1);
-            glNamedFramebufferReadBuffer(0, GL_COLOR_ATTACHMENT0);
-            GL_CHECK(glBlitNamedFramebuffer(m_fbo_ms.get_fbo_id(), 0, 0, 0, m_fbo_ms.get_width(), m_fbo_ms.get_height(), 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
-
+            m_fbo_ms.blit_color_attachment(1, m_width, m_height);
         } break;
 
         case WorldBlitMode::DEPTH: {
-            glNamedFramebufferReadBuffer(m_fbo_ms.get_fbo_id(), GL_COLOR_ATTACHMENT2);
-            glNamedFramebufferReadBuffer(0, GL_COLOR_ATTACHMENT0);
-            GL_CHECK(glBlitNamedFramebuffer(m_fbo_ms.get_fbo_id(), 0, 0, 0, m_fbo_ms.get_width(), m_fbo_ms.get_height(), 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
-
+            m_fbo_ms.blit_color_attachment(2, m_width, m_height);
         } break;
     }
 
@@ -523,15 +535,16 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
     m_block_shader.upload_int("u_texture_array", 0);
     m_block_tex_array.bind_texture_unit(0);
 
-    /* @todo @GL */
-    GL_CHECK(glDisable(GL_BLEND));
-    GL_CHECK(glEnable(GL_DEPTH_TEST));
-    GL_CHECK(glDepthFunc(GL_LESS));
-    GL_CHECK(glEnable(GL_MULTISAMPLE));
+    set_render_state({
+        .blend = BlendFunc::DISABLE,
+        .depth = DepthFunc::LESS,
+        .multisample = true,
+        .cull_faces = true
+    });
 
-    if(g_debug_chunk_wireframe_mode ) {
-        glLineWidth(1.0f);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    if(g_debug_chunk_wireframe_mode) {
+        set_line_width(1.0f);
+        set_polygon_mode(true);
     }
 
     ChunkHashTable::Iterator iter;
@@ -553,14 +566,21 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
 
         /* @todo @GL */
         chunk_vao.bind_vao();
-        GL_CHECK(glDrawElements(GL_TRIANGLES, chunk_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+        draw_elements_triangles(chunk_vao.get_ibo_count());
 
         g_triangles_rendered_last_frame += chunk_vao.get_ibo_count() / 3;
     }
 
     if(g_debug_chunk_wireframe_mode) {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        set_polygon_mode(false);
     }
+
+    set_render_state({
+        .blend = BlendFunc::DISABLE,
+        .depth = DepthFunc::LESS,
+        .multisample = true,
+        .cull_faces = false
+    });
 
     /* Render shape in third person mode */
     if(g_third_person_mode) {
@@ -592,31 +612,14 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
         }
     }
 
-    /* Render targeted block outline */ {
-        RaycastBlockResult target = m_player.get_targeted_block();
-        if(target.found) {
-            glDisable(GL_DEPTH_TEST);
-            /* The targeted block */
-            SimpleDraw::draw_cube_outline(target.block_p.real, vec3::make(1), 1.0f / 32.0f, { 1.0f, 1.0f, 1.0f });
-            glEnable(GL_DEPTH_TEST);
-
-            /* Itersection point */
-            const float point_size = 0.1f;
-            SimpleDraw::draw_cube_outline(target.intersection - vec3::make(point_size * 0.5f), vec3::make(point_size), 1.0f / 96.0f, { 1.0f, 1.0f, 1.0f });
-
-            /* Normal block */
-            const WorldPosition next = WorldPosition::from_block(target.block_p.block + target.normal);
-            // SimpleDraw::draw_cube_outline(next.real, vec3::make(1), 1.0f / 32.0f, { 1.0f, 1.0f, 1.0f, 1.0f });
-            SimpleDraw::draw_line(target.block_p.real + vec3::make(0.5f), next.real + vec3::make(0.5f), 4.0f, { 1.0f, 1.0f, 1.0f });
-        }
-    }
 }
 
 void Game::render_water(const mat4 &proj_m, const mat4 &view_m) {
-    GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-    GL_CHECK(glEnable(GL_DEPTH_TEST));
-    GL_CHECK(glDepthFunc(GL_LESS));
+    set_render_state({
+        .blend = BlendFunc::STANDARD,
+        .depth = DepthFunc::LESS,
+        .multisample = true
+    });
 
     m_water_shader.use_program();
     m_water_shader.upload_mat4("u_proj", proj_m);
@@ -644,23 +647,25 @@ void Game::render_water(const mat4 &proj_m, const mat4 &view_m) {
         m_water_shader.upload_mat4("u_model", mat4::translate(chunk_translate));
 
         water_vao.bind_vao();
-        GL_CHECK(glDrawElements(GL_TRIANGLES, water_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+        draw_elements_triangles(water_vao.get_ibo_count());
 
         g_triangles_rendered_last_frame += water_vao.get_ibo_count() / 3;
     }
 }
 
 void Game::render_skybox(const mat4 &proj_m, const mat4 &view_m) {
-    GL_CHECK(glDisable(GL_BLEND));
-    GL_CHECK(glEnable(GL_DEPTH_TEST));
-    GL_CHECK(glDepthFunc(GL_LEQUAL));
+    set_render_state({
+        .blend = BlendFunc::DISABLE,
+        .depth = DepthFunc::LESS_OR_EQUAL,
+        .multisample = true
+    });
 
     m_skybox_shader.use_program();
     m_skybox_shader.upload_mat4("u_proj", proj_m);
     m_skybox_shader.upload_mat4("u_view", view_m);
     m_skybox_vao.bind_vao();
     m_skybox_cubemap.bind_cubemap();
-    GL_CHECK(glDrawElements(GL_TRIANGLES, m_skybox_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+    draw_elements_triangles(m_skybox_vao.get_ibo_count());
 }
 
 void Game::render_held_block(const mat4 &proj_m, const mat4 &view_m, float aspect_ratio) {
@@ -707,21 +712,17 @@ void Game::render_single_block(BlockType type, const mat4 &model_m, const mat4 &
     m_block_shader.upload_int("u_texture_array", 0);
     m_block_tex_array.bind_texture_unit(0);
 
-    GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-    GL_CHECK(glEnable(GL_DEPTH_TEST));
-    GL_CHECK(glDepthFunc(GL_LESS));
+    set_render_state({
+        .blend = BlendFunc::STANDARD,
+        .depth = DepthFunc::LESS,
+        .multisample = true
+    });
 
     m_block_vao.bind_vao();
-    GL_CHECK(glDrawElements(GL_TRIANGLES, m_block_vao.get_ibo_count(), GL_UNSIGNED_INT, 0));
+    draw_elements_triangles(m_block_vao.get_ibo_count());
 }
 
 void Game::render_ui(void) {
-    GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-    GL_CHECK(glEnable(GL_DEPTH_TEST));
-    GL_CHECK(glDepthFunc(GL_LESS));
-
     /* Render held block text */ {
         TextBatcher batcher;
         batcher.begin();

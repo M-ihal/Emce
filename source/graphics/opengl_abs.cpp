@@ -2,6 +2,18 @@
 
 #include <glew.h>
 
+void set_viewport(const vec4i &viewport) {
+    GL_CHECK(glViewport(viewport.x, viewport.y, viewport.z, viewport.w));
+}
+
+void set_polygon_mode(bool enable) {
+    if(enable) {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    } else {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+}
+
 void set_render_state(const RenderSetup &setup) {
     switch(setup.blend) {
         default: INVALID_CODE_PATH;
@@ -10,7 +22,7 @@ void set_render_state(const RenderSetup &setup) {
             glDisable(GL_BLEND);
         } break;
 
-        case BlendFunc::SRC_ALPHA__ONE_MINUS_SRC_ALPHA: {
+        case BlendFunc::STANDARD: {
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         } break;
@@ -38,6 +50,14 @@ void set_render_state(const RenderSetup &setup) {
         glEnable(GL_MULTISAMPLE);
     } else {
         glDisable(GL_MULTISAMPLE);
+    }
+
+    if(setup.cull_faces) {
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    } else {
+        glDisable(GL_CULL_FACE);
     }
 }
 

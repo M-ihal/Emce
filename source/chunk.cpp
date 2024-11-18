@@ -6,9 +6,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include <glew.h>
-
 #include <stb_image.h>
 
 void init_block_texture_array(TextureArray &texture_array, const char *atlas_filepath) {

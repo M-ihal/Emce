@@ -81,8 +81,8 @@ private:
     Player  m_player;
     Console m_console;
  
-    uint32_t m_width;
-    uint32_t m_height;
+    int32_t m_width;
+    int32_t m_height;
     Framebuffer m_fbo_ms;
     // Framebuffer m_fbo;
 
