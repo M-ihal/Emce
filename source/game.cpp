@@ -175,11 +175,11 @@ Game::Game(Window &window) : m_world(this) {
 
     this->add_console_commands();
 
-    this->create_threads(1, 1);
+    this->start_threads(1, 1);
 }
 
 Game::~Game(void) {
-    this->delete_threads();
+    this->stop_threads();
 
     m_fbo_ms.delete_fbo();
 
@@ -385,10 +385,10 @@ static int _thread_gen_meshes_proc(void *game_ptr) {
     return game->thread_gen_meshes_proc();
 }
 
-void Game::create_threads(int32_t chunks_threads, int32_t meshes_threads) {
+void Game::start_threads(int32_t chunks_threads, int32_t meshes_threads) {
     ASSERT(chunks_threads <= MAX_GEN_CHUNKS_THREADS && meshes_threads <= MAX_GEN_MESHES_THREADS && "Invalid number of threads!!!");
 
-    this->delete_threads();
+    this->stop_threads();
     m_threads_keep_looping = true;
 
     m_gen_chunks_thread_num = chunks_threads;
@@ -411,11 +411,11 @@ void Game::create_threads(int32_t chunks_threads, int32_t meshes_threads) {
     m_threads_created = true;
 }
 
-void Game::create_threads(void) { 
-    this->create_threads(m_gen_chunks_thread_num, m_gen_meshes_thread_num);
+void Game::start_threads(void) { 
+    this->start_threads(m_gen_chunks_thread_num, m_gen_meshes_thread_num);
 }
 
-void Game::delete_threads(void) {
+void Game::stop_threads(void) {
     /* Make threads finish */
     m_threads_keep_looping = false;
 
@@ -480,9 +480,11 @@ void Game::render_frame(void) {
             m_post_process_shader.upload_int("u_in_water", 0);
             m_post_process_shader.upload_int("u_texture", 0);
 
-            // @TODO
-            if(m_world.get_block(WorldPosition::from_real(m_player.get_head_camera().get_position()).block)->type == BlockType::WATER) {
-                m_post_process_shader.upload_int("u_in_water", 1);
+            /* Check if camera is in water */ {
+                Block *block = m_world.get_block(WorldPosition::from_real(m_player.get_head_camera().get_position()).block);
+                if(block != NULL && block->type == BlockType::WATER) {
+                    m_post_process_shader.upload_int("u_in_water", 1);
+                }
             }
 
             m_post_process_shader.upload_int("u_texture", 0);
@@ -605,7 +607,7 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
             /* Normal block */
             const WorldPosition next = WorldPosition::from_block(target.block_p.block + target.normal);
             // SimpleDraw::draw_cube_outline(next.real, vec3::make(1), 1.0f / 32.0f, { 1.0f, 1.0f, 1.0f, 1.0f });
-            SimpleDraw::draw_line(target.block_p.real + vec3::make(0.5f), next.real + vec3::make(0.5f), 4.0f, { 1.0f, 1.0f, 1.0f, 1.0f });
+            SimpleDraw::draw_line(target.block_p.real + vec3::make(0.5f), next.real + vec3::make(0.5f), 4.0f, { 1.0f, 1.0f, 1.0f });
         }
     }
 }
@@ -860,7 +862,7 @@ void Game::add_console_commands(void) {
                 return;
             }
 
-            game.create_threads(chunks_threads, meshes_threads);
+            game.start_threads(chunks_threads, meshes_threads);
         }
     });
 
@@ -879,10 +881,10 @@ void Game::add_console_commands(void) {
                 seed = std::stoi(s_viu_to_std_string(args[0]));
             }
 
-            game.delete_threads();
+            game.stop_threads();
             game.get_world().initialize_world(seed);
             game.get_world().create_chunks_in_range_offload(game.get_player().get_position_chunk(), g_load_radius + 1);
-            game.create_threads();
+            game.start_threads();
         }
     });
 

@@ -46,6 +46,8 @@ set(source_files
     source/graphics/framebuffer.h
     source/graphics/texture_array.cpp
     source/graphics/texture_array.h
+    source/graphics/opengl_abs.cpp
+    source/graphics/opengl_abs.h
     source/camera.cpp
     source/camera.h
     source/utils.cpp

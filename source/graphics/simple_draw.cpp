@@ -3,8 +3,7 @@
 #include "texture.h"
 #include "vertex_array.h"
 #include "shader.h"
-
-#include <glew.h>
+#include "opengl_abs.h"
 
 namespace {
     bool        g_initialized = false;
@@ -173,7 +172,7 @@ void SimpleDraw::draw_triangle(const vec3 &tri_a, const vec3 &tri_b, const vec3 
     g_triangle_vao.bind_vao();
     g_triangle_vao.upload_vbo_data(vertices, ARRAY_COUNT(vertices) * sizeof(float), 0);
 
-    GL_CHECK(glDrawElements(GL_TRIANGLES, g_triangle_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+    draw_elements_triangles(g_triangle_vao.get_ibo_count());
 }
 
 void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float width, const vec3 &color, float border_perc, const vec3 &border_color) {
@@ -194,10 +193,10 @@ void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float
  
     g_cube_outline_vao.bind_vao();
 
-    GL_CHECK(glDrawElements(GL_TRIANGLES, g_cube_outline_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+    draw_elements_triangles(g_cube_outline_vao.get_ibo_count());
 }
 
-void SimpleDraw::draw_line(const vec3 &point_a, const vec3 &point_b, float width, const Color &color) {
+void SimpleDraw::draw_line(const vec3 &point_a, const vec3 &point_b, float width, const vec3 &color) {
     mat4 view = g_set_camera.calc_view();
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
 
@@ -217,8 +216,9 @@ void SimpleDraw::draw_line(const vec3 &point_a, const vec3 &point_b, float width
     g_line_vao.bind_vao();
     g_line_vao.upload_vbo_data(vertices, vbo_data_size, 0);
 
-    GL_CHECK(glLineWidth(width));
-    GL_CHECK(glDrawElements(GL_LINES, g_line_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+    set_line_width(width);
+
+    draw_elements_lines(g_line_vao.get_ibo_count());
 }
 
 void SimpleDraw::draw_textured_quad_2d(const vec2 &position, const vec2 &size, const Texture &texture, mat4 &proj_m, float z_pos) {
@@ -233,5 +233,5 @@ void SimpleDraw::draw_textured_quad_2d(const vec2 &position, const vec2 &size, c
 
     g_tex_quad_vao.bind_vao();
 
-    GL_CHECK(glDrawElements(GL_TRIANGLES, g_tex_quad_vao.get_ibo_count(), GL_UNSIGNED_INT, NULL));
+    draw_elements_triangles(g_tex_quad_vao.get_ibo_count());
 }

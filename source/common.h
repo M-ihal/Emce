@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+#include <stdio.h>
 
 /* Typedefs */
 #include <stdint.h>

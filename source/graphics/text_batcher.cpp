@@ -1,12 +1,12 @@
 #include "text_batcher.h"
 #include "vertex_array.h"
 #include "shader.h"
+#include "opengl_abs.h"
 
 #include <malloc.h>
 #include <stdio.h>
 #include <cstdarg>
 #include <cstring>
-#include <glew.h>
 
 namespace {
     bool g_initialized = false;
@@ -76,9 +76,12 @@ void TextBatcher::begin(void) {
 }
 
 void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 color, vec2i shadow_offset) {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable(GL_DEPTH_TEST);
+
+    set_render_state({
+        .blend = BlendFunc::SRC_ALPHA__ONE_MINUS_SRC_ALPHA,
+        .depth = DepthFunc::DISABLE,
+        .multisample = true,
+    });
 
     g_shader.use_program();
     g_shader.upload_mat4("u_proj", mat4::orthographic(0.0f, 0.0f, float(width), float(height), -1.0f, 1.0f));
@@ -92,13 +95,13 @@ void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 c
     if(shadow_offset.x != 0 || shadow_offset.y != 0) {
         g_shader.upload_vec2("u_offset", vec2::make(shadow_offset).e);
         g_shader.upload_vec3("u_color", vec3{ 0.1f, 0.1f, 0.1f }.e);
-        GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
+        draw_elements_triangles(m_chars_pushed * 6);
     }
 
     /* Draw actual text */
     g_shader.upload_vec2("u_offset", vec2{ 0.0f, 0.0f }.e);
     g_shader.upload_vec3("u_color", color.e);
-    GL_CHECK(glDrawElements(GL_TRIANGLES, m_chars_pushed * 6, GL_UNSIGNED_INT, NULL));
+    draw_elements_triangles(m_chars_pushed * 6);
 }
 
 void TextBatcher::push_text(vec2 position, const Font &font, const char *string) {
@@ -156,7 +159,6 @@ void TextBatcher::push_text_formatted(vec2 position, const Font &font, const cha
 }
 
 void TextBatcher::push_text_va_args(vec2 position, const Font &font, const char *format, va_list args) {
-    /* @todo Measure required space and allocate? For now statically alloc 1024 chars... */
     char buffer[1024];
     vsnprintf_s(buffer, ARRAY_COUNT(buffer), format, args);
     push_text(position, font, buffer);

@@ -411,8 +411,8 @@ void Player::debug_render(class Game &game) {
     SimpleDraw::draw_cube_outline(ground_collider_pos, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
 
     /* Velocity lines */
-    SimpleDraw::draw_line(this->get_position(), this->get_position() + vec3{ m_velocity.x, 0.0f, m_velocity.z }, 2.0f, Color{ 1.0f, 0.0f, 1.0f, 1.0f });
-    SimpleDraw::draw_line(this->get_position(), this->get_position() + vec3{ 0.0f, m_velocity.y, 0.0f }, 2.0f, Color{ 0.0f, 1.0f, 0.0f, 1.0f });
+    SimpleDraw::draw_line(this->get_position(), this->get_position() + vec3{ m_velocity.x, 0.0f, m_velocity.z }, 2.0f, { 1.0f, 0.0f, 1.0f });
+    SimpleDraw::draw_line(this->get_position(), this->get_position() + vec3{ 0.0f, m_velocity.y, 0.0f }, 2.0f, { 0.0f, 1.0f, 0.0f });
 
 #if 0
     /* XYZ Axis */ {

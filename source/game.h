@@ -51,9 +51,9 @@ public:
     int32_t thread_gen_chunks_proc(void);
     int32_t thread_gen_meshes_proc(void);
 
-    void create_threads(int32_t chunks_threads, int32_t meshes_threads);
-    void create_threads(void); // Creates threads with last amount
-    void delete_threads(void);
+    void start_threads(int32_t chunks_threads, int32_t meshes_threads);
+    void start_threads(void); // Creates threads with specified last amount or 1, 1
+    void stop_threads(void);
 
 private:
     void push_debug_ui(void);

@@ -28,40 +28,29 @@ void World::initialize_world(uint32_t seed) {
 }
 
 void World::delete_chunks(void) {
-    /* Wait for mutexes and delete queues */
-    SDL_LockMutex(m_lock_chunk_gen);
-    SDL_LockMutex(m_lock_mesh_gen);
-    for(auto &data : m_chunks_generated) { }
-    m_chunks_generated.clear();
-
     while(!m_chunks_to_generate.empty()) {
         ChunkGenData gen_data = m_chunks_to_generate.front();
-        // chunk_gen_data_free(gen_data);
+        // gen_data_free();
         m_chunks_to_generate.pop();
     }
+    m_chunks_to_generate = std::queue<ChunkGenData>();
 
-    std::queue<ChunkGenData> _queue_empty;
-    m_chunks_to_generate = _queue_empty;
+    for(auto &gen_data : m_chunks_generated) {
+        // gen_data_free();
+    }
+    m_chunks_generated.clear();
 
     while(!m_meshes_to_build.empty()) {
         ChunkMeshGenData *mesh_data = m_meshes_to_build.front();
-        chunk_mesh_gen_data_free(&mesh_data);
         m_meshes_to_build.pop();
-    }
-
-    while(!m_meshes_built.empty()) {
-        ChunkMeshGenData *mesh_data = m_meshes_built.front();
         chunk_mesh_gen_data_free(&mesh_data);
-        m_meshes_built.pop_back();
+    }
+    m_meshes_to_build = std::queue<ChunkMeshGenData *>();
+
+    for(ChunkMeshGenData *mesh_data : m_meshes_built) {
+        chunk_mesh_gen_data_free(&mesh_data);
     }
     m_meshes_built.clear();
-
-    /* Just to make sure */
-    std::queue<ChunkMeshGenData *> queue_empty;
-    m_meshes_to_build = queue_empty;
-
-    SDL_UnlockMutex(m_lock_chunk_gen);
-    SDL_UnlockMutex(m_lock_mesh_gen);
 
     ChunkHashTable::Iterator iter;
     while(m_chunk_table.iterate_all(iter)) {

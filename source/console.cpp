@@ -1,9 +1,9 @@
 #include "console.h"
 #include "window.h"
 #include "input.h"
+#include "opengl_abs.h"
 
 #include <cstdarg>
-#include <glew.h>
                  
 #define STRING_VIU_CPP_HELPERS
 #include <string_viu.h>
@@ -198,9 +198,11 @@ void Console::render(int32_t width, int32_t height) {
 
     m_batcher.begin();
 
-    /* Blend for quads, disabled before rendering text batch */
-    GL_CHECK(glEnable(GL_BLEND));
-    GL_CHECK(glDisable(GL_DEPTH_TEST));
+    set_render_state({
+        .blend = BlendFunc::SRC_ALPHA__ONE_MINUS_SRC_ALPHA,
+        .depth = DepthFunc::DISABLE,
+        .multisample = true
+    });
 
     /* Draw console input region */ {
         mat4 model_m = mat4::identity();
@@ -210,7 +212,7 @@ void Console::render(int32_t width, int32_t height) {
         m_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.85f }.e);
         m_quad_shader.upload_mat4("u_model", model_m);
 
-        GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
+        draw_elements_triangles(6);
 
         m_batcher.push_text_formatted(console_pos + console_text_padding, m_font, m_input.c_str());
     }
@@ -228,7 +230,7 @@ void Console::render(int32_t width, int32_t height) {
         m_quad_shader.upload_vec4("u_color", vec4{ 0.0f, 0.0f, 0.0f, 0.65f }.e);
         m_quad_shader.upload_mat4("u_model", model_m);
 
-        GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
+        draw_elements_triangles(6);
 
         for(int32_t history_index = 0; history_index < CONSOLE_HISTORY_MAX; ++history_index) {
             m_batcher.push_text({ history_text_x, history_text_y }, m_font, m_history[history_index].c_str());
@@ -252,7 +254,7 @@ void Console::render(int32_t width, int32_t height) {
         m_quad_shader.upload_vec4("u_color", vec4{ 1.0f, 1.0f, 1.0f, 1.0f }.e);
         m_quad_shader.upload_mat4("u_model", model_m);
 
-        GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
+        draw_elements_triangles(6);
     }
 
     m_batcher.render(width, height, m_font, { 1.0f, 1.0f, 1.0f });
