@@ -18,7 +18,7 @@ enum class WorldBlitMode {
 };
 
 namespace {
-    static int32_t  g_load_radius = 12;
+    static int32_t  g_load_radius = 8;
     static float    g_third_person_distance = 10.0f;
     static bool     g_third_person_mode = false;
     static uint32_t g_triangles_rendered_last_frame = 0;
@@ -53,13 +53,13 @@ Game::Game(Window &window) : m_world(this) {
         m_ui_font_big.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 40);
         m_ui_font_smooth.load_from_file("C://dev//emce//data//CascadiaMono.ttf", 16);
 
-        m_block_shader.set_filepath_and_load("C://dev//emce//source//shaders//block.glsl");
-        m_block_tex_array.load_empty_reserve(16, 16, 64, TextureDataFormat::RGBA);
+        m_chunk_shader.set_filepath_and_load("C://dev//emce//source//shaders//chunk.glsl");
+        m_chunk_tex_array.load_empty_reserve(16, 16, 64, TextureDataFormat::RGBA);
 
         m_water_shader.set_filepath_and_load("C://dev//emce//source//shaders//water.glsl");
         m_water_tex_array.load_empty_reserve(16, 16, 32, TextureDataFormat::RGBA);
 
-        init_block_texture_array(m_block_tex_array, "C://dev//emce//data//atlas.png");
+        init_block_texture_array(m_chunk_tex_array, "C://dev//emce//data//atlas.png");
         init_water_texture_array(m_water_tex_array, "C://dev//emce//data//water.png");
     }
 
@@ -119,16 +119,13 @@ Game::Game(Window &window) : m_world(this) {
 
     /* Init single block vao with temp data */ {
         BufferLayout layout;
-        layout.push_attribute("a_position",  3, BufferDataType::FLOAT);
-        layout.push_attribute("a_normal",    3, BufferDataType::FLOAT);
-        layout.push_attribute("a_tex_coord", 2, BufferDataType::FLOAT);
-        layout.push_attribute("a_tex_slot",  1, BufferDataType::FLOAT);
+        layout.push_attribute("a_packed", 2, BufferDataType::UINT);
 
         const uint32_t num_vertices = 6 * 4;
         const uint32_t num_indices  = 6 * 6;
 
         m_block_vao.create_vao(layout, ArrayBufferUsage::STATIC);
-        m_block_vao.set_vbo_data(NULL,  num_vertices * sizeof(ChunkVaoVertex));
+        m_block_vao.set_vbo_data(NULL,  num_vertices * sizeof(ChunkVaoVertexPacked));
         m_block_vao.set_ibo_data(NULL,  num_indices);
         m_block_vao.apply_vao_attributes();
     }
@@ -185,8 +182,8 @@ Game::~Game(void) {
     m_ui_font_big.delete_font();
     m_ui_font_smooth.delete_font();
 
-    m_block_shader.delete_shader_file();
-    m_block_tex_array.delete_texture_array();
+    m_chunk_shader.delete_shader_file();
+    m_chunk_tex_array.delete_texture_array();
 
     m_water_shader.delete_shader_file();
     m_water_tex_array.delete_texture_array();
@@ -529,11 +526,11 @@ void Game::render_frame(void) {
 }
 
 void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
-    m_block_shader.use_program();
-    m_block_shader.upload_mat4("u_proj", proj_m);
-    m_block_shader.upload_mat4("u_view", view_m);
-    m_block_shader.upload_int("u_texture_array", 0);
-    m_block_tex_array.bind_texture_unit(0);
+    m_chunk_shader.use_program();
+    m_chunk_shader.upload_mat4("u_proj", proj_m);
+    m_chunk_shader.upload_mat4("u_view", view_m);
+    m_chunk_shader.upload_int("u_texture_array", 0);
+    m_chunk_tex_array.bind_texture_unit(0);
 
     set_render_state({
         .blend = BlendFunc::DISABLE,
@@ -562,7 +559,7 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
             .z = (float)(iter.key.y * CHUNK_SIZE_Z)
         };
 
-        m_block_shader.upload_mat4("u_model", mat4::translate(chunk_translate));
+        m_chunk_shader.upload_mat4("u_model", mat4::translate(chunk_translate));
 
         /* @todo @GL */
         chunk_vao.bind_vao();
@@ -680,8 +677,8 @@ void Game::render_held_block(const mat4 &proj_m, const mat4 &view_m, float aspec
     const float rotate_y = head_cam.get_rotation().x;
     const float rotate_z = head_cam.get_rotation().y;
 
-    const vec3 size = vec3::make(0.2f);
-    const vec3 position = head_cam.get_position() + vec_fw * 0.5f + vec_rt * 0.185f * aspect_ratio - vec_up * (0.2f + exp_pos);
+    const vec3 size = vec3::make(0.16f);
+    const vec3 position = head_cam.get_position() + vec_fw * 0.4f + vec_rt * 0.155f * aspect_ratio - vec_up * (0.28f + exp_pos);
 
     mat4 transform;
     transform = mat4::scale(size);        
@@ -701,21 +698,22 @@ void Game::render_single_block(BlockType type, const mat4 &model_m, const mat4 &
     ChunkMeshData mesh_data;
     chunk_mesh_gen_single_block(mesh_data, type);
 
-    m_block_vao.set_vbo_data(mesh_data.vertices.data(), mesh_data.vertices.size() * sizeof(ChunkVaoVertex));
+    m_block_vao.set_vbo_data(mesh_data.vertices.data(), mesh_data.vertices.size() * sizeof(ChunkVaoVertexPacked));
     m_block_vao.set_ibo_data(mesh_data.indices.data(), mesh_data.indices.size());
     m_block_vao.apply_vao_attributes();
 
-    m_block_shader.use_program();
-    m_block_shader.upload_mat4("u_proj", proj_m);
-    m_block_shader.upload_mat4("u_view", view_m);
-    m_block_shader.upload_mat4("u_model", model_m);
-    m_block_shader.upload_int("u_texture_array", 0);
-    m_block_tex_array.bind_texture_unit(0);
+    m_chunk_shader.use_program();
+    m_chunk_shader.upload_mat4("u_proj", proj_m);
+    m_chunk_shader.upload_mat4("u_view", view_m);
+    m_chunk_shader.upload_mat4("u_model", model_m);
+    m_chunk_shader.upload_int("u_texture_array", 0);
+    m_chunk_tex_array.bind_texture_unit(0);
 
     set_render_state({
         .blend = BlendFunc::STANDARD,
         .depth = DepthFunc::LESS,
-        .multisample = true
+        .multisample = true,
+        .cull_faces = true
     });
 
     m_block_vao.bind_vao();
@@ -820,7 +818,7 @@ void Game::render_ui_debug_info(void) {
 }
 
 void Game::hotload_stuff(void) {
-    m_block_shader.hotload();
+    m_chunk_shader.hotload();
     m_water_shader.hotload();
     m_skybox_shader.hotload();
     m_post_process_shader.hotload();
@@ -975,7 +973,8 @@ void Game::add_console_commands(void) {
                     }
                 }
 
-                world.gen_chunk_mesh_offload(iter.key);
+                iter.value->m_mesh_state = ChunkMeshState::WAITING;
+                // world.gen_chunk_mesh_offload(iter.key);
             }
         }
     });

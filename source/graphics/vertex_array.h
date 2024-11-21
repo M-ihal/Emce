@@ -6,6 +6,7 @@
 enum class BufferDataType : int32_t {
     INT   = 1,
     FLOAT = 2,
+    UINT  = 3
 };
 
 class BufferLayout {

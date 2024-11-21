@@ -17,6 +17,7 @@ static inline constexpr int32_t gl_from_buffer_data_type(BufferDataType type) {
         default: INVALID_CODE_PATH; return -1;
         case BufferDataType::INT:   return GL_INT;
         case BufferDataType::FLOAT: return GL_FLOAT;
+        case BufferDataType::UINT:  return GL_UNSIGNED_INT;
     }
 }
 
@@ -25,6 +26,7 @@ static inline constexpr int32_t size_of_buffer_data_type(BufferDataType type) {
         default: INVALID_CODE_PATH; return -1;
         case BufferDataType::INT:   return 4;
         case BufferDataType::FLOAT: return 4;
+        case BufferDataType::UINT:  return 4;
     }
 }
 
@@ -115,9 +117,19 @@ void VertexArray::apply_vao_attributes(void) const {
         const BufferLayout::Attribute *att = &m_vbo_layout.m_attributes[att_index];
         const int32_t location = att_index;
 
-        /* TODO glVertexAttribIPointer? */
         GL_CHECK(glEnableVertexAttribArray(location));
-        GL_CHECK(glVertexAttribPointer(location, att->count, gl_from_buffer_data_type(att->data_type), GL_FALSE, m_vbo_layout.m_stride, (void *)((uint64_t)att->offset)));
+        switch(att->data_type) {
+            default: INVALID_CODE_PATH; continue;
+
+            case BufferDataType::FLOAT: {
+                GL_CHECK(glVertexAttribPointer(location, att->count, gl_from_buffer_data_type(att->data_type), GL_FALSE, m_vbo_layout.m_stride, (void *)((uint64_t)att->offset)));
+            } break;
+
+            case BufferDataType::INT:
+            case BufferDataType::UINT: {
+                GL_CHECK(glVertexAttribIPointer(location, att->count, gl_from_buffer_data_type(att->data_type), m_vbo_layout.m_stride, (void *)((uint64_t)att->offset)));
+            } break;
+        }
     }
 
     VertexArray::bind_no_vao();

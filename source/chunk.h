@@ -7,7 +7,7 @@
 #include "texture_array.h"
 
 inline constexpr int32_t CHUNK_SIZE_X = 32;
-inline constexpr int32_t CHUNK_SIZE_Y = 256;
+inline constexpr int32_t CHUNK_SIZE_Y = 255;
 inline constexpr int32_t CHUNK_SIZE_Z = 32;
 
 #define for_every_block(var_x, var_y, var_z)\
@@ -18,11 +18,31 @@ inline constexpr int32_t CHUNK_SIZE_Z = 32;
 struct ChunkMeshGenData;
 
 struct ChunkVaoVertex {
-    vec3 position;
-    vec3 normal;
-    vec2 tex_coord;
-    float tex_slot;
+    uint32_t x;     
+    uint32_t y;
+    uint32_t z;
+    uint32_t n;
+    uint32_t tc;
+    uint32_t ts;
 };
+
+struct ChunkVaoVertexPacked {
+    uint32_t packed1; /* 8:x, 8:y, 8:z, 4:normal - 4:free */
+    uint32_t packed2; /* 8:tex_slot, 2:texcoord  - 22:free */
+};
+
+inline ChunkVaoVertexPacked pack_chunk_vertex(ChunkVaoVertex vx) {
+    ChunkVaoVertexPacked v = { };
+    v.packed1 = ((vx.x & 0b11111111) << 0)
+              | ((vx.y & 0b11111111) << 8) 
+              | ((vx.z & 0b11111111) << 16) 
+              | ((vx.n & 0b00001111) << 24);
+
+    v.packed2 = ((vx.ts & 0b11111111) << 0)
+              | ((vx.tc & 0b00000011) << 8);
+
+    return v;
+}
 
 #define BLOCK_SIDE_COUNT 6
 enum class BlockSide : uint8_t {

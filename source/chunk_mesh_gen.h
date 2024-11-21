@@ -5,7 +5,7 @@
 #include <vector>
 
 struct ChunkMeshData {
-    std::vector<ChunkVaoVertex> vertices;
+    std::vector<ChunkVaoVertexPacked> vertices;
     std::vector<uint32_t>       indices;
 };
 
@@ -22,11 +22,7 @@ struct ChunkMeshGenData {
     ChunkMeshData water;
 };
 
-/* Load chunk's blocks and neighbouring chunk blocks */
 void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec2i chunk_xz);
 void chunk_mesh_gen_data_free(ChunkMeshGenData **gen_data_ptr);
-
 void chunk_mesh_gen(ChunkMeshGenData *gen_data);
-
 void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType type);
-

@@ -2,12 +2,23 @@
 
 #version 330 core
 
-// @todo make water faces only facing upwards ??
+vec2 tex_coords[4] = vec2[](
+    vec2(0.0, 0.0),
+    vec2(1.0, 0.0),
+    vec2(1.0, 1.0),
+    vec2(0.0, 1.0)
+);
 
-layout (location = 0) in vec3  a_position;
-layout (location = 1) in vec3  a_normal;
-layout (location = 2) in vec2  a_tex_coord;
-layout (location = 3) in float a_tex_slot;
+vec3 normals[6] = vec3[](
+    vec3(-1.0, 0.0, 0.0),
+    vec3( 1.0, 0.0, 0.0),
+    vec3( 0.0, 0.0,-1.0),
+    vec3( 0.0, 0.0, 1.0),
+    vec3( 0.0,-1.0, 0.0),
+    vec3( 0.0, 1.0, 0.0)
+);
+
+layout (location = 0) in uvec2 a_packed;
 
 uniform mat4 u_proj;
 uniform mat4 u_view;
@@ -17,14 +28,21 @@ uniform float u_time_elapsed;
 
 out vec2 v_tex_coord;
 out vec3 v_normal;
-out float v_water_frame;
 
 void main() {
-    vec4 position = u_model * vec4(a_position, 1.0);
+    uint pos_x = (a_packed.x >> 0u) & 0xFFu;
+    uint pos_y = (a_packed.x >> 8u) & 0xFFu;
+    uint pos_z = (a_packed.x >> 16u) & 0xFFu;
+    uint normal_id = (a_packed.x >> 24u) & 0xFu;
+
+    // uint tex_slot = (a_packed.y >> 0u) & 0xFFu;
+    uint tex_coord_id = (a_packed.y >> 8u) & 0x3u;
+
+    vec4 position = u_model * vec4(pos_x, pos_y, pos_z, 1.0);
 
     /* Wave animation */ {
-        float wave_speed = 0.8;
-        float wave_height = 0.18;
+        float wave_speed = 1.0;
+        float wave_height = 0.22;
         float wave_frequency = 32.0;
 
         position.y += wave_height * sin(u_time_elapsed * wave_speed + position.x * wave_frequency) 
@@ -33,9 +51,8 @@ void main() {
         position.y -= 0.2;
     }
 
-    v_tex_coord = a_tex_coord;
-    v_normal = mat3(transpose(inverse(u_model))) * a_normal;
-    v_water_frame = a_tex_slot;
+    v_tex_coord = tex_coords[tex_coord_id];
+    v_normal = mat3(transpose(inverse(u_model))) * normals[normal_id];
     gl_Position = u_proj * u_view * position;
 }
 
@@ -65,7 +82,7 @@ void main() {
     int water_frame = int(u_time_elapsed * 30.0) % 32;
     vec3 tex_arr_coord = vec3(v_tex_coord, float(water_frame));
 
-    out_color = vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord);
+    out_color = vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord) * vec4(1,1,1,1.2);
 
     out_normal = vec4(v_normal, 1.0);
 

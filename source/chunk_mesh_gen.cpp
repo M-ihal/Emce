@@ -10,95 +10,70 @@ static inline Block get_block(ChunkMeshGenData *gen_data, const vec3i &block_rel
 }
 
 static inline void fill_tex_coords(ChunkVaoVertex v[4]) {
-    v[0].tex_coord = { 0.0f, 0.0f };
-    v[1].tex_coord = { 1.0f, 0.0f };
-    v[2].tex_coord = { 1.0f, 1.0f };
-    v[3].tex_coord = { 0.0f, 1.0f };
+    v[0].tc = 0;
+    v[1].tc = 1;
+    v[2].tc = 2;
+    v[3].tc = 3;
 }
 
-static inline void fill_tex_slots(ChunkVaoVertex v[4], uint32_t slot) {
-    v[0].tex_slot = (float)slot;
-    v[1].tex_slot = (float)slot;
-    v[2].tex_slot = (float)slot;
-    v[3].tex_slot = (float)slot;
+static inline void fill_tex_slots(ChunkVaoVertex v[4], uint8_t slot) {
+    v[0].ts = slot;
+    v[1].ts = slot;
+    v[2].ts = slot;
+    v[3].ts = slot;
 }
 
 static inline void offset_vertices(ChunkVaoVertex v[4], const vec3i &offset) {
-    vec3 offset_f = vec3::make(offset);
-    v[0].position += offset_f;
-    v[1].position += offset_f;
-    v[2].position += offset_f;
-    v[3].position += offset_f;
+    v[0].x += offset.x; v[0].y += offset.y; v[0].z += offset.z;
+    v[1].x += offset.x; v[1].y += offset.y; v[1].z += offset.z;
+    v[2].x += offset.x; v[2].y += offset.y; v[2].z += offset.z;
+    v[3].x += offset.x; v[3].y += offset.y; v[3].z += offset.z;
 }
 
 static void fill_block_cube_vao_vertex(ChunkVaoVertex v[4], BlockSide side, const vec3i &offset) {
     switch(side) {
         default: INVALID_CODE_PATH; break;
 
-        case BlockSide::Z_POS: {
-            v[0].position = vec3{ 0.0f, 0.0f, 1.0f };
-            v[1].position = vec3{ 1.0f, 0.0f, 1.0f };
-            v[2].position = vec3{ 1.0f, 1.0f, 1.0f };
-            v[3].position = vec3{ 0.0f, 1.0f, 1.0f };
-            v[0].normal = vec3{ 0.0f, 0.0f, 1.0f };
-            v[1].normal = vec3{ 0.0f, 0.0f, 1.0f };
-            v[2].normal = vec3{ 0.0f, 0.0f, 1.0f };
-            v[3].normal = vec3{ 0.0f, 0.0f, 1.0f };
-        } break;
-
-        case BlockSide::Z_NEG: {
-            v[0].position = vec3{ 1.0f, 0.0f, 0.0f };
-            v[1].position = vec3{ 0.0f, 0.0f, 0.0f };
-            v[2].position = vec3{ 0.0f, 1.0f, 0.0f };
-            v[3].position = vec3{ 1.0f, 1.0f, 0.0f };
-            v[0].normal = vec3{ 0.0f, 0.0f, -1.0f };
-            v[1].normal = vec3{ 0.0f, 0.0f, -1.0f };
-            v[2].normal = vec3{ 0.0f, 0.0f, -1.0f };
-            v[3].normal = vec3{ 0.0f, 0.0f, -1.0f };
+        case BlockSide::X_NEG: {
+            v[0].x = 0; v[0].y = 0; v[0].z = 0; v[0].n = 0;
+            v[1].x = 0; v[1].y = 0; v[1].z = 1; v[1].n = 0;
+            v[2].x = 0; v[2].y = 1; v[2].z = 1; v[2].n = 0;
+            v[3].x = 0; v[3].y = 1; v[3].z = 0; v[3].n = 0;
         } break;
 
         case BlockSide::X_POS: {
-            v[0].position = vec3{ 1.0f, 0.0f, 1.0f };
-            v[1].position = vec3{ 1.0f, 0.0f, 0.0f };
-            v[2].position = vec3{ 1.0f, 1.0f, 0.0f };
-            v[3].position = vec3{ 1.0f, 1.0f, 1.0f };
-            v[0].normal = vec3{ 1.0f, 0.0f, 0.0f };
-            v[1].normal = vec3{ 1.0f, 0.0f, 0.0f };
-            v[2].normal = vec3{ 1.0f, 0.0f, 0.0f };
-            v[3].normal = vec3{ 1.0f, 0.0f, 0.0f };
+            v[0].x = 1; v[0].y = 0; v[0].z = 1; v[0].n = 1;
+            v[1].x = 1; v[1].y = 0; v[1].z = 0; v[1].n = 1;
+            v[2].x = 1; v[2].y = 1; v[2].z = 0; v[2].n = 1;
+            v[3].x = 1; v[3].y = 1; v[3].z = 1; v[3].n = 1;
         } break;
 
-        case BlockSide::X_NEG: {
-            v[0].position = vec3{ 0.0f, 0.0f, 0.0f };
-            v[1].position = vec3{ 0.0f, 0.0f, 1.0f };
-            v[2].position = vec3{ 0.0f, 1.0f, 1.0f };
-            v[3].position = vec3{ 0.0f, 1.0f, 0.0f };
-            v[0].normal = vec3{ -1.0f, 0.0f, 0.0f };
-            v[1].normal = vec3{ -1.0f, 0.0f, 0.0f };
-            v[2].normal = vec3{ -1.0f, 0.0f, 0.0f };
-            v[3].normal = vec3{ -1.0f, 0.0f, 0.0f };
+        case BlockSide::Z_NEG: {
+            v[0].x = 1; v[0].y = 0; v[0].z = 0; v[0].n = 2;
+            v[1].x = 0; v[1].y = 0; v[1].z = 0; v[1].n = 2;
+            v[2].x = 0; v[2].y = 1; v[2].z = 0; v[2].n = 2;
+            v[3].x = 1; v[3].y = 1; v[3].z = 0; v[3].n = 2;
         } break;
 
-        case BlockSide::Y_POS: {
-            v[0].position = vec3{ 0.0f, 1.0f, 1.0f };
-            v[1].position = vec3{ 1.0f, 1.0f, 1.0f };
-            v[2].position = vec3{ 1.0f, 1.0f, 0.0f };
-            v[3].position = vec3{ 0.0f, 1.0f, 0.0f };
-            v[0].normal = vec3{ 0.0f, 1.0f, 0.0f };
-            v[1].normal = vec3{ 0.0f, 1.0f, 0.0f };
-            v[2].normal = vec3{ 0.0f, 1.0f, 0.0f };
-            v[3].normal = vec3{ 0.0f, 1.0f, 0.0f };
+        case BlockSide::Z_POS: {
+            v[0].x = 0; v[0].y = 0; v[0].z = 1; v[0].n = 3;
+            v[1].x = 1; v[1].y = 0; v[1].z = 1; v[1].n = 3;
+            v[2].x = 1; v[2].y = 1; v[2].z = 1; v[2].n = 3;
+            v[3].x = 0; v[3].y = 1; v[3].z = 1; v[3].n = 3;
         } break;
 
         case BlockSide::Y_NEG: {
-            v[0].position = vec3{ 0.0f, 0.0f, 0.0f };
-            v[1].position = vec3{ 1.0f, 0.0f, 0.0f };
-            v[2].position = vec3{ 1.0f, 0.0f, 1.0f };
-            v[3].position = vec3{ 0.0f, 0.0f, 1.0f };
-            v[0].normal = vec3{ 0.0f, -1.0f, 0.0f };
-            v[1].normal = vec3{ 0.0f, -1.0f, 0.0f };
-            v[2].normal = vec3{ 0.0f, -1.0f, 0.0f };
-            v[3].normal = vec3{ 0.0f, -1.0f, 0.0f };
+            v[0].x = 0; v[0].y = 0; v[0].z = 0; v[0].n = 4;
+            v[1].x = 1; v[1].y = 0; v[1].z = 0; v[1].n = 4;
+            v[2].x = 1; v[2].y = 0; v[2].z = 1; v[2].n = 4;
+            v[3].x = 0; v[3].y = 0; v[3].z = 1; v[3].n = 4;
+        } break;
+
+        case BlockSide::Y_POS: {
+            v[0].x = 0; v[0].y = 1; v[0].z = 1; v[0].n = 5;
+            v[1].x = 1; v[1].y = 1; v[1].z = 1; v[1].n = 5;
+            v[2].x = 1; v[2].y = 1; v[2].z = 0; v[2].n = 5;
+            v[3].x = 0; v[3].y = 1; v[3].z = 0; v[3].n = 5;
         } break;
     }
 
@@ -177,50 +152,32 @@ static void fill_block_cube_vao_tex_coords(ChunkVaoVertex v[4], BlockType type, 
 }
 
 static void fill_block_cross_vao_vertex(ChunkVaoVertex v[4][4], const vec3i &offset) {
-    v[0][0].position = vec3{ 0.0f, 0.0f, 0.0f };
-    v[0][1].position = vec3{ 1.0f, 0.0f, 1.0f };
-    v[0][2].position = vec3{ 1.0f, 1.0f, 1.0f };
-    v[0][3].position = vec3{ 0.0f, 1.0f, 0.0f };
+    v[0][0].x = 0; v[0][0].y = 0; v[0][0].z = 0; v[0][0].n = 6;
+    v[0][1].x = 1; v[0][1].y = 0; v[0][1].z = 1; v[0][1].n = 6;
+    v[0][2].x = 1; v[0][2].y = 1; v[0][2].z = 1; v[0][2].n = 6;
+    v[0][3].x = 0; v[0][3].y = 1; v[0][3].z = 0; v[0][3].n = 6;
 
-    v[1][0].position = vec3{ 0.0f, 0.0f, 1.0f };
-    v[1][1].position = vec3{ 1.0f, 0.0f, 0.0f };
-    v[1][2].position = vec3{ 1.0f, 1.0f, 0.0f };
-    v[1][3].position = vec3{ 0.0f, 1.0f, 1.0f };
+    v[1][0].x = 0; v[1][0].y = 0; v[1][0].z = 1; v[1][0].n = 7;
+    v[1][1].x = 1; v[1][1].y = 0; v[1][1].z = 0; v[1][1].n = 7;
+    v[1][2].x = 1; v[1][2].y = 1; v[1][2].z = 0; v[1][2].n = 7;
+    v[1][3].x = 0; v[1][3].y = 1; v[1][3].z = 1; v[1][3].n = 7;
 
-    v[0][0].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
-    v[0][1].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
-    v[0][2].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
-    v[0][3].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
+#if 0
+    v[2][1].x = 0; v[2][1].y = 0; v[2][1].z = 0; v[2][1].n = 8;
+    v[2][0].x = 1; v[2][0].y = 0; v[2][0].z = 1; v[2][0].n = 8;
+    v[2][3].x = 1; v[2][3].y = 1; v[2][3].z = 1; v[2][3].n = 8;
+    v[2][2].x = 0; v[2][2].y = 1; v[2][2].z = 0; v[2][2].n = 8;
 
-    v[1][0].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
-    v[1][1].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
-    v[1][2].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
-    v[1][3].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
-
-    v[2][1].position = vec3{ 0.0f, 0.0f, 0.0f };
-    v[2][0].position = vec3{ 1.0f, 0.0f, 1.0f };
-    v[2][3].position = vec3{ 1.0f, 1.0f, 1.0f };
-    v[2][2].position = vec3{ 0.0f, 1.0f, 0.0f };
-
-    v[3][1].position = vec3{ 0.0f, 0.0f, 1.0f };
-    v[3][0].position = vec3{ 1.0f, 0.0f, 0.0f };
-    v[3][3].position = vec3{ 1.0f, 1.0f, 0.0f };
-    v[3][2].position = vec3{ 0.0f, 1.0f, 1.0f };
-
-    v[2][0].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
-    v[2][1].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
-    v[2][2].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
-    v[2][3].normal = vec3::normalize({ 1.0f, 0.0f, 1.0f });
-
-    v[3][0].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
-    v[3][1].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
-    v[3][2].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
-    v[3][3].normal = vec3::normalize({ 1.0f, 0.0f, -1.0f });
+    v[3][1].x = 0; v[3][1].y = 0; v[3][1].z = 1; v[3][1].n = 9;
+    v[3][0].x = 1; v[3][0].y = 0; v[3][0].z = 0; v[3][0].n = 9;
+    v[3][3].x = 1; v[3][3].y = 1; v[3][3].z = 0; v[3][3].n = 9;
+    v[3][2].x = 0; v[3][2].y = 1; v[3][2].z = 1; v[3][2].n = 9;
+#endif
 
     offset_vertices(v[0], offset);
     offset_vertices(v[1], offset);
-    offset_vertices(v[2], offset);
-    offset_vertices(v[3], offset);
+    //offset_vertices(v[2], offset);
+    //offset_vertices(v[3], offset);
 }
 
 static void fill_block_cross_vao_tex_coords(ChunkVaoVertex v[4][4], BlockType type) {
@@ -247,10 +204,10 @@ static void fill_block_cross_vao_tex_coords(ChunkVaoVertex v[4][4], BlockType ty
 static void push_vao_quad(ChunkVaoVertex quad_vertices[4], ChunkMeshData &data) {
     const int32_t start = data.vertices.size();
 
-    data.vertices.push_back(quad_vertices[0]);
-    data.vertices.push_back(quad_vertices[1]);
-    data.vertices.push_back(quad_vertices[2]);
-    data.vertices.push_back(quad_vertices[3]);
+    data.vertices.push_back(pack_chunk_vertex(quad_vertices[0]));
+    data.vertices.push_back(pack_chunk_vertex(quad_vertices[1]));
+    data.vertices.push_back(pack_chunk_vertex(quad_vertices[2]));
+    data.vertices.push_back(pack_chunk_vertex(quad_vertices[3]));
 
     data.indices.push_back(start + 0);
     data.indices.push_back(start + 1);
@@ -457,7 +414,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
             if(nb_block.type == BlockType::WATER) {
                 connect_wall[side] = false;
             } else {
-                if(flags & HAS_TRANSPARENCY && nb_flags & HAS_TRANSPARENCY && !(nb_flags & IS_NOT_VISIBLE) && block.type == nb_block.type) {
+                if(flags & HAS_TRANSPARENCY && nb_flags & HAS_TRANSPARENCY && !(nb_flags & IS_NOT_VISIBLE) && block.type == nb_block.type && block.type != BlockType::TREE_LEAVES) {
                     connect_wall[side] = true;
                 }
             }
@@ -474,9 +431,14 @@ void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType type) {
         false, false, false
     };
 
+
+    push_block_vao_data(type, mesh_data, { 0, 0, 0 }, connect_wall);
+
+#if 0
     push_block_vao_data(type, mesh_data, { 0, 0, 0 }, connect_wall);
     for(uint32_t index = 0; index < mesh_data.vertices.size(); ++index) {
         ChunkVaoVertex &v = mesh_data.vertices[index];
         v.position -= vec3::make(0.5f);
     }
+#endif
 }

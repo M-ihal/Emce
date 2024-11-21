@@ -90,8 +90,8 @@ private:
     Font m_ui_font_big;
     Font m_ui_font_smooth;
 
-    ShaderFile   m_block_shader;
-    TextureArray m_block_tex_array;
+    ShaderFile   m_chunk_shader;
+    TextureArray m_chunk_tex_array;
 
     ShaderFile   m_water_shader;
     TextureArray m_water_tex_array;

@@ -169,7 +169,7 @@ void chunk_gen(ChunkGenData &gen) {
 void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]) {
     siv::PerlinNoise perlin(gen.seed.seed);
 
-    const int32_t octaves = 4;
+    const int32_t octaves = 6;
     const double freq_x = 0.00315;
     const double freq_z = 0.00315;
 
@@ -185,6 +185,7 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
                 int32_t height_left; 
                 int32_t height_right; 
             } segments[] = {
+#if 0
                 { 0.00, 0.25, 40 + 0,   40 + 6  },
                 { 0.25, 0.30, 40 + 6,   40 + 14  },
                 { 0.30, 0.65, 40 + 14,  40 + 80  },
@@ -193,6 +194,15 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
                 { 0.75, 0.80, 40 + 128, 40 + 164 },
                 { 0.80, 0.90, 40 + 164, 40 + 196 },
                 { 0.90, 1.00, 40 + 196, 40 + 200 },
+#else
+                { 0.00, 0.35, 40, 48 },
+                { 0.35, 0.40, 48, 70 },
+                { 0.40, 0.55, 70, 90 },
+                { 0.55, 0.75, 90, 120 },
+                { 0.75, 0.85, 120, 142 },
+                { 0.85, 0.90, 142, 160 },
+                { 0.90, 1.00, 160, 200 },
+#endif
             };
 
             int32_t height = 0;

@@ -2,10 +2,27 @@
 
 #version 330 core
 
-layout (location = 0) in vec3 a_position;
-layout (location = 1) in vec3 a_normal;
-layout (location = 2) in vec2 a_tex_coord;
-layout (location = 3) in float a_tex_slot;
+vec2 tex_coords[4] = vec2[](
+    vec2(0.0, 0.0),
+    vec2(1.0, 0.0),
+    vec2(1.0, 1.0),
+    vec2(0.0, 1.0)
+);
+
+vec3 normals[] = vec3[](
+    vec3(-1.0, 0.0, 0.0),
+    vec3( 1.0, 0.0, 0.0),
+    vec3( 0.0, 0.0,-1.0),
+    vec3( 0.0, 0.0, 1.0),
+    vec3( 0.0,-1.0, 0.0),
+    vec3( 0.0, 1.0, 0.0),
+    vec3( 0.707107, 0.0,  0.707107),
+    vec3(-0.707107, 0.0,  0.707107),
+    vec3(-0.707107, 0.0, -0.707107),
+    vec3( 0.707107, 0.0, -0.707107)
+);
+
+layout (location = 0) in uvec2 a_packed;
 
 uniform mat4 u_proj;
 uniform mat4 u_view;
@@ -15,15 +32,23 @@ out vec2 v_tex_coord;
 out vec3 v_normal;
 out float v_tex_slot;
 
+out vec3 v_pos;
+
 void main() {
-    v_tex_coord = a_tex_coord;
-#if 0
-    v_normal = a_normal;
-#else
-    v_normal = mat3(transpose(inverse(u_model))) * a_normal;
-#endif
-    v_tex_slot = a_tex_slot;
-    gl_Position = u_proj * u_view * u_model * vec4(a_position, 1.0);
+    uint pos_x = (a_packed.x >> 0u) & 0xFFu;
+    uint pos_y = (a_packed.x >> 8u) & 0xFFu;
+    uint pos_z = (a_packed.x >> 16u) & 0xFFu;
+    uint normal_id = (a_packed.x >> 24u) & 0xFu;
+
+    uint tex_slot = (a_packed.y >> 0u) & 0xFFu;
+    uint tex_coord_id = (a_packed.y >> 8u) & 0x3u;
+
+    v_tex_coord = tex_coords[tex_coord_id];
+    v_normal = mat3(transpose(inverse(u_model))) * normals[normal_id];
+    v_tex_slot = tex_slot;
+
+    v_pos = vec3(float(pos_x + 0.5), float(pos_y), float(pos_z));
+    gl_Position = u_proj * u_view * u_model * vec4(pos_x, pos_y, pos_z, 1.0);
 }
 
 @shader_fragment
@@ -32,9 +57,11 @@ void main() {
 
 uniform sampler2DArray u_texture_array;
 
-in vec2 v_tex_coord;
-in vec3 v_normal;
+in vec2  v_tex_coord;
+in vec3  v_normal;
 in float v_tex_slot;
+
+in vec3 v_pos;
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_normal;
@@ -59,8 +86,7 @@ void main() {
 
     out_normal = vec4(v_normal, 1.0);
 
-    // final_color = vec4(0, 0, 0, 1);
-    
+
     // @todo hardcoded
     float z_near = 0.1;
 	float z_far  = 300.0;
