@@ -46,6 +46,8 @@ void Console::initialize(void) {
     }
 
     this->set_command("clear", CONSOLE_COMMAND_LAMBDA { console.clear_history(); });
+
+    this->add_to_history("Type 'commands' to list commands.");
 }
 
 void Console::destroy(void) {

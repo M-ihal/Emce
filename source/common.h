@@ -40,6 +40,7 @@
 
 /* requires: stdio.h */
 #define PRINT_INT(v) fprintf(stdout, "\"%s\" = %d\n", #v, v)
+#define PRINT_UINT(v) fprintf(stdout, "\"%s\" = %u\n", #v, v)
 #define PRINT_FLOAT(v) fprintf(stdout, "\"%s\" = %f\n", #v, v)
 #define PRINT_DOUBLE(v) fprintf(stdout, "\"%s\" = %f\n", #v, v)
 #define PRINT_VEC2(v) fprintf(stdout, "\"%s\" = { %f, %f }\n", #v, v.x, v.y)

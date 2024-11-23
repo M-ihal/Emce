@@ -152,6 +152,20 @@ static void fill_block_cube_vao_tex_coords(ChunkVaoVertex v[4], BlockType type, 
 }
 
 static void fill_block_cross_vao_vertex(ChunkVaoVertex v[4][4], const vec3i &offset) {
+
+/*
+    vec3(-1.0, 0.0, 0.0),
+    vec3( 1.0, 0.0, 0.0),
+    vec3( 0.0, 0.0,-1.0),
+    vec3( 0.0, 0.0, 1.0),
+    vec3( 0.0,-1.0, 0.0),
+    vec3( 0.0, 1.0, 0.0),
+    vec3( 0.707107, 0.0,  0.707107),
+    vec3(-0.707107, 0.0,  0.707107),
+    vec3(-0.707107, 0.0, -0.707107),
+    vec3( 0.707107, 0.0, -0.707107)
+*/
+
     v[0][0].x = 0; v[0][0].y = 0; v[0][0].z = 0; v[0][0].n = 6;
     v[0][1].x = 1; v[0][1].y = 0; v[0][1].z = 1; v[0][1].n = 6;
     v[0][2].x = 1; v[0][2].y = 1; v[0][2].z = 1; v[0][2].n = 6;
@@ -201,6 +215,36 @@ static void fill_block_cross_vao_tex_coords(ChunkVaoVertex v[4][4], BlockType ty
     fill_tex_slots(v[3], texture_id);
 }
 
+static vec3i g_ao_offsets[6][4][2] = {
+    { { vec3i{ 0, -1, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ 0, -1, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ 0, +1, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ 0, +1, 0 }, vec3i{ 0, 0, -1 } } },
+    { { vec3i{ 0, -1, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ 0, -1, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ 0, +1, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ 0, +1, 0 }, vec3i{ 0, 0, +1 } } },
+    { { vec3i{ +1, 0, 0 }, vec3i{ 0, -1, 0 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, -1, 0 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, +1, 0 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, +1, 0 } } },
+    { { vec3i{ -1, 0, 0 }, vec3i{ 0, -1, 0 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, -1, 0 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, +1, 0 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, +1, 0 } } },
+    { { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, +1 } } },
+    { { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, -1 } } },
+};
+
+void fill_block_cube_vao_ao(ChunkMeshGenData *gen, ChunkVaoVertex v[4], BlockSide side, const vec3i &block_rel, bool connect_wall[BLOCK_SIDE_COUNT]) {
+    const int32_t side_id = (int32_t)side;
+    vec3i normal = get_side_normal(side);
+
+    for(int32_t vert = 0; vert < 4; ++vert) {
+        vec3i block_0 = block_rel + g_ao_offsets[side_id][vert][0] + normal;
+        vec3i block_1 = block_rel + g_ao_offsets[side_id][vert][1] + normal;
+
+        bool side_0 = is_inside_chunk(block_0) && get_block(gen, block_0).type != BlockType::AIR && get_block(gen, block_0).type != BlockType::GRASS;
+        bool side_1 = is_inside_chunk(block_1) && get_block(gen, block_1).type != BlockType::AIR && get_block(gen, block_1).type != BlockType::GRASS;
+        if(side_0 && side_1) {
+            v[vert].ao = 0;
+        } else {
+            vec3i block_corner = block_rel + g_ao_offsets[side_id][vert][0] + g_ao_offsets[side_id][vert][1] + normal;
+            bool corner = is_inside_chunk(block_corner) && get_block(gen, block_corner).type != BlockType::AIR && get_block(gen, block_corner).type != BlockType::GRASS;
+
+            v[vert].ao = 3 - ((int32_t)side_0 + (int32_t)side_1 + (int32_t)corner);
+        }
+    }
+}
+
 static void push_vao_quad(ChunkVaoVertex quad_vertices[4], ChunkMeshData &data) {
     const int32_t start = data.vertices.size();
 
@@ -209,15 +253,24 @@ static void push_vao_quad(ChunkVaoVertex quad_vertices[4], ChunkMeshData &data) 
     data.vertices.push_back(pack_chunk_vertex(quad_vertices[2]));
     data.vertices.push_back(pack_chunk_vertex(quad_vertices[3]));
 
-    data.indices.push_back(start + 0);
-    data.indices.push_back(start + 1);
-    data.indices.push_back(start + 2);
-    data.indices.push_back(start + 2);
-    data.indices.push_back(start + 3);
-    data.indices.push_back(start + 0);
+    if(quad_vertices[0].ao + quad_vertices[2].ao < quad_vertices[1].ao + quad_vertices[3].ao) {
+        data.indices.push_back(start + 1);
+        data.indices.push_back(start + 2);
+        data.indices.push_back(start + 3);
+        data.indices.push_back(start + 3);
+        data.indices.push_back(start + 0);
+        data.indices.push_back(start + 1);
+    } else {
+        data.indices.push_back(start + 0);
+        data.indices.push_back(start + 1);
+        data.indices.push_back(start + 2);
+        data.indices.push_back(start + 2);
+        data.indices.push_back(start + 3);
+        data.indices.push_back(start + 0);
+    }
 }
 
-static void push_water_vao_data(ChunkMeshData &data, const vec3i &block_rel, bool connect_wall[BLOCK_SIDE_COUNT]) {
+static void push_water_vao_data(ChunkMeshGenData *gen_data, ChunkMeshData &data, const vec3i &block_rel, bool connect_wall[BLOCK_SIDE_COUNT]) {
     for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
         ChunkVaoVertex v[4] = { };
 
@@ -225,12 +278,35 @@ static void push_water_vao_data(ChunkMeshData &data, const vec3i &block_rel, boo
             fill_block_cube_vao_vertex(v, (BlockSide)side, block_rel);
             fill_tex_coords(v);
             fill_tex_slots(v, 0); /* Tex slot in water means water frame */
+            if(gen_data) {
+                fill_block_cube_vao_ao(gen_data, v, (BlockSide)side, block_rel, connect_wall);
+            } else {
+                v[0].ao = 3;
+                v[1].ao = 3;
+                v[2].ao = 3;
+                v[3].ao = 3;
+            }
             push_vao_quad(v, data);
+
+#if 0
+            /* If facing up, duplicate quad from other side */
+            if(side == (int32_t)BlockSide::Y_POS) {
+                ChunkVaoVertex temp = v[0];
+                v[0] = v[1];
+                v[1] = temp;
+
+                temp = v[2];
+                v[2] = v[3];
+                v[3] = temp;
+                push_vao_quad(v, data);
+            }
+#endif
         }
     }
 }
 
-static void push_block_vao_data(BlockType type, ChunkMeshData &data, const vec3i &block_rel, bool connect_wall[BLOCK_SIDE_COUNT]) {
+
+static void push_block_vao_data(ChunkMeshGenData *gen_data, BlockType type, ChunkMeshData &data, const vec3i &block_rel, bool connect_wall[BLOCK_SIDE_COUNT]) {
     enum : int32_t { CUBE, CROSS, NOT_SET } block_vis;
 
     switch(type) {
@@ -266,6 +342,14 @@ static void push_block_vao_data(BlockType type, ChunkMeshData &data, const vec3i
                 if(!connect_wall[side]) {
                     fill_block_cube_vao_vertex(v, (BlockSide)side, block_rel);
                     fill_block_cube_vao_tex_coords(v, type, (BlockSide)side);
+                    if(gen_data) {
+                        fill_block_cube_vao_ao(gen_data, v, (BlockSide)side, block_rel, connect_wall);
+                    } else {
+                        v[0].ao = 3;
+                        v[1].ao = 3;
+                        v[2].ao = 3;
+                        v[3].ao = 3;
+                    }
                     push_vao_quad(v, data);
                 }
             }
@@ -367,7 +451,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
                 }
             }
 
-            push_water_vao_data(gen_data->water, block_rel, connect_wall);
+            push_water_vao_data(gen_data, gen_data->water, block_rel, connect_wall);
             continue;
         }
 
@@ -420,7 +504,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
             }
         }
 
-        push_block_vao_data(block.type, gen_data->chunk, block_rel, connect_wall);
+        push_block_vao_data(gen_data, block.type, gen_data->chunk, block_rel, connect_wall);
     }
 }
 
@@ -431,14 +515,5 @@ void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType type) {
         false, false, false
     };
 
-
-    push_block_vao_data(type, mesh_data, { 0, 0, 0 }, connect_wall);
-
-#if 0
-    push_block_vao_data(type, mesh_data, { 0, 0, 0 }, connect_wall);
-    for(uint32_t index = 0; index < mesh_data.vertices.size(); ++index) {
-        ChunkVaoVertex &v = mesh_data.vertices[index];
-        v.position -= vec3::make(0.5f);
-    }
-#endif
+    push_block_vao_data(NULL, type, mesh_data, { 0, 0, 0 }, connect_wall);
 }

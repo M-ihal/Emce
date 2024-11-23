@@ -125,6 +125,8 @@ struct vec3i {
     static vec3i make(const vec3 &v);
 };
 
+bool operator == (const vec3i &l, const vec3i &r);
+bool operator != (const vec3i &l, const vec3i &r);
 vec3i operator + (const vec3i &l, const vec3i r);
 vec3i operator - (const vec3i &l, const vec3i r);
 

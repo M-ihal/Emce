@@ -28,6 +28,7 @@ uniform float u_time_elapsed;
 
 out vec2 v_tex_coord;
 out vec3 v_normal;
+out float v_ambient_occlusion;
 
 void main() {
     uint pos_x = (a_packed.x >> 0u) & 0xFFu;
@@ -37,6 +38,7 @@ void main() {
 
     // uint tex_slot = (a_packed.y >> 0u) & 0xFFu;
     uint tex_coord_id = (a_packed.y >> 8u) & 0x3u;
+    uint ambient_occlusion = (a_packed.y >> 10u) & 0x3u;
 
     vec4 position = u_model * vec4(pos_x, pos_y, pos_z, 1.0);
 
@@ -50,6 +52,7 @@ void main() {
         
         position.y -= 0.2;
     }
+    v_ambient_occlusion = float(ambient_occlusion);
 
     v_tex_coord = tex_coords[tex_coord_id];
     v_normal = mat3(transpose(inverse(u_model))) * normals[normal_id];
@@ -66,23 +69,26 @@ uniform float u_time_elapsed;
 
 in vec2 v_tex_coord;
 in vec3 v_normal;
+in float v_ambient_occlusion;
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_normal;
 layout (location = 2) out vec4 out_depth;
 
 void main() {
+    float ambient_occlusion = mix(0.3, 1.0, v_ambient_occlusion / 3.0);
+
     const vec3 sun_diffuse = vec3(0.8, 0.82, 0.85);
     const vec3 sun_dir = normalize(vec3(-0.3, -0.55, +0.22));
     vec3 normal        = normalize(v_normal);
     vec3 dir_to_sun    = -sun_dir; 
     float diff = max(dot(normal, dir_to_sun), 0.35);
-    vec3  diffuse = sun_diffuse * diff;
+    vec3  diffuse = sun_diffuse * diff * ambient_occlusion;
 
     int water_frame = int(u_time_elapsed * 30.0) % 32;
     vec3 tex_arr_coord = vec3(v_tex_coord, float(water_frame));
 
-    out_color = vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord) * vec4(1,1,1,1.2);
+    out_color = vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord) * vec4(1,1,1,0.8);
 
     out_normal = vec4(v_normal, 1.0);
 

@@ -80,9 +80,6 @@ BlockOffset oak_tree_blocks[] = {
     { BlockType::TREE_LEAVES, { 0, 3, 2} },
     { BlockType::TREE_LEAVES, { -1, 3, 2} },
     { BlockType::TREE_LEAVES, { 1, 3, 2} },
-
-
-    
 };
 
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
@@ -137,7 +134,7 @@ void chunk_gen(ChunkGenData &gen) {
 
             if(height_map[x][z] > ocean_level) {
                 // PLANT GRASS
-                if(rand() % 10 == 0) {
+                if(false && rand() % 10 == 0) {
                     if(get_block(gen, vec3i{ x, height_map[x][z], z }).type == BlockType::AIR) {
                         set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
                     }

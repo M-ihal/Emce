@@ -14,11 +14,13 @@
 enum class WorldBlitMode {
     COLOR,
     NORMALS,
-    DEPTH
+    DEPTH,
+    AMBIENT_OCCLUSION
 };
 
 namespace {
     static int32_t  g_load_radius = 8;
+    static int32_t  g_deload_radius = 16;
     static float    g_third_person_distance = 10.0f;
     static bool     g_third_person_mode = false;
     static uint32_t g_triangles_rendered_last_frame = 0;
@@ -28,10 +30,17 @@ namespace {
     static bool g_debug_show_player_collider = false;
     static bool g_debug_chunk_wireframe_mode = false;
     static WorldBlitMode g_debug_world_blit_mode = WorldBlitMode::COLOR;
+
+    static vec3i g_spawn_p1 = { 0, 0, 0 };
+    static vec3i g_spawn_p2 = { 200, 200, 200 };
 }
 
 int32_t get_load_radius(void) {
     return g_load_radius;
+}
+
+int32_t get_deload_radius(void) {
+    return g_load_radius + g_deload_radius;
 }
 
 Game::Game(Window &window) : m_world(this) {
@@ -44,10 +53,10 @@ Game::Game(Window &window) : m_world(this) {
         fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
+        fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_set_depth(fbo_config,  { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::DEPTH24_STENCIL8 });
         m_fbo_ms.create_fbo(m_width, m_height, fbo_config);
     }
-
     /* Load resources */ {
         m_ui_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
         m_ui_font_big.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 40);
@@ -84,12 +93,12 @@ Game::Game(Window &window) : m_world(this) {
 
         const float sv_vertices[] = {
             -0.5f, -0.5f,  0.5f,
-             0.5f, -0.5f,  0.5f,
-             0.5f,  0.5f,  0.5f,
+            0.5f, -0.5f,  0.5f,
+            0.5f,  0.5f,  0.5f,
             -0.5f,  0.5f,  0.5f,
             -0.5f, -0.5f, -0.5f,
-             0.5f, -0.5f, -0.5f,
-             0.5f,  0.5f, -0.5f,
+            0.5f, -0.5f, -0.5f,
+            0.5f,  0.5f, -0.5f,
             -0.5f,  0.5f, -0.5f 
         };
 
@@ -156,25 +165,31 @@ Game::Game(Window &window) : m_world(this) {
     }
 
     m_console.initialize();
-    m_world.initialize_world(14);
+    m_world.initialize_world(19);
 
     m_player.initialize(m_console);
     m_player.set_position({
-        .x = CHUNK_SIZE_X * 0.5f,
-        .y = 152.0f,
-        .z = CHUNK_SIZE_Z * 0.5f
-    });
+            .x = CHUNK_SIZE_X * 0.5f,
+            .y = 152.0f,
+            .z = CHUNK_SIZE_Z * 0.5f
+            });
 
     // Init world chunks
     m_world.create_chunks_in_range_offload(m_player.get_position_chunk(), g_load_radius + 1);
 
     this->add_console_commands();
 
+    m_gen_chunks_condition = SDL_CreateCondition();
+    m_gen_meshes_condition = SDL_CreateCondition();
+
     this->start_threads(1, 1);
 }
 
 Game::~Game(void) {
     this->stop_threads();
+
+    SDL_DestroyCondition(m_gen_chunks_condition);
+    SDL_DestroyCondition(m_gen_meshes_condition);
 
     m_fbo_ms.delete_fbo();
 
@@ -285,7 +300,7 @@ void Game::update(Window &window, const Input &input, double delta_time) {
 
         memcpy(chunk->m_blocks, gen_data.blocks, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block));
         chunk->m_state = ChunkState::GENERATED;
-        
+
         bool has_neighbours = m_world.chunk_neighbours_generated(chunk->m_chunk_xz);
         if(has_neighbours) {
             m_world.gen_chunk_mesh_offload(chunk->m_chunk_xz);
@@ -321,7 +336,7 @@ int32_t Game::thread_gen_chunks_proc(void) {
     int32_t ret_val = 0;
 
     for(; m_threads_keep_looping ;) {
-
+    
         bool gen_data_found = false;
         ChunkGenData gen_data;
 
@@ -340,6 +355,12 @@ int32_t Game::thread_gen_chunks_proc(void) {
             m_world.m_chunks_generated.push_back(gen_data);
             SDL_UnlockMutex(m_world.m_lock_chunk_gen);
         }
+
+        SDL_LockMutex(m_world.m_lock_chunk_gen);
+        if(m_world.m_chunks_to_generate.empty()) {
+            SDL_WaitCondition(m_gen_chunks_condition, m_world.m_lock_chunk_gen);
+        }
+        SDL_UnlockMutex(m_world.m_lock_chunk_gen);
     }
 
     return ret_val;
@@ -365,6 +386,12 @@ int32_t Game::thread_gen_meshes_proc(void) {
             m_world.m_meshes_built.push_back(mesh_data);
             SDL_UnlockMutex(m_world.m_lock_mesh_gen);
         }
+
+        SDL_LockMutex(m_world.m_lock_mesh_gen);
+        if(m_world.m_meshes_to_build.empty()) {
+            SDL_WaitCondition(m_gen_meshes_condition, m_world.m_lock_mesh_gen);
+        }
+        SDL_UnlockMutex(m_world.m_lock_mesh_gen);
     }
 
     return ret_val;
@@ -383,7 +410,6 @@ static int _thread_gen_meshes_proc(void *game_ptr) {
 void Game::start_threads(int32_t chunks_threads, int32_t meshes_threads) {
     ASSERT(chunks_threads <= MAX_GEN_CHUNKS_THREADS && meshes_threads <= MAX_GEN_MESHES_THREADS && "Invalid number of threads!!!");
 
-    this->stop_threads();
     m_threads_keep_looping = true;
 
     m_gen_chunks_thread_num = chunks_threads;
@@ -414,6 +440,8 @@ void Game::stop_threads(void) {
     /* Make threads finish */
     m_threads_keep_looping = false;
 
+    this->wake_up_gen_chunks_threads();
+
     /* Wait for all threads to finish */
     for(uint32_t index = 0; index < m_gen_chunks_thread_num; ++index) {
         if(m_gen_chunks_threads[index]) {
@@ -421,6 +449,9 @@ void Game::stop_threads(void) {
             m_gen_chunks_threads[index] = NULL;
         }
     }
+
+    this->wake_up_gen_meshes_threads();
+
     for(uint32_t index = 0; index < m_gen_meshes_thread_num; ++index) {
         if(m_gen_meshes_threads[index]) {
             SDL_WaitThread(m_gen_meshes_threads[index], NULL);
@@ -435,52 +466,28 @@ void Game::render_frame(void) {
     const float aspect_ratio = (float)m_fbo_ms.get_width() / (float)m_fbo_ms.get_height();
     mat4 proj_m = m_camera.calc_proj(aspect_ratio);
     mat4 view_m = m_camera.calc_view();
- 
+
     /* Gathers chunk vao triangles rendered */
     g_triangles_rendered_last_frame = 0;
 
     set_viewport({ 0, 0, m_width, m_height });
 
+
     m_fbo_ms.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
     m_fbo_ms.bind_fbo();
 
     this->render_world(proj_m, view_m);
-    this->render_water(proj_m, view_m);
-    this->render_skybox(proj_m, view_m);
-
-    /* Render targeted block outline */ {
-        RaycastBlockResult target = m_player.get_targeted_block();
-        if(target.found) {
-            set_render_state({
-                .blend = BlendFunc::DISABLE,
-                .depth = DepthFunc::DISABLE,
-                .multisample = true,
-            });
-
-            /* The targeted block */
-            SimpleDraw::draw_cube_outline(target.block_p.real, vec3::make(1), 1.0f / 64.0f, { 1.0f, 1.0f, 1.0f });
-
-            /* Itersection point */
-            const float point_size = 0.1f;
-            SimpleDraw::draw_cube_outline(target.intersection - vec3::make(point_size * 0.5f), vec3::make(point_size), 1.0f / 128.0f, { 1.0f, 1.0f, 1.0f });
-
-            /* Normal block */
-            const WorldPosition next = WorldPosition::from_block(target.block_p.block + target.normal);
-            SimpleDraw::draw_line(target.block_p.real + vec3::make(0.5f), next.real + vec3::make(0.5f), 2.0f, vec3::absolute(vec3::make(get_block_side_dir(target.side))));
-        }
-    }
-
-
-    /* Clear depth and render held block */
-    m_fbo_ms.clear_depth();
-    this->render_held_block(proj_m, view_m, aspect_ratio);
-
-    bind_no_fbo();
-
-    // @TODO @TODO
 
     switch(g_debug_world_blit_mode) {
         case WorldBlitMode::COLOR: {
+
+            set_render_state({
+                    .blend = BlendFunc::DISABLE,
+                    .depth = DepthFunc::DISABLE,
+                    .multisample = true,
+                    });
+
+
             FboConfig config;
             fbo_config_push_color(config, { .target = FboAttachmentTarget::TEXTURE, .format = TextureDataFormat::RGBA });
 
@@ -519,7 +526,49 @@ void Game::render_frame(void) {
         case WorldBlitMode::DEPTH: {
             m_fbo_ms.blit_color_attachment(2, m_width, m_height);
         } break;
+
+        case WorldBlitMode::AMBIENT_OCCLUSION: {
+            m_fbo_ms.blit_color_attachment(3, m_width, m_height);
+        } break;
     }
+
+    m_fbo_ms.blit_depth_attachment(m_width, m_height);
+
+    bind_no_fbo();
+
+    bind_no_fbo();
+
+    if(g_debug_world_blit_mode == WorldBlitMode::COLOR) {
+        this->render_skybox(proj_m, view_m);
+    }
+
+    this->render_water(proj_m, view_m);
+
+
+/* Render targeted block outline */ {
+        RaycastBlockResult target = m_player.get_targeted_block();
+        if(target.found) {
+            set_render_state({
+                    .blend = BlendFunc::DISABLE,
+                    .depth = DepthFunc::DISABLE,
+                    .multisample = true,
+                    });
+
+            /* The targeted block */
+            SimpleDraw::draw_cube_outline(target.block_p.real, vec3::make(1), 1.0f / 64.0f, { 1.0f, 1.0f, 1.0f });
+
+            /* Itersection point */
+            const float point_size = 0.1f;
+            SimpleDraw::draw_cube_outline(target.intersection - vec3::make(point_size * 0.5f), vec3::make(point_size), 1.0f / 128.0f, { 1.0f, 1.0f, 1.0f });
+
+            /* Normal block */
+            const WorldPosition next = WorldPosition::from_block(target.block_p.block + target.normal);
+            SimpleDraw::draw_line(target.block_p.real + vec3::make(0.5f), next.real + vec3::make(0.5f), 2.0f, vec3::absolute(vec3::make(get_block_side_dir(target.side))));
+        }
+    }
+
+
+    this->render_held_block(proj_m, view_m, aspect_ratio);
 
     bind_no_fbo();
     this->render_ui();
@@ -533,11 +582,11 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
     m_chunk_tex_array.bind_texture_unit(0);
 
     set_render_state({
-        .blend = BlendFunc::DISABLE,
-        .depth = DepthFunc::LESS,
-        .multisample = true,
-        .cull_faces = true
-    });
+            .blend = BlendFunc::DISABLE,
+            .depth = DepthFunc::LESS,
+            .multisample = true,
+            .cull_faces = true
+            });
 
     if(g_debug_chunk_wireframe_mode) {
         set_line_width(1.0f);
@@ -573,11 +622,11 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
     }
 
     set_render_state({
-        .blend = BlendFunc::DISABLE,
-        .depth = DepthFunc::LESS,
-        .multisample = true,
-        .cull_faces = false
-    });
+            .blend = BlendFunc::DISABLE,
+            .depth = DepthFunc::LESS,
+            .multisample = true,
+            .cull_faces = false
+            });
 
     /* Render shape in third person mode */
     if(g_third_person_mode) {
@@ -613,10 +662,12 @@ void Game::render_world(const mat4 &proj_m, const mat4 &view_m) {
 
 void Game::render_water(const mat4 &proj_m, const mat4 &view_m) {
     set_render_state({
-        .blend = BlendFunc::STANDARD,
-        .depth = DepthFunc::LESS,
-        .multisample = true
-    });
+            .blend = BlendFunc::STANDARD,
+            .depth = DepthFunc::LESS,
+            .multisample = true,
+            .cull_faces = true,
+            .disable_depth_write = true
+            });
 
     m_water_shader.use_program();
     m_water_shader.upload_mat4("u_proj", proj_m);
@@ -624,6 +675,8 @@ void Game::render_water(const mat4 &proj_m, const mat4 &view_m) {
     m_water_shader.upload_float("u_time_elapsed", m_time_elapsed);
     m_water_shader.upload_int("u_water_texture_array", 0);
     m_water_tex_array.bind_texture_unit(0);
+
+    std::vector<Chunk *> chunks;
 
     /* Go through loaded chunks and render water */
     ChunkHashTable::Iterator iter;
@@ -635,18 +688,34 @@ void Game::render_water(const mat4 &proj_m, const mat4 &view_m) {
             continue;
         }
 
+        chunks.push_back(chunk);
+    }
+
+    /* @TODO : IDK */
+
+    std::sort(chunks.begin(), chunks.end(), [] (Chunk *a, Chunk *b) { 
+        vec2 chunk = vec2::make(a->m_owner->m_owner->get_player().get_position_chunk()); // @TODO
+        float dist_a = vec2::length_sq(chunk - vec2::make(a->get_chunk_xz()));
+        float dist_b = vec2::length_sq(chunk - vec2::make(b->get_chunk_xz()));
+        return dist_a > dist_b; 
+    });
+
+    for(auto &chunk : chunks) {
         const vec3 chunk_translate = {
-            .x = (float)(iter.key.x * CHUNK_SIZE_X),
+            .x = (float)(chunk->m_chunk_xz.x * CHUNK_SIZE_X),
             .y = 0.0f,
-            .z = (float)(iter.key.y * CHUNK_SIZE_Z)
+            .z = (float)(chunk->m_chunk_xz.y * CHUNK_SIZE_Z)
         };
 
         m_water_shader.upload_mat4("u_model", mat4::translate(chunk_translate));
+
+        const VertexArray &water_vao = chunk->get_water_vao();
 
         water_vao.bind_vao();
         draw_elements_triangles(water_vao.get_ibo_count());
 
         g_triangles_rendered_last_frame += water_vao.get_ibo_count() / 3;
+
     }
 }
 
@@ -686,6 +755,14 @@ void Game::render_held_block(const mat4 &proj_m, const mat4 &view_m, float aspec
     transform *= mat4::rotate_y(rotate_y);
     transform *= mat4::translate(position);
 
+    set_render_state({
+            .blend = BlendFunc::STANDARD,
+            .depth = DepthFunc::ALWAYS,
+            .multisample = true,
+            .cull_faces = true
+            });
+
+
     BlockType held_block = m_player.get_held_block();
     this->render_single_block(held_block, transform, proj_m, view_m);
 }
@@ -708,13 +785,6 @@ void Game::render_single_block(BlockType type, const mat4 &model_m, const mat4 &
     m_chunk_shader.upload_mat4("u_model", model_m);
     m_chunk_shader.upload_int("u_texture_array", 0);
     m_chunk_tex_array.bind_texture_unit(0);
-
-    set_render_state({
-        .blend = BlendFunc::STANDARD,
-        .depth = DepthFunc::LESS,
-        .multisample = true,
-        .cull_faces = true
-    });
 
     m_block_vao.bind_vao();
     draw_elements_triangles(m_block_vao.get_ibo_count());
@@ -741,7 +811,7 @@ static int32_t calc_fps(double delta_time);
 void Game::render_ui_debug_info(void) {
     Font &font = m_ui_font_smooth;
 
-    const float spacing = 8.0f;
+    const float spacing = 2.0f; // 8.0f;
     const vec2  padding = { 4.0f, 4.0f };
     const float baseline = m_height - padding.y - font.get_ascent() * font.get_scale_for_pixel_height();
 
@@ -750,6 +820,7 @@ void Game::render_ui_debug_info(void) {
 
     TextBatcher batcher;
     batcher.begin();
+
 
     /* Labda that outputs next line in the debug panel */
     auto debug_line = [&] (const char *format, ...) {
@@ -763,6 +834,8 @@ void Game::render_ui_debug_info(void) {
     };
 
     WorldPosition player_p = WorldPosition::from_real(m_player.get_position());
+    Camera cam = m_player.get_head_camera();
+    vec3 cam_dir = cam.calc_direction();
 
     RaycastBlockResult target_block = m_player.get_targeted_block();
     Block *targeted_block = NULL;
@@ -789,6 +862,7 @@ void Game::render_ui_debug_info(void) {
         debug_line("block:     %+02d, %+02d, %+02d", player_p.block.x, player_p.block.y, player_p.block.z);
         debug_line("block rel: %+02d, %+02d, %+02d", player_p.block_rel.x, player_p.block_rel.y, player_p.block_rel.z);
         debug_line("chunk:     %+02d, %+02d", player_p.chunk.x, player_p.chunk.y);
+        debug_line("orientation %+.3f, %+.3f, %+.3f", cam_dir.x, cam_dir.y, cam_dir.z);
         debug_line(NULL);
 
         debug_line("--- World ---");
@@ -830,6 +904,14 @@ void Game::resize(int32_t width, int32_t height) {
     m_fbo_ms.resize_fbo(width, height);
 }
 
+void Game::wake_up_gen_chunks_threads(void) {
+    SDL_BroadcastCondition(m_gen_chunks_condition);
+}
+
+void Game::wake_up_gen_meshes_threads(void) {
+    SDL_BroadcastCondition(m_gen_meshes_condition);
+}
+
 World &Game::get_world(void) {
     return m_world;
 }
@@ -861,6 +943,7 @@ void Game::add_console_commands(void) {
                 return;
             }
 
+            game.stop_threads();
             game.start_threads(chunks_threads, meshes_threads);
         }
     });
@@ -913,6 +996,8 @@ void Game::add_console_commands(void) {
                 g_debug_world_blit_mode = WorldBlitMode::NORMALS;
             } else if(args[0] == "depth") {
                 g_debug_world_blit_mode = WorldBlitMode::DEPTH;
+            } else if(args[0] == "AO") {
+                g_debug_world_blit_mode = WorldBlitMode::AMBIENT_OCCLUSION;
             }
         }
     });
@@ -978,6 +1063,71 @@ void Game::add_console_commands(void) {
             }
         }
     });
+
+        m_console.set_command("set_p1", { CONSOLE_COMMAND_LAMBDA {
+            if(args.size() != 3) {
+                return;
+            }
+
+            int32_t x = std::stoi(s_viu_to_std_string(args[0]));
+            int32_t y = std::stoi(s_viu_to_std_string(args[1]));
+            int32_t z = std::stoi(s_viu_to_std_string(args[2]));
+            g_spawn_p1 = vec3i{ x, y, z };
+        }   
+    });
+
+          m_console.set_command("set_p2", { CONSOLE_COMMAND_LAMBDA {
+            if(args.size() != 3) {
+                return;
+            }
+
+            int32_t x = std::stoi(s_viu_to_std_string(args[0]));
+            int32_t y = std::stoi(s_viu_to_std_string(args[1]));
+            int32_t z = std::stoi(s_viu_to_std_string(args[2]));
+            g_spawn_p2 = vec3i{ x, y, z };
+        }   
+    });
+
+
+        m_console.set_command("spawn", { CONSOLE_COMMAND_LAMBDA {
+            World &world = game.get_world();
+
+            if(args.size() != 1) {
+                return;
+            }
+
+            BlockType type = (BlockType)std::stoi(s_viu_to_std_string(args[0]));
+            if(!((int32_t)type >= 0 && (int32_t)type < (int32_t)BlockType::_COUNT)) {
+                console.add_to_history("Invalid block id!!!");
+                return;
+            }
+
+            vec3i min = {
+                MIN(g_spawn_p1.x, g_spawn_p2.x),
+                MIN(g_spawn_p1.y, g_spawn_p2.y),
+                MIN(g_spawn_p1.z, g_spawn_p2.z),
+            };
+
+            vec3i max = {
+                MAX(g_spawn_p1.x, g_spawn_p2.x),
+                MAX(g_spawn_p1.y, g_spawn_p2.y),
+                MAX(g_spawn_p1.z, g_spawn_p2.z),
+            };
+
+            for(int32_t x = min.x; x <= max.x; x++) {
+            for(int32_t y = min.y; y <= max.y; y++) {
+                for(int32_t z = min.z; z <= max.z; z++) {
+                    WorldPosition p = WorldPosition::from_block({ x, y, z });
+                    if(Chunk *chunk = world.get_chunk_create(p.chunk)) {
+                        chunk->set_block(p.block_rel, type);
+                        chunk->m_mesh_state = ChunkMeshState::WAITING;
+                    }
+                }
+            }
+            }
+        }
+    });
+
 }
 
 static int32_t calc_fps(double delta_time) {

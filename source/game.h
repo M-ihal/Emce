@@ -12,11 +12,12 @@
 #include "texture_array.h"
 
 #define MAX_GEN_CHUNKS_THREADS 2
-#define MAX_GEN_MESHES_THREADS 4
+#define MAX_GEN_MESHES_THREADS 8
 
 class Window;
 
 int32_t get_load_radius(void);
+int32_t get_deload_radius(void);
 
 class Game {
 public:
@@ -41,16 +42,18 @@ public:
     /* Window size changed callback */
     void resize(int32_t width, int32_t height);
 
+    void wake_up_gen_chunks_threads(void);
+    void wake_up_gen_meshes_threads(void);
+
     /* Getters */
     World   &get_world(void);
     Camera  &get_camera(void);
     Player  &get_player(void);
     Console &get_console(void);
 
-    /* THREAD */
+    /* THREADING */
     int32_t thread_gen_chunks_proc(void);
     int32_t thread_gen_meshes_proc(void);
-
     void start_threads(int32_t chunks_threads, int32_t meshes_threads);
     void start_threads(void); // Creates threads with specified last amount or 1, 1
     void stop_threads(void);
@@ -72,6 +75,8 @@ private:
     SDL_Thread *m_gen_meshes_threads[MAX_GEN_MESHES_THREADS] = { };
     bool m_threads_created = false;
     bool m_threads_keep_looping;
+    SDL_Condition *m_gen_chunks_condition;
+    SDL_Condition *m_gen_meshes_condition;
 
     double m_time_elapsed;
     double m_delta_time;

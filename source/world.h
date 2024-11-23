@@ -14,7 +14,7 @@
 
 inline uint64_t func_hash_chunk_key(const vec2i &key);
 inline bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
-typedef meh::Table<vec2i, Chunk *, func_hash_chunk_key, func_compare_chunk_key> ChunkHashTable;
+typedef meh::Table<vec2i, Chunk *, func_hash_chunk_key, func_compare_chunk_key, 85> ChunkHashTable;
 
 class Game;
 
@@ -45,6 +45,9 @@ public:
 
     /* Returns chunk if has been generated */
     Chunk *get_chunk(vec2i chunk_xz);
+
+    /* Creates chunk if doesn't exist, and returns it */
+    Chunk *get_chunk_create(vec2i chunk_xz);
 
     /* Returns Block and _opt_ Chunk from absolute position */
     Block *get_block(vec3i block_abs, Chunk **out_chunk = NULL);

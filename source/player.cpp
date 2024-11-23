@@ -241,26 +241,22 @@ void Player::update(Game &game, const Input &input, float delta_time) {
                     if(!would_collide) {
                         place_block->type = m_held_block;
 
-                        if(block_destroy) {
-                            target->type = BlockType::AIR;
+                        // @TODO : If no bordering chunks will crash !!
+                        vec2i chunk_xz = m_targeted_block.block_p.chunk;
+                        world.gen_chunk_mesh_imm(chunk_xz);
 
-                            // @TODO : If no bordering chunks will crash !!
-                            vec2i chunk_xz = m_targeted_block.block_p.chunk;
-                            world.gen_chunk_mesh_imm(chunk_xz);
-
-                            /* Update neighbouring chunk/s if block was bordering them */
-                            if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_NEG)) {
-                                world.gen_chunk_mesh_imm(chunk_xz + vec2i{ -1, 0 });
-                            }
-                            if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_POS)) {
-                                world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 1, 0 });
-                            }
-                            if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_NEG)) {
-                                world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, -1 });
-                            }
-                            if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_POS)) {
-                                world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, +1 });
-                            }
+                        /* Update neighbouring chunk/s if block was bordering them */
+                        if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_NEG)) {
+                            world.gen_chunk_mesh_imm(chunk_xz + vec2i{ -1, 0 });
+                        }
+                        if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_POS)) {
+                            world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 1, 0 });
+                        }
+                        if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_NEG)) {
+                            world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, -1 });
+                        }
+                        if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_POS)) {
+                            world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, +1 });
                         }
                     }
                 }

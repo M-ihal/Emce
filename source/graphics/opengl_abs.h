@@ -15,7 +15,8 @@ enum class BlendFunc {
 enum class DepthFunc {
     DISABLE,
     LESS,
-    LESS_OR_EQUAL
+    LESS_OR_EQUAL,
+    ALWAYS
 };
 
 struct RenderSetup {
@@ -23,6 +24,7 @@ struct RenderSetup {
     DepthFunc depth = DepthFunc::DISABLE;
     bool multisample = true;
     bool cull_faces = false;
+    bool disable_depth_write = false;
 };
 
 void set_viewport(const vec4i &viewport);

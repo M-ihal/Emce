@@ -24,11 +24,12 @@ struct ChunkVaoVertex {
     uint32_t n;
     uint32_t tc;
     uint32_t ts;
+    uint32_t ao;
 };
 
 struct ChunkVaoVertexPacked {
     uint32_t packed1; /* 8:x, 8:y, 8:z, 4:normal - 4:free */
-    uint32_t packed2; /* 8:tex_slot, 2:texcoord  - 22:free */
+    uint32_t packed2; /* 8:tex_slot, 2:texcoord, 2:ambient_occlusion  - 20:free */
 };
 
 inline ChunkVaoVertexPacked pack_chunk_vertex(ChunkVaoVertex vx) {
@@ -39,20 +40,53 @@ inline ChunkVaoVertexPacked pack_chunk_vertex(ChunkVaoVertex vx) {
               | ((vx.n & 0b00001111) << 24);
 
     v.packed2 = ((vx.ts & 0b11111111) << 0)
-              | ((vx.tc & 0b00000011) << 8);
+              | ((vx.tc & 0b00000011) << 8)
+              | ((vx.ao & 0b00000011) << 10);
 
     return v;
 }
 
 #define BLOCK_SIDE_COUNT 6
 enum class BlockSide : uint8_t {
-    Z_POS,
-    Z_NEG,
-    X_POS,
     X_NEG,
-    Y_POS,
+    X_POS,
+    Z_NEG,
+    Z_POS,
     Y_NEG,
+    Y_POS,
 };
+
+inline constexpr vec3i get_side_normal(BlockSide side) {
+    switch(side) {
+        case BlockSide::X_NEG: return vec3i{ -1,  0,  0 };
+        case BlockSide::X_POS: return vec3i{ +1,  0,  0 };
+        case BlockSide::Z_NEG: return vec3i{  0,  0, -1 };
+        case BlockSide::Z_POS: return vec3i{  0,  0,  1 };
+        case BlockSide::Y_NEG: return vec3i{  0, -1,  0 };
+        case BlockSide::Y_POS: return vec3i{  0, +1,  0 };
+    }
+    INVALID_CODE_PATH;
+    return { };
+}
+
+inline constexpr BlockSide get_side_from_normal(const vec3i &normal) {
+    if(normal == vec3i{ -1, 0, 0 }) {
+        return BlockSide::X_NEG;
+    } else if(normal == vec3i{ 1, 0, 0 }) {
+        return BlockSide::X_POS;
+    } if(normal == vec3i{ 0, 0, -1 }) {
+        return BlockSide::Z_NEG;
+    } else if(normal == vec3i{ 0, 0, 1 }) {
+        return BlockSide::Z_POS;
+    } else if(normal == vec3i{ 0, -1, 0 }) {
+        return BlockSide::Y_NEG;
+    } else if(normal == vec3i{ 0, 1, 0 }) {
+        return BlockSide::Y_POS;
+    }
+
+    INVALID_CODE_PATH;
+    return (BlockSide)0;
+}
 
 inline constexpr vec3i get_block_side_dir(BlockSide side) {
     switch(side) {

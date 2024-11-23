@@ -22,9 +22,6 @@
 #include "game.h"
 #include "simple_draw.h"
 #include "framebuffer.h"
-#include "draw.h"
-
-#include <meh_dynamic_array.h>
 
 namespace {
     constexpr int32_t INIT_WINDOW_WIDTH  = 1280;

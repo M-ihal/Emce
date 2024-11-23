@@ -73,7 +73,7 @@ void World::update_loaded_chunks(float delta_time) {
             continue;
         }
 
-        if(!is_chunk_in_range(chunk_iter.key, m_owner->get_player().get_position_chunk(), get_load_radius())) {
+        if(!is_chunk_in_range(chunk_iter.key, m_owner->get_player().get_position_chunk(), get_deload_radius())) {
             chunks_to_delete.push_back(chunk_iter.key);
             continue;
         }
@@ -114,6 +114,26 @@ Chunk *World::get_chunk(vec2i chunk_xz) {
     return chunk;
 }
 
+/* @TODO */
+Chunk *World::get_chunk_create(vec2i chunk_xz) {
+    Chunk **chunk_hash = m_chunk_table.find(chunk_xz);
+    Chunk *chunk = NULL;
+    if(chunk_hash) {
+        chunk = *chunk_hash;
+    } else {
+        chunk = new Chunk(this, chunk_xz);
+        m_chunk_table.insert(chunk_xz, chunk);
+
+        ChunkGenData gen_data;
+        chunk_gen_data_init(gen_data, chunk_xz, get_gen_seed());
+        chunk_gen(gen_data);
+        memcpy(chunk->m_blocks, gen_data.blocks, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block));
+        chunk->m_state = ChunkState::GENERATED;
+        chunk->m_mesh_state = ChunkMeshState::WAITING;
+    }
+    return chunk;
+}
+
 Block *World::get_block(vec3i block_abs, Chunk **out_chunk) {
     WorldPosition block_p = WorldPosition::from_block(block_abs);
 
@@ -140,6 +160,8 @@ void World::create_chunk_offload(vec2i chunk_xz) {
         SDL_LockMutex(m_lock_chunk_gen);
         m_chunks_to_generate.push(gen_data);
         SDL_UnlockMutex(m_lock_chunk_gen);
+
+        m_owner->wake_up_gen_chunks_threads();
     }
 }
 
@@ -172,6 +194,8 @@ void World::gen_chunk_mesh_offload(vec2i chunk_xz) {
     m_meshes_to_build.push(mesh_data);
     chunk->m_mesh_state = ChunkMeshState::QUEUED;
     SDL_UnlockMutex(m_lock_mesh_gen);
+
+    m_owner->wake_up_gen_meshes_threads();
 }
 
 void World::gen_chunk_mesh_imm(vec2i chunk_xz) {

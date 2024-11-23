@@ -231,6 +231,14 @@ vec3i vec3i::make(const vec3 &v) {
     return vec3i{ int32_t(v.x), int32_t(v.y), int32_t(v.z) };
 }
 
+bool operator == (const vec3i &l, const vec3i &r) {
+    return l.x == r.x && l.y == r.y && l.z == r.z;
+}
+
+bool operator != (const vec3i &l, const vec3i &r) {
+    return !(l == r);
+}
+
 vec3i operator + (const vec3i &l, const vec3i r) {
     return vec3i{ l.x + r.x, l.y + r.y, l.z + r.z };
 }

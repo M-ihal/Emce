@@ -66,6 +66,11 @@ public:
     /* Blit onto backbuffer */
     void blit_color_attachment(uint32_t slot, int32_t width, int32_t height);
 
+    void blit_depth_attachment(Framebuffer &dest);
+
+    /* Blit onto backbuffer */
+    void blit_depth_attachment(int32_t width, int32_t height);
+
     bool is_complete(void); /* Is fbo valid && are attachments generated */
 
     int32_t get_width(void);

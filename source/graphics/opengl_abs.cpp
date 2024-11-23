@@ -44,6 +44,17 @@ void set_render_state(const RenderSetup &setup) {
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LEQUAL);
         } break;
+
+        case DepthFunc::ALWAYS: {
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_ALWAYS);
+        } break;
+    }
+
+    if(setup.disable_depth_write) {
+        glDepthMask(GL_FALSE);
+    } else {
+        glDepthMask(GL_TRUE);
     }
 
     if(setup.multisample) {

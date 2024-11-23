@@ -127,6 +127,14 @@ void Framebuffer::blit_color_attachment(uint32_t slot, int32_t width, int32_t he
     GL_CHECK(glBlitNamedFramebuffer(m_fbo_id, 0, 0, 0, m_width, m_height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 }
 
+void Framebuffer::blit_depth_attachment(Framebuffer &dest) {
+    GL_CHECK(glBlitNamedFramebuffer(m_fbo_id, dest.get_fbo_id(), 0, 0, m_width, m_height, 0, 0, dest.get_width(), dest.get_height(), GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST));
+}
+
+void Framebuffer::blit_depth_attachment(int32_t width, int32_t height) {
+    GL_CHECK(glBlitNamedFramebuffer(m_fbo_id, 0, 0, 0, m_width, m_height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST));
+}
+
 bool Framebuffer::is_complete(void) {
     return m_fbo_id != 0 && m_attachments_generated;
 }
@@ -221,7 +229,7 @@ void Framebuffer::gen_attachments(void) {
             } break;
         }
 
-        GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gl_target, attachment_id, 0));
+        GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, gl_target, attachment_id, 0));
         m_depth_attachment = attachment_id;
     }
 
