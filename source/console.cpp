@@ -46,7 +46,6 @@ void Console::initialize(void) {
     }
 
     this->set_command("clear", CONSOLE_COMMAND_LAMBDA { console.clear_history(); });
-
     this->add_to_history("Type 'commands' to list commands.");
 }
 
@@ -120,7 +119,6 @@ void Console::update(Game &game, const Input &input, Window &window, double delt
     }
 
     bool input_changed_this_frame = false;
-
 
     /* Get last valid input */
     if(input.key_pressed(Key::UP)) {

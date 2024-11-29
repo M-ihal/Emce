@@ -62,7 +62,9 @@ struct vec2i {
         int32_t e[2];
     };
 
+    static vec2i make_xz(const struct vec3i &v);
     static vec2i zero(void);
+
     static vec2i absolute(const vec2i &v);
 };
 

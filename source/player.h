@@ -3,12 +3,12 @@
 #include "common.h"
 #include "math_types.h"
 #include "camera.h"
-#include "world.h"
 #include "world_utils.h"
 
 class Input;
 class Game;
 class Console;
+class World;
 
 enum class PlayerMovementMode {
     NORMAL,
@@ -21,8 +21,8 @@ public:
 
     Player(void) = default;
 
-    /* Initialize player values */
-    void initialize(World &world, vec2i spawn_chunk);
+    /* Initialize player values when creating new world */
+    void setup_player(World &world, vec2i spawn_chunk);
 
     /* Player's update proc */
     void update(Game &game, const Input &input, float delta_time);

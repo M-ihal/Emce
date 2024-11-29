@@ -33,9 +33,6 @@ public:
     /* Renders frame onto backbuffer */
     void render_frame(void);
 
-    /* Render single block */
-    void render_single_block(BlockType type, const mat4 &model_m, const mat4 &proj_m, const mat4 &view_m);
-
     /* Hotload shaders if modified */
     void hotload_shaders(void);
 
@@ -45,10 +42,8 @@ public:
     void wake_up_gen_chunks_threads(void);
     void wake_up_gen_meshes_threads(void);
 
-    /* */
     World   &get_world(void);
     Camera  &get_camera(void);
-    Player  &get_player(void);
     Console &get_console(void);
 
     /* Threads */
@@ -59,7 +54,6 @@ public:
     void stop_threads(void);
 
 private:
-    void push_debug_ui(void);
     void add_console_commands(void);
 
     void render_world(const mat4 &proj_m);
@@ -70,6 +64,7 @@ private:
     void render_crosshair(void);
     void render_ui(void);
     void render_ui_debug_info(void);
+    void render_single_block(BlockType type, const mat4 &model_m, const mat4 &proj_m, const mat4 &view_m);
 
 
     /* Game state */
@@ -77,7 +72,6 @@ private:
     double  m_delta_time;
     Camera  m_camera;
     World   m_world;
-    Player  m_player;
     Console m_console;
  
     /* Threading stuff */

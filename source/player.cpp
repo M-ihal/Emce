@@ -20,19 +20,26 @@ namespace {
     constexpr float PLAYER_RAYCAST_DIST           = 16.0f;
 }
 
-void Player::initialize(World &world, vec2i spawn_chunk) {
+void Player::setup_player(World &world, vec2i spawn_chunk) {
     m_velocity     = vec3::zero();
     m_is_sprinting = false;
     m_held_block   = BlockType::TREE_LOG;
+    m_head_camera.initialize();
+    m_movement_mode = PlayerMovementMode::NORMAL;
+
+    const vec3i spawn_block_rel = { CHUNK_SIZE_X / 2, 0, CHUNK_SIZE_Z / 2 };
+    const vec2i spawn_chunk_block = vec2i::make_xz(block_position_from_relative(spawn_block_rel, spawn_chunk));
 
     /* Figure player spawn position */
-    int32_t spawn_x = spawn_chunk.x;
-    int32_t spawn_z = spawn_chunk.y;
+    int32_t spawn_x = spawn_chunk_block.x;
+    int32_t spawn_z = spawn_chunk_block.y;
     int32_t spawn_y = 0;
+
+    /* Find 2 not solid blocks to set player position */
     while(spawn_y < CHUNK_SIZE_Y + 1) {
-        Block *block_0 = world.get_block({ spawn_x, spawn_y + 0, spawn_z });
-        Block *block_1 = world.get_block({ spawn_x, spawn_y + 1, spawn_z });
-        if(block_0 && !(get_block_flags(block_0->type) & IS_SOLID) && block_1 && !(get_block_flags(block_1->type) & IS_SOLID)) {
+        BlockType block_0 = world.get_block({ spawn_x, spawn_y + 0, spawn_z });
+        BlockType block_1 = world.get_block({ spawn_x, spawn_y + 1, spawn_z });
+        if(block_0 != BlockType::_INVALID && block_1 != BlockType::_INVALID && !(get_block_flags(block_0) & IS_SOLID) && !(get_block_flags(block_1) & IS_SOLID)) {
             break;
         }
         spawn_y++;
@@ -60,13 +67,13 @@ bool Player::check_if_collides_with_any_block(World &world, vec3 position, vec3 
             for(int32_t block_z = min.block.z; block_z <= max.block.z; ++block_z) {
                 WorldPosition block_p = WorldPosition::from_block({ block_x, block_y, block_z });
 
-                Block *block = world.get_block(block_p.block);
-                if(block == NULL) {
+                BlockType block = world.get_block(block_p.block);
+                if(block == BlockType::_INVALID) {
                     /* Block is from chunk that doesn't exist */
                     continue;
                 }
 
-                if(check_aabb_3d(position, size, block_p.real, { 1.0f, 1.0f, 1.0f }) && get_block_flags(block->type) & IS_SOLID) {
+                if(check_aabb_3d(position, size, block_p.real, { 1.0f, 1.0f, 1.0f }) && get_block_flags(block) & IS_SOLID) {
                     return true;
                 }
             }
@@ -226,17 +233,16 @@ void Player::update(Game &game, const Input &input, float delta_time) {
 
     if(m_targeted_block.found) {
         Chunk *target_chunk = NULL;
-        Block *target = world.get_block(m_targeted_block.block_p.block, &target_chunk);
-        if(target != NULL) {
+        BlockType target = world.get_block(m_targeted_block.block_p.block, &target_chunk);
+        if(target != BlockType::_INVALID) {
 
             if(block_place) {
                 WorldPosition place_block_p = WorldPosition::from_block(m_targeted_block.block_p.block + get_block_side_dir(m_targeted_block.side));
-                Block *place_block = world.get_block(place_block_p.block);
-                if(place_block != NULL) {
-                    // @todo : WRONG??
-                    bool would_collide = check_aabb_3d(this->get_position(), PLAYER_COLLIDER_SIZE, place_block_p.real, vec3::make(1));
+                Chunk *place_block_chunk = world.get_chunk(place_block_p.chunk);
+                if(place_block_chunk != NULL) {
+                    bool would_collide = check_aabb_3d(this->get_position_origin(), PLAYER_COLLIDER_SIZE, place_block_p.real, vec3::make(1));
                     if(!would_collide) {
-                        place_block->type = m_held_block;
+                        place_block_chunk->set_block(place_block_p.block_rel, m_held_block);
 
                         // @TODO : If no bordering chunks will crash !!
                         vec2i chunk_xz = m_targeted_block.block_p.chunk;
@@ -260,7 +266,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
             }
 
             if(block_destroy) {
-                target->type = BlockType::AIR;
+                target_chunk->set_block(m_targeted_block.block_p.block_rel, BlockType::AIR);
 
                 // @TODO : If no bordering chunks will crash !!
                 
@@ -335,13 +341,13 @@ void Player::move_in_xz(World &world, float delta_time) {
                 for(int32_t block_z = min.block.z; block_z <= max.block.z; ++block_z) {
                     WorldPosition block_p = WorldPosition::from_block({ block_x, block_y, block_z });
 
-                    Block *block = world.get_block(block_p.block);
-                    if(block == NULL) {
+                    BlockType block = world.get_block(block_p.block);
+                    if(block == BlockType::_INVALID) {
                         /* Block is from chunk that doesn't exist */
                         continue;
                     }
 
-                    if(!(get_block_flags(block->type) & IS_SOLID)) {
+                    if(!(get_block_flags(block) & IS_SOLID)) {
                         continue;
                     }
 

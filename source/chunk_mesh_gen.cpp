@@ -5,8 +5,8 @@ static inline uint32_t get_block_array_index(const vec3i &block_rel) {
     return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
 }
 
-static inline Block get_block(ChunkMeshGenData *gen_data, const vec3i &block_rel) {
-    Block block;
+static inline BlockType get_block(ChunkMeshGenData *gen_data, const vec3i &block_rel) {
+    BlockType block;
     if(is_inside_chunk(block_rel)) {
         block = gen_data->chunk_blocks[get_block_array_index(block_rel)];
     } else {
@@ -16,11 +16,11 @@ static inline Block get_block(ChunkMeshGenData *gen_data, const vec3i &block_rel
 }
 
 /* Get block from the border of any neighbour */
-static inline Block get_block_bordering(ChunkMeshGenData *gen_data, vec3i block_rel) {
+static inline BlockType get_block_bordering(ChunkMeshGenData *gen_data, vec3i block_rel) {
 
     /* If outside Y boundaries -> Assume block is AIR */
     if(block_rel.y < 0 || block_rel.y >= CHUNK_SIZE_Y) {
-        return Block{ .type = BlockType::AIR };
+        return BlockType::AIR;
     }
 
     vec2i chunk_offset = { };
@@ -59,7 +59,7 @@ static inline Block get_block_bordering(ChunkMeshGenData *gen_data, vec3i block_
         return gen_data->chunk_x_pos_z_neg[get_block_array_index(block_rel)];
     } else {
         INVALID_CODE_PATH;
-        return Block{ .type = BlockType::AIR };
+        return BlockType::AIR;
     }
 }
 
@@ -151,36 +151,36 @@ void fill_block_cube_vao_ao(ChunkMeshGenData *gen, ChunkVaoVertex v[4], BlockSid
         vec3i block_0 = block_rel + g_ao_offsets[side_id][vert][0] + normal;
         vec3i block_1 = block_rel + g_ao_offsets[side_id][vert][1] + normal;
 
-        Block block__0;
+        BlockType block__0;
         if(is_inside_chunk(block_0)) {
             block__0 = get_block(gen, block_0);
         } else {
             block__0 = get_block_bordering(gen, block_0);
         }
 
-        Block block__1;
+        BlockType block__1;
         if(is_inside_chunk(block_1)) {
             block__1 = get_block(gen, block_1);
         } else {
             block__1 = get_block_bordering(gen, block_1);
         }
 
-        bool side_0 = block__0.type != BlockType::AIR && block__0.type != BlockType::GRASS && block__0.type != BlockType::GLASS;
-        bool side_1 = block__1.type != BlockType::AIR && block__1.type != BlockType::GRASS && block__1.type != BlockType::GLASS;
+        bool side_0 = block__0 != BlockType::AIR && block__0 != BlockType::GRASS && block__0 != BlockType::GLASS;
+        bool side_1 = block__1 != BlockType::AIR && block__1 != BlockType::GRASS && block__1 != BlockType::GLASS;
 
         if(side_0 && side_1) {
             v[vert].ao = 0;
         } else {
             vec3i block_corner = block_rel + g_ao_offsets[side_id][vert][0] + g_ao_offsets[side_id][vert][1] + normal;
 
-            Block block__corner;
+            BlockType block__corner;
             if(is_inside_chunk(block_corner)) {
                 block__corner = get_block(gen, block_corner);
             } else {
                 block__corner = get_block_bordering(gen, block_corner);
             }
 
-            bool corner = block__corner.type != BlockType::AIR && block__corner.type != BlockType::GRASS && block__corner.type != BlockType::GLASS;
+            bool corner = block__corner != BlockType::AIR && block__corner != BlockType::GRASS && block__corner != BlockType::GLASS;
 
             v[vert].ao = 3 - ((int32_t)side_0 + (int32_t)side_1 + (int32_t)corner);
         }
@@ -251,6 +251,22 @@ static void fill_block_cube_vao_tex_coords(ChunkVaoVertex v[4], BlockType type, 
 
         case BlockType::WATER: {
             texture_id = TEX_WATER;
+        } break;
+
+        case BlockType::CACTUS: {
+            switch(side) {
+                case BlockSide::Y_POS:
+                case BlockSide::Y_NEG: {
+                    texture_id = TEX_CACTUS_TOP;
+                } break;
+
+                case BlockSide::X_POS:
+                case BlockSide::X_NEG:
+                case BlockSide::Z_POS:
+                case BlockSide::Z_NEG: {
+                    texture_id = TEX_CACTUS_SIDE;
+                } break;
+            }
         } break;
     }
 
@@ -384,7 +400,8 @@ static void push_block_vao_data(ChunkMeshGenData *gen_data, BlockType type, Chun
         case BlockType::TREE_LOG:
         case BlockType::TREE_LEAVES:
         case BlockType::GLASS:
-        case BlockType::WATER: {
+        case BlockType::WATER:
+        case BlockType::CACTUS: {
             block_vis = CUBE;
         } break;
 
@@ -449,7 +466,7 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec
     /* Meshing should only appear if neighbouring blocks exist */
     ASSERT(chunk && chunk_x_neg && chunk_x_pos && chunk_z_neg && chunk_z_pos && chunk_x_neg_z_neg && chunk_x_pos_z_pos && chunk_x_neg_z_pos && chunk_x_pos_z_neg);
 
-    const size_t chunk_blocks_size = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block);
+    const size_t chunk_blocks_size = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(BlockType);
 
     /* Copy the main chunk's blocks */
     gen_data->chunk_xz = chunk->get_chunk_xz();
@@ -476,15 +493,15 @@ void chunk_mesh_gen_data_free(ChunkMeshGenData **gen_data_ptr) {
 void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
     for_every_block(x, y, z) {
         vec3i block_rel = { x, y, z };
-        Block block = get_block(gen_data, block_rel);
+        BlockType block = get_block(gen_data, block_rel);
 
         /* Water goes to different vao */
-        if(block.type == BlockType::WATER) {
+        if(block == BlockType::WATER) {
             bool connect_wall[8] = { };
             for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
                 vec3i nb_block_rel = block_rel + get_block_side_dir((BlockSide)side);
 
-                Block nb_block = { .type = BlockType::AIR };
+                BlockType nb_block = BlockType::AIR;
                 if(!is_inside_chunk(nb_block_rel)) {
                     BlockSide side_e = (BlockSide)side;
 
@@ -510,12 +527,12 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
                     nb_block = get_block(gen_data, nb_block_rel);
                 }
 
-                if(nb_block.type != BlockType::AIR) {
-                    uint32_t nb_flags = get_block_flags(nb_block.type);
+                if(nb_block!= BlockType::AIR) {
+                    uint32_t nb_flags = get_block_flags(nb_block);
                     connect_wall[side] = !(nb_flags & IS_NOT_VISIBLE) && !(nb_flags & HAS_TRANSPARENCY);
 
 
-                    if(nb_block.type == BlockType::WATER) {
+                    if(nb_block == BlockType::WATER) {
                         connect_wall[side] = true;
                     }
                 }
@@ -525,7 +542,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
             continue;
         }
 
-        const uint32_t flags = get_block_flags(block.type);
+        const uint32_t flags = get_block_flags(block);
         if(flags & IS_NOT_VISIBLE) {
             continue;
         }
@@ -535,7 +552,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
         for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
             vec3i nb_block_rel = block_rel + get_block_side_dir((BlockSide)side);
 
-            Block nb_block = { .type = BlockType::AIR };
+            BlockType nb_block = BlockType::AIR;
             if(!is_inside_chunk(nb_block_rel)) {
                 BlockSide side_e = (BlockSide)side;
 
@@ -561,20 +578,20 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
                 nb_block = get_block(gen_data, nb_block_rel);
             }
 
-            uint32_t nb_flags = get_block_flags(nb_block.type);
+            uint32_t nb_flags = get_block_flags(nb_block);
 
             connect_wall[side] = !(nb_flags & IS_NOT_VISIBLE) && !(nb_flags & HAS_TRANSPARENCY);
 
-            if(nb_block.type == BlockType::WATER) {
+            if(nb_block == BlockType::WATER) {
                 connect_wall[side] = false;
             } else {
-                if(flags & HAS_TRANSPARENCY && nb_flags & HAS_TRANSPARENCY && !(nb_flags & IS_NOT_VISIBLE) && block.type == nb_block.type && block.type != BlockType::TREE_LEAVES) {
+                if(flags & HAS_TRANSPARENCY && nb_flags & HAS_TRANSPARENCY && !(nb_flags & IS_NOT_VISIBLE) && block == nb_block && block!= BlockType::TREE_LEAVES) {
                     connect_wall[side] = true;
                 }
             }
         }
 
-        push_block_vao_data(gen_data, block.type, gen_data->chunk, block_rel, connect_wall);
+        push_block_vao_data(gen_data, block, gen_data->chunk, block_rel, connect_wall);
     }
 }
 

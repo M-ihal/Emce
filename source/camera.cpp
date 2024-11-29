@@ -3,6 +3,10 @@
 #include <math.h>
 
 Camera::Camera(void) {
+    this->initialize();
+}
+
+void Camera::initialize(void) {
     m_position = { 0.0f, 0.0f, 0.0f };
     m_rotation = { 0.0f, 0.0f };
     m_plane_near = 0.1f;
@@ -11,7 +15,6 @@ Camera::Camera(void) {
     m_up_vector = { 0.0f, 1.0f, 0.0f };
 }
 
-/* TODO Pull math to function */
 vec3 Camera::calc_direction(void) const {
     const float v_angle = m_rotation.y;
     const float h_angle = m_rotation.x;

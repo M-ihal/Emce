@@ -7,6 +7,8 @@ class Camera {
 public:
     Camera(void);
 
+    void initialize(void);
+
     void update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, int32_t rotate_h, float delta_time, bool speed_up);
 
     void rotate_by(int32_t rotate_v, int32_t rotate_h, float delta_time);

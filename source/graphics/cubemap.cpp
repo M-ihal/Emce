@@ -70,6 +70,11 @@ void Cubemap::bind_cubemap(void) {
     GL_CHECK(glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap_id));
 }
 
+void Cubemap::bind_cubemap_unit(uint32_t slot) {
+    ASSERT(m_cubemap_id);
+    GL_CHECK(glBindTextureUnit(slot, m_cubemap_id));
+}
+
 void Cubemap::set_filter_min(TextureFilter param) {
     this->bind_cubemap();
     GL_CHECK(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, gl_filter_from_texture_filter(param)));

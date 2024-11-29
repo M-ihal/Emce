@@ -10,30 +10,32 @@ Game *World::get_game(void) {
     return m_owner;
 }
 
+Player &World::get_player(void) {
+    return m_player;
+}
+
 World::World(Game *game) {
     m_owner = game;
-
     m_lock_chunk_gen = SDL_CreateMutex();
     m_lock_mesh_gen  = SDL_CreateMutex();
-
     m_chunk_table.initialize_table(5000);
     m_gen_seed.seed = 0;
 }
 
 World::~World(void) {
     this->delete_chunks();
-
     SDL_DestroyMutex(m_lock_chunk_gen);
     SDL_DestroyMutex(m_lock_mesh_gen);
 }
 
-void World::initialize_new_world(uint32_t seed, Player &player) {
+void World::initialize_new_world(uint32_t seed) {
     this->delete_chunks();
     m_gen_seed.seed = seed;
 
-    vec2i spawn_chunk = vec2i::zero();
-    this->create_chunks_in_range(spawn_chunk, 8);
-    player.initialize(*this, spawn_chunk);
+    const vec2i spawn_chunk = vec2i::zero();
+    this->create_chunks_in_range(spawn_chunk, 4);
+
+    m_player.setup_player(*this, spawn_chunk);
 }
 
 void World::delete_chunks(void) {
@@ -82,20 +84,18 @@ void World::update_loaded_chunks(float delta_time) {
             continue;
         }
 
-        if(!is_chunk_in_range(chunk_iter.key, m_owner->get_player().get_position_chunk(), get_deload_radius())) {
+        if(!is_chunk_in_range(chunk_iter.key, m_player.get_position_chunk(), get_deload_radius())) {
             chunks_to_delete.push_back(chunk_iter.key);
             continue;
         }
 
-
         float init_timer_speed = 1.0f;
-
-        if(is_chunk_in_range(chunk_iter.key, m_owner->get_player().get_position_chunk(), 1)) {
+        if(is_chunk_in_range(chunk_iter.key, m_player.get_position_chunk(), 1)) {
             /* Make sure 3x3 area around the player doesn't do the appearing animation */
             chunk->m_appear_do_anim = false;
         } else {
             if(chunk->m_appear_do_anim && chunk->m_mesh_state == ChunkMeshState::LOADED) {
-                float distance = vec2::length(vec2::make(m_owner->get_player().get_position_chunk() - chunk->m_chunk_xz));
+                float distance = vec2::length(vec2::make(m_player.get_position_chunk() - chunk->m_chunk_xz));
                 distance = clamp_max(distance, 16.0f);
                 init_timer_speed = clamp_min((SQUARE(2.0f - 2 * distance / 16.0f)), 1.0f);
 
@@ -115,6 +115,7 @@ void World::update_loaded_chunks(float delta_time) {
         }
     }
 
+    /* Delete chunks */
     for(vec2i &chunk_xz : chunks_to_delete) {
         Chunk **chunk_hash = m_chunk_table.find(chunk_xz);
         ASSERT(chunk_hash);
@@ -134,45 +135,54 @@ ChunkHashTable &World::get_chunk_table(void) {
 
 Chunk *World::get_chunk(vec2i chunk_xz) {
     Chunk **chunk_hash = m_chunk_table.find(chunk_xz);
-    Chunk *chunk = NULL;
-    if(chunk_hash) {
-        if((*chunk_hash)->m_state != ChunkState::GENERATING) {
-            chunk = *chunk_hash;
+    if(chunk_hash != NULL) {
+        if((*chunk_hash)->m_state == ChunkState::GENERATING) {
+            return NULL;
+        } else {
+            return *chunk_hash;
         }
     }
-    return chunk;
+    return NULL;
 }
 
-/* @TODO */
 Chunk *World::get_chunk_create(vec2i chunk_xz) {
+    Chunk *to_generate = NULL;
     Chunk **chunk_hash = m_chunk_table.find(chunk_xz);
-    Chunk *chunk = NULL;
-    if(chunk_hash) {
-        chunk = *chunk_hash;
+    if(chunk_hash != NULL) {
+        Chunk *chunk = *chunk_hash;
+        if(chunk->m_state == ChunkState::GENERATED) {
+            return chunk;
+        } else {
+            to_generate = chunk;
+        }
     } else {
-        chunk = new Chunk(this, chunk_xz);
-        m_chunk_table.insert(chunk_xz, chunk);
+        to_generate = new Chunk(this, chunk_xz);
+        m_chunk_table.insert(chunk_xz, to_generate);
+    }
 
+    if(to_generate != NULL) {
         ChunkGenData gen_data;
         chunk_gen_data_init(gen_data, chunk_xz, get_gen_seed());
         chunk_gen(gen_data);
-        memcpy(chunk->m_blocks, gen_data.blocks, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block));
-        chunk->m_state = ChunkState::GENERATED;
-        chunk->m_mesh_state = ChunkMeshState::WAITING;
+
+        to_generate->set_chunk_blocks(gen_data.blocks);
+        to_generate->set_chunk_state(ChunkState::GENERATED);
+        to_generate->set_mesh_state(ChunkMeshState::WAITING);
     }
-    return chunk;
+    return to_generate;
 }
 
-Block *World::get_block(vec3i block_abs, Chunk **out_chunk) {
-    WorldPosition block_p = WorldPosition::from_block(block_abs);
+BlockType World::get_block(vec3i block_abs, Chunk **out_chunk) {
+    WorldPosition block_pos = WorldPosition::from_block(block_abs);
 
-    Block *block = NULL;
-    Chunk *chunk = this->get_chunk(block_p.chunk);
-    if(chunk) {
-        block = chunk->get_block(block_p.block_rel);
-        if(out_chunk) {
-            *out_chunk = chunk;
-        }
+    Chunk *chunk = this->get_chunk(block_pos.chunk);
+    if(chunk == NULL) {
+        return BlockType::_INVALID;
+    }
+
+    BlockType block = chunk->get_block(block_pos.block_rel);
+    if(out_chunk != NULL) {
+        *out_chunk = chunk;
     }
     return block;
 }
@@ -190,19 +200,21 @@ void World::create_chunks_in_range(vec2i origin, int32_t radius) {
 
 void World::create_chunk_offload(vec2i chunk_xz) {
     Chunk **chunk_hash = m_chunk_table.find(chunk_xz);
-    if(chunk_hash == NULL) {
-        Chunk *chunk = new Chunk(this, chunk_xz);
-        m_chunk_table.insert(chunk_xz, chunk);
-
-        ChunkGenData gen_data;
-        chunk_gen_data_init(gen_data, chunk_xz, this->get_gen_seed());
-
-        SDL_LockMutex(m_lock_chunk_gen);
-        m_chunks_to_generate.push(gen_data);
-        SDL_UnlockMutex(m_lock_chunk_gen);
-
-        m_owner->wake_up_gen_chunks_threads();
+    if(chunk_hash != NULL) {
+        return;
     }
+
+    Chunk *chunk = new Chunk(this, chunk_xz);
+    m_chunk_table.insert(chunk_xz, chunk);
+
+    ChunkGenData gen_data;
+    chunk_gen_data_init(gen_data, chunk_xz, this->get_gen_seed());
+
+    SDL_LockMutex(m_lock_chunk_gen);
+    m_chunks_to_generate.push(gen_data);
+    SDL_UnlockMutex(m_lock_chunk_gen);
+
+    m_owner->wake_up_gen_chunks_threads();
 }
 
 void World::create_chunks_in_range_offload(vec2i origin, int32_t radius) {
@@ -223,14 +235,6 @@ void World::gen_chunk_mesh_offload(vec2i chunk_xz) {
         return;
     }
 
-#if 0
-    /* @TODO */
-    if(chunk->m_mesh_state == ChunkMeshState::QUEUED) {
-        /* In the loading queue so do not queue again */
-        return;
-    }
-#endif
-
     SDL_LockMutex(m_lock_mesh_gen);
     ChunkMeshGenData *mesh_data;
     chunk_mesh_gen_data_init(&mesh_data, *this, chunk_xz);
@@ -242,25 +246,32 @@ void World::gen_chunk_mesh_offload(vec2i chunk_xz) {
 }
 
 void World::gen_chunk_mesh_imm(vec2i chunk_xz) {
+    Chunk *chunk = this->get_chunk(chunk_xz);
+    if(chunk == NULL) {
+        /* The chunk isn't loaded ... */
+        return;
+    }
+
     ChunkMeshGenData *mesh_data;
     chunk_mesh_gen_data_init(&mesh_data, *this, chunk_xz);
     chunk_mesh_gen(mesh_data);
-    Chunk *chunk = this->get_chunk(mesh_data->chunk_xz);
-    ASSERT(chunk);
     chunk->set_mesh(mesh_data);
-    chunk_mesh_gen_data_free(&mesh_data);
     chunk->m_mesh_state = ChunkMeshState::LOADED;
+    chunk_mesh_gen_data_free(&mesh_data);
 }
 
 bool World::chunk_neighbours_generated(vec2i chunk_xz) {
-    Chunk *x_neg = this->get_chunk(chunk_xz + vec2i{ -1,  0 });
-    Chunk *x_pos = this->get_chunk(chunk_xz + vec2i{ +1,  0 });
-    Chunk *z_neg = this->get_chunk(chunk_xz + vec2i{  0, -1 });
-    Chunk *z_pos = this->get_chunk(chunk_xz + vec2i{  0, +1 });
-    Chunk *x_neg_z_neg = this->get_chunk(chunk_xz + vec2i{ -1, -1 });
-    Chunk *x_pos_z_pos = this->get_chunk(chunk_xz + vec2i{ +1, +1 });
-    Chunk *x_neg_z_pos = this->get_chunk(chunk_xz + vec2i{ -1, +1 });
-    Chunk *x_pos_z_neg = this->get_chunk(chunk_xz + vec2i{ +1, -1 });
+    Chunk *neighbours[8] = {
+        this->get_chunk(chunk_xz + vec2i{ -1,  0 }),
+        this->get_chunk(chunk_xz + vec2i{ +1,  0 }),
+        this->get_chunk(chunk_xz + vec2i{  0, -1 }),
+        this->get_chunk(chunk_xz + vec2i{  0, +1 }),
+        this->get_chunk(chunk_xz + vec2i{ -1, -1 }),
+        this->get_chunk(chunk_xz + vec2i{ +1, +1 }),
+        this->get_chunk(chunk_xz + vec2i{ -1, +1 }),
+        this->get_chunk(chunk_xz + vec2i{ +1, -1 }),
+    };
 
-    return x_neg && x_pos && z_neg && z_pos && x_neg_z_neg && x_pos_z_pos && x_neg_z_pos && x_pos_z_neg;
+    return (neighbours[0] && neighbours[1] && neighbours[2] && neighbours[3]
+         && neighbours[4] && neighbours[5] && neighbours[6] && neighbours[7]);
 }

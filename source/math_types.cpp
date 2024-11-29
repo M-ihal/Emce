@@ -91,6 +91,10 @@ vec2 &operator *= (vec2 &l, float r) {
    --- vec2i ---
    */
 
+vec2i vec2i::make_xz(const struct vec3i &v) {
+    return vec2i{ v.x, v.z };
+}
+
 vec2i vec2i::zero(void) {
     return vec2i{ 0, 0 };
 }

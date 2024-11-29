@@ -25,6 +25,8 @@ public:
 
     void bind_cubemap(void);
 
+    void bind_cubemap_unit(uint32_t slot);
+
     void set_filter_min(TextureFilter param);
     void set_filter_mag(TextureFilter param);
 

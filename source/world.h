@@ -7,6 +7,7 @@
 #include "chunk_gen.h"
 #include "chunk_mesh_gen.h"
 #include "meh_hash.h"
+#include "player.h"
 
 #include <SDL3/SDL.h>
 #include <vector>
@@ -15,8 +16,6 @@
 inline uint64_t func_hash_chunk_key(const vec2i &key);
 inline bool     func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
 typedef meh::Table<vec2i, Chunk *, func_hash_chunk_key, func_compare_chunk_key, 85> ChunkHashTable;
-
-class Player;
 
 class World {
 public:
@@ -30,8 +29,11 @@ public:
     /* Get _Game_ containing that world */
     Game *get_game(void);
 
+    /* Get the player reference */
+    Player &get_player(void);
+
     /* Deletes current world and initializes new one */
-    void initialize_new_world(uint32_t seed, Player &player);
+    void initialize_new_world(uint32_t seed);
 
     /* Deletes chunks and gen queues, NEED STOP THREADS BEFORE CALLING */
     void delete_chunks(void);
@@ -52,7 +54,7 @@ public:
     Chunk *get_chunk_create(vec2i chunk_xz);
 
     /* Returns Block and _opt_ Chunk from absolute position */
-    Block *get_block(vec3i block_abs, Chunk **out_chunk = NULL);
+    BlockType get_block(vec3i block_abs, Chunk **out_chunk = NULL);
 
     /* Load chunks in range, ONLY MAIN THREAD */
     void create_chunks_in_range(vec2i origin, int32_t radius);
@@ -75,6 +77,7 @@ public:
 private:
     Game *m_owner;
 
+    Player         m_player;
     ChunkHashTable m_chunk_table;
     WorldGenSeed   m_gen_seed;
 

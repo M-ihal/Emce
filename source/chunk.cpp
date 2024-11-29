@@ -8,6 +8,11 @@
 #include <string.h>
 #include <stb_image.h>
 
+static inline uint32_t get_block_array_index(const vec3i &rel) {
+    ASSERT(is_inside_chunk(rel) && "Block out of bounds!!!!!");
+    return rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + rel.y * CHUNK_SIZE_Z + rel.z;
+}
+
 void init_block_texture_array(TextureArray &texture_array, const char *atlas_filepath) {
     stbi_set_flip_vertically_on_load(true);
 
@@ -82,7 +87,7 @@ Chunk::Chunk(class World *world, vec2i chunk_xz) {
     ASSERT(world);
     m_owner = world;
     m_chunk_xz = chunk_xz;
-    memset(m_blocks, 0, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block));
+    memset(m_blocks, 0, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(BlockType));
 
     m_should_unload = false;
     m_unload_timer  = 0.0f;
@@ -111,24 +116,25 @@ void Chunk::delete_vaos(void) {
 
 void Chunk::set_block(const vec3i &rel, BlockType type) {
     if(is_inside_chunk(rel)) {
-        Block *block = this->get_block(rel);
-        block->type = type;
+        uint32_t index = get_block_array_index(rel);
+        m_blocks[index] = type;
     }
 }
 
-Block *Chunk::get_block(const vec3i &rel) {
-    Block *block = NULL;
+BlockType Chunk::get_block(const vec3i &rel) {
+    BlockType block = BlockType::_INVALID;
     if(is_inside_chunk(rel)) {
-        block = &m_blocks[rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + rel.y * CHUNK_SIZE_Z + rel.z];
+        uint32_t index = get_block_array_index(rel);
+        block = m_blocks[index];
     }
     return block;
 }
 
-Block *Chunk::get_block_neighbour(const vec3i &rel, BlockSide side, bool check_other_chunk) {
-    Block *block = NULL;
+BlockType Chunk::get_block_neighbour(const vec3i &rel, BlockSide side, bool check_other_chunk) {
+    BlockType block = BlockType::_INVALID;
     vec3i nb_rel = rel + get_block_side_dir(side);
     if(is_inside_chunk(nb_rel)) {
-        block = &m_blocks[nb_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + nb_rel.y * CHUNK_SIZE_Z + nb_rel.z];
+        block = m_blocks[nb_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + nb_rel.y * CHUNK_SIZE_Z + nb_rel.z];
     } else if(check_other_chunk && nb_rel.y >= 0 && nb_rel.y < CHUNK_SIZE_Y) {
         const vec3i nb_abs = block_position_from_relative(nb_rel, m_chunk_xz);
         WorldPosition nb_p = WorldPosition::from_block(nb_abs);
@@ -140,8 +146,9 @@ Block *Chunk::get_block_neighbour(const vec3i &rel, BlockSide side, bool check_o
     return block;
 }
 
-Block *Chunk::get_block_data(void) {
-    return static_cast<Block *>(m_blocks);
+BlockType *Chunk::get_block_data(void) {
+    BlockType *blocks = static_cast<BlockType *>(m_blocks);
+    return blocks;
 }
 
 vec2i Chunk::get_chunk_xz(void) {
@@ -152,8 +159,8 @@ void Chunk::set_wait_for_mesh_reload(void) {
     m_mesh_state = ChunkMeshState::WAITING;
 }
 
-void Chunk::set_chunk_blocks(Block blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]) {
-   memcpy(m_blocks, blocks, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block)); 
+void Chunk::set_chunk_blocks(BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]) {
+   memcpy(m_blocks, blocks, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(BlockType)); 
 }
 
 ChunkState Chunk::get_chunk_state(void) {

@@ -6,9 +6,9 @@
 #include "texture.h"
 #include "texture_array.h"
 
-inline constexpr int32_t CHUNK_SIZE_X = 32;
-inline constexpr int32_t CHUNK_SIZE_Y = 255;
-inline constexpr int32_t CHUNK_SIZE_Z = 32;
+constexpr int32_t CHUNK_SIZE_X = 32;
+constexpr int32_t CHUNK_SIZE_Y = 255;
+constexpr int32_t CHUNK_SIZE_Z = 32;
 
 #define for_every_block(var_x, var_y, var_z)\
     for(int32_t var_y = 0; var_y < CHUNK_SIZE_Y; ++var_y)\
@@ -29,7 +29,7 @@ struct ChunkVaoVertex {
 
 struct ChunkVaoVertexPacked {
     uint32_t packed1; /* 8:x, 8:y, 8:z, 4:normal - 4:free */
-    uint32_t packed2; /* 8:tex_slot, 2:texcoord, 2:ambient_occlusion  - 20:free */
+    uint32_t packed2; /* 8:tex_slot, 2:texcoord, 2:ambient_occlusion - 20:free */
 };
 
 inline ChunkVaoVertexPacked pack_chunk_vertex(ChunkVaoVertex vx) {
@@ -42,7 +42,6 @@ inline ChunkVaoVertexPacked pack_chunk_vertex(ChunkVaoVertex vx) {
     v.packed2 = ((vx.ts & 0b11111111) << 0)
               | ((vx.tc & 0b00000011) << 8)
               | ((vx.ao & 0b00000011) << 10);
-
     return v;
 }
 
@@ -113,7 +112,9 @@ enum class BlockType : uint8_t {
     GLASS,
     GRASS,
     WATER,
-    _COUNT
+    CACTUS,
+    _COUNT,
+    _INVALID
 };
 
 inline const char *block_type_string[] = {
@@ -127,7 +128,8 @@ inline const char *block_type_string[] = {
     "Tree leaves",
     "Glass",
     "Grass",
-    "Water"
+    "Water",
+    "Cactus"
 };
 
 static_assert(ARRAY_COUNT(block_type_string) == (int32_t)BlockType::_COUNT);
@@ -158,6 +160,7 @@ inline uint32_t get_block_flags(BlockType type) {
         case BlockType::GRASS: return IS_PLACABLE | HAS_TRANSPARENCY;
 
         case BlockType::WATER: return IS_PLACABLE | HAS_TRANSPARENCY;
+        case BlockType::CACTUS: return IS_PLACABLE | IS_SOLID;
     }
 }
 
@@ -174,6 +177,8 @@ enum BlockTextureID : uint32_t {
     TEX_GLASS,
     TEX_GRASS,
     TEX_WATER,
+    TEX_CACTUS_SIDE,
+    TEX_CACTUS_TOP,
     _TEX_COUNT
 };
 
@@ -190,6 +195,8 @@ inline vec2i block_texture_atlas_positions[BlockTextureID::_TEX_COUNT] = {
     { 0, 1 },
     { 1, 3 },
     { 31, 0 },
+    { 3, 0 },
+    { 3, 1 },
 };
 
 /* Upload block pixels from atlas to _created_ TextureArray */
@@ -208,10 +215,6 @@ enum class ChunkMeshState {
     WAITING,
     QUEUED,   
     LOADED,
-};
-
-struct Block {
-    BlockType type;
 };
 
 class Chunk {
@@ -239,13 +242,13 @@ public:
     void set_block(const vec3i &rel, BlockType type);
 
     /* Gets relative block */
-    Block *get_block(const vec3i &rel);
+    BlockType get_block(const vec3i &rel);
 
     /* Gets neighbouring block to rel block */
-    Block *get_block_neighbour(const vec3i &rel, BlockSide side, bool check_other_chunk = false);
+    BlockType get_block_neighbour(const vec3i &rel, BlockSide side, bool check_other_chunk = false);
 
     /* Get pointer to block data */
-    Block *get_block_data(void);
+    BlockType *get_block_data(void);
 
     /* Get chunk xz position */
     vec2i get_chunk_xz(void);
@@ -254,7 +257,7 @@ public:
     void set_wait_for_mesh_reload(void);
 
     /* Sets chunk blocks */
-    void set_chunk_blocks(Block blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]);
+    void set_chunk_blocks(BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]);
 
     /* Get current chunk state */
     ChunkState get_chunk_state(void);
@@ -282,7 +285,7 @@ private:
     vec2i        m_chunk_xz;
     VertexArray  m_chunk_vao;
     VertexArray  m_water_vao;
-    Block        m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+    BlockType    m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
 
     ChunkState m_state;
     ChunkMeshState m_mesh_state;

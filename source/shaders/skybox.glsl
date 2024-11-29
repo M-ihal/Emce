@@ -31,7 +31,7 @@ uniform samplerCube u_skybox;
 
 in vec3 v_tex_coord;
 
-out vec4 out_color;
+layout (location = 0) out vec4 out_color;
 
 void main() {
     vec3 tex_coord = v_tex_coord;

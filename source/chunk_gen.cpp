@@ -1,9 +1,21 @@
 #include "chunk_gen.h"
 #include <PerlinNoise.hpp>
 
+enum {
+    BIOME_PLAINS = 0,
+    BIOME_DESERT = 1,
+    BIOME__COUNT
+};
+
 struct BlockOffset {
     BlockType type;
     vec3i offset;
+};
+
+BlockOffset cactus_blocks[] = {
+    { BlockType::CACTUS, { 0, 0, 0 } },
+    { BlockType::CACTUS, { 0, 1, 0 } },
+    { BlockType::CACTUS, { 0, 2, 0 } },
 };
 
 BlockOffset oak_tree_blocks[] = {
@@ -86,12 +98,12 @@ static inline uint32_t get_block_array_index(const vec3i &block_rel) {
     return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
 }
 
-static inline Block get_block(ChunkGenData &gen, const vec3i &block_rel) {
+static inline BlockType get_block(ChunkGenData &gen, const vec3i &block_rel) {
     return gen.blocks[get_block_array_index(block_rel)];
 }
 
 static inline void set_block(ChunkGenData &gen, const vec3i &block_rel, BlockType type) {
-    gen.blocks[get_block_array_index(block_rel)].type = type;
+    gen.blocks[get_block_array_index(block_rel)] = type;
 }
 
 void chunk_gen_data_init(ChunkGenData &gen, vec2i chunk_xz, WorldGenSeed seed) {
@@ -101,10 +113,13 @@ void chunk_gen_data_init(ChunkGenData &gen, vec2i chunk_xz, WorldGenSeed seed) {
 
 void chunk_gen(ChunkGenData &gen) {
     /* Clear chunk to 0 (AIR) */
-    memset(gen.blocks, (uint8_t)BlockType::AIR, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block));
+    memset(gen.blocks, (uint8_t)BlockType::AIR, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(BlockType));
 
     int32_t height_map[CHUNK_SIZE_X][CHUNK_SIZE_Z];
     chunk_gen_height_map(gen, height_map);
+
+    int32_t biome_map[CHUNK_SIZE_X][CHUNK_SIZE_Z];
+    chunk_gen_biome_map(gen, biome_map);
 
     int32_t ocean_level = 64;
 
@@ -119,13 +134,17 @@ void chunk_gen(ChunkGenData &gen) {
             /* Fill Ground section */
             const int32_t ground_height = 3;
             for(int32_t y = height_map[x][z] - 1; y >= height_map[x][z] - 1 - ground_height; y -= 1) {
-                if(y <= ocean_level ) {
+                if(y <= ocean_level) {
                     set_block(gen, vec3i{ x, y, z }, BlockType::SAND);
                 } else {
+                    if(biome_map[x][z] == BIOME_PLAINS) {
                     if(y == height_map[x][z] - 1) {
                         set_block(gen, vec3i{ x, y, z }, BlockType::DIRT_WITH_GRASS);
                     } else {
                         set_block(gen, vec3i{ x, y, z }, BlockType::DIRT);
+                    }
+                    } else if(biome_map[x][z] == BIOME_DESERT) {
+                        set_block(gen, vec3i{ x, y, z }, BlockType::SAND);
                     }
                 }
             }
@@ -134,21 +153,40 @@ void chunk_gen(ChunkGenData &gen) {
 
             if(height_map[x][z] > ocean_level) {
                 // PLANT GRASS
-                if(rand() % 40 == 0) {
-                    if(get_block(gen, vec3i{ x, height_map[x][z], z }).type == BlockType::AIR) {
-                        set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+                if(biome_map[x][z] != BIOME_DESERT) {
+                    if(rand() % 40 == 0) {
+                        if(get_block(gen, vec3i{ x, height_map[x][z], z }) == BlockType::AIR) {
+                            set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+                        }
                     }
                 }
 
                 // TREES
-                if(rand() % 585 == 0) {
-                    if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
-                        for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
-                            BlockOffset block = oak_tree_blocks[index];
+                if(biome_map[x][z] != BIOME_DESERT) {
+                    if(rand() % 585 == 0) {
+                        if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
+                            for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
+                                BlockOffset block = oak_tree_blocks[index];
 
-                            vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
-                            if(get_block(gen, block_rel).type == BlockType::AIR) {
-                                set_block(gen, block_rel, block.type);
+                                vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
+                                if(get_block(gen, block_rel) == BlockType::AIR) {
+                                    set_block(gen, block_rel, block.type);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if(biome_map[x][z] == BIOME_DESERT) {
+                    if(rand() % 200 == 0) {
+                        if(height_map[x][z] + 2 < CHUNK_SIZE_Y) {
+                            for(int32_t index = 0; index < ARRAY_COUNT(cactus_blocks); ++index) {
+                                BlockOffset block = cactus_blocks[index];
+
+                                vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
+                                if(get_block(gen, block_rel) == BlockType::AIR) {
+                                    set_block(gen, block_rel, block.type);
+                                }
                             }
                         }
                     }
@@ -212,6 +250,30 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
                 }
             }
             height_map[x][z] = height;
+        }
+    }
+}
+
+void chunk_gen_biome_map(ChunkGenData &gen, int32_t biome_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]) {
+    siv::PerlinNoise perlin(gen.seed.seed + 2);
+
+    const int32_t octaves = 5;
+    const double freq_x = 0.00515;
+    const double freq_z = 0.00515;
+
+    for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
+        for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
+            int32_t abs_x = x + CHUNK_SIZE_X * gen.chunk_xz.x;
+            int32_t abs_z = z + CHUNK_SIZE_Z * gen.chunk_xz.y;
+            double noise = perlin.octave2D_01(abs_x * freq_x, abs_z * freq_z, octaves);
+
+            int32_t biome;
+            if(noise < 0.3) {
+                biome = BIOME_DESERT;
+            } else {
+                biome = BIOME_PLAINS;
+            }
+            biome_map[x][z] = biome;
         }
     }
 }

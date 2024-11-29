@@ -54,7 +54,7 @@ Game::Game(Window &window) : m_world(this) {
     /* Create VAO's, Framebuffers and stuff */
     this->initialize_render_resources();
 
-    m_world.initialize_new_world(rand() % 400, m_player);
+    m_world.initialize_new_world(rand() % 400);
 
     this->add_console_commands();
 }
@@ -119,18 +119,19 @@ void Game::update(Window &window, const Input &input, double delta_time) {
     }
 
     /* Update player state */
-    m_player.update(*this, input, delta_time);
+    Player &player = m_world.get_player();
+    player.update(*this, input, delta_time);
 
     /* Set render camera */
     if(g_third_person_mode) {
-        m_camera = m_player.get_3rd_person_camera(g_third_person_distance);
+        m_camera = player.get_3rd_person_camera(g_third_person_distance);
     } else {
-        m_camera = m_player.get_head_camera();
+        m_camera = player.get_head_camera();
     }
 
     /* Queue generation of new chunks */
-    if(m_player.moved_chunk_last_frame()) {
-        m_world.create_chunks_in_range_offload(m_player.get_position_chunk(), g_load_radius + 1);
+    if(player.moved_chunk_last_frame()) {
+        m_world.create_chunks_in_range_offload(player.get_position_chunk(), g_load_radius + 1);
     }
 
     /* Insert generated chunks, and queue mesh generation */
@@ -191,9 +192,8 @@ int32_t Game::thread_gen_chunks_proc(void) {
     int32_t ret_val = 0;
 
     for(; m_threads_keep_looping ;) {
-    
-        bool gen_data_found = false;
         ChunkGenData gen_data;
+        bool gen_data_found = false;
 
         SDL_LockMutex(m_world.m_lock_chunk_gen);
         if(!m_world.m_chunks_to_generate.empty()) {
@@ -299,7 +299,6 @@ void Game::start_threads(void) {
 }
 
 void Game::stop_threads(void) {
-
     /* Allow threads to finish */
     m_threads_keep_looping = false;
     this->wake_up_gen_chunks_threads();
@@ -323,6 +322,8 @@ void Game::stop_threads(void) {
 }
 
 void Game::render_frame(void) {
+    Player &player = m_world.get_player();
+
     const float aspect_ratio = (float)m_width / (float)m_height;
     mat4 proj_m = m_camera.calc_proj(aspect_ratio);
 
@@ -349,8 +350,8 @@ void Game::render_frame(void) {
 
             int32_t is_camera_in_water = 0;
             /* Check if camera is in water */ {
-                Block *block = m_world.get_block(WorldPosition::from_real(m_player.get_head_camera().get_position()).block);
-                if(block != NULL && block->type == BlockType::WATER) {
+                BlockType block = m_world.get_block(WorldPosition::from_real(player.get_head_camera().get_position()).block);
+                if(block == BlockType::WATER) {
                     is_camera_in_water = 1;
                 }
             }
@@ -393,6 +394,8 @@ void Game::render_frame(void) {
 }
 
 void Game::render_world(const mat4 &proj_m) {
+    Player &player = m_world.get_player();
+
     m_chunk_shader.use_program();
     m_chunk_shader.upload_mat4("u_proj", proj_m);
     m_chunk_shader.upload_int("u_texture_array", 0);
@@ -455,12 +458,12 @@ void Game::render_world(const mat4 &proj_m) {
     /* Render shape in third person mode */
     if(g_third_person_mode) {
         const vec3 color = { 0.7f, 0.9f, 0.6f };
-        SimpleDraw::draw_cube_outline(m_player.get_position_origin(), m_player.get_collider_size(), 2.0f / 32.0f, color);
+        SimpleDraw::draw_cube_outline(player.get_position_origin(), player.get_collider_size(), 2.0f / 32.0f, color);
     }
 
     /* Render player's debug stuff */
     if(g_debug_player_draw) {
-        m_player.debug_render(*this);
+        player.debug_render(*this);
     }
 
     /* Render debug chunk borders */
@@ -499,6 +502,8 @@ void Game::render_water(const mat4 &proj_m) {
     m_water_shader.upload_float("u_time_elapsed", m_time_elapsed);
     m_water_shader.upload_int("u_water_texture_array", 0);
     m_water_tex_array.bind_texture_unit(0);
+    m_water_shader.upload_int("u_skybox", 1);
+    m_skybox_cubemap.bind_cubemap_unit(1);
 
     std::vector<Chunk *> chunks;
 
@@ -517,7 +522,7 @@ void Game::render_water(const mat4 &proj_m) {
 
     /* Sort water, @TODO : IDK */
     std::sort(chunks.begin(), chunks.end(), [] (Chunk *a, Chunk *b) { 
-        vec2 chunk = vec2::make(a->get_world()->get_game()->get_player().get_position_chunk()); // @TODO
+        vec2 chunk = vec2::make(a->get_world()->get_player().get_position_chunk()); // @TODO
         float dist_a = vec2::length_sq(chunk - vec2::make(a->get_chunk_xz()));
         float dist_b = vec2::length_sq(chunk - vec2::make(b->get_chunk_xz()));
         return dist_a > dist_b; 
@@ -550,7 +555,7 @@ void Game::render_water(const mat4 &proj_m) {
 }
 
 void Game::render_target_block(const mat4 &proj_m) {
-    RaycastBlockResult target = m_player.get_targeted_block();
+    RaycastBlockResult target = m_world.get_player().get_targeted_block();
     if(!target.found) {
         return;
     }
@@ -592,7 +597,7 @@ void Game::render_skybox(const mat4 &proj_m) {
 }
 
 void Game::render_held_block(const mat4 &proj_m, float aspect_ratio) {
-    const Camera &head_cam = m_player.get_head_camera();
+    const Camera &head_cam = m_world.get_player().get_head_camera();
     const float exp_rot = cosf(m_time_elapsed * 0.8f) * 0.1f;
     const float exp_pos = sinf(m_time_elapsed * 1.2f) * 0.035f;
 
@@ -623,13 +628,11 @@ void Game::render_held_block(const mat4 &proj_m, float aspect_ratio) {
         .cull_faces = true
     });
 
-    BlockType held_block = m_player.get_held_block();
+    BlockType held_block = m_world.get_player().get_held_block();
     this->render_single_block(held_block, transform, proj_m, view_m);
 }
 
 void Game::render_single_block(BlockType type, const mat4 &model_m, const mat4 &proj_m, const mat4 &view_m) {
-    Block block = { .type = type };
-
     /* @todo Do not do this every frame @TODO */
 
     ChunkMeshData mesh_data;
@@ -683,7 +686,7 @@ void Game::render_ui(void) {
         TextBatcher batcher;
         batcher.begin();
         const vec2 text_pos = vec2{ 6.0f, -m_ui_font_big.get_descent() * m_ui_font_big.get_scale_for_pixel_height() };
-        batcher.push_text_formatted(text_pos, m_ui_font_big, "Held block: %s", block_type_string[(int32_t)m_player.get_held_block()]);
+        batcher.push_text_formatted(text_pos, m_ui_font_big, "Held block: %s", block_type_string[(int32_t)m_world.get_player().get_held_block()]);
         batcher.render(m_width, m_height, m_ui_font_big, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
     }
 
@@ -709,7 +712,6 @@ void Game::render_ui_debug_info(void) {
     TextBatcher batcher;
     batcher.begin();
 
-    /* Labda that outputs next line in the debug panel */
     auto debug_line = [&] (const char *format, ...) {
         if(format != NULL) {
             va_list args;
@@ -720,15 +722,14 @@ void Game::render_ui_debug_info(void) {
         cursor_y -= font.get_height() + spacing;
     };
 
-    WorldPosition player_p = WorldPosition::from_real(m_player.get_position());
-    Camera cam = m_player.get_head_camera();
+    Player &player = m_world.get_player();
+
+    WorldPosition player_p = WorldPosition::from_real(player.get_position());
+    Camera cam = player.get_head_camera();
     vec3 cam_dir = cam.calc_direction();
 
-    RaycastBlockResult target_block = m_player.get_targeted_block();
-    Block *targeted_block = NULL;
-    if(target_block.found) {
-        targeted_block = m_world.get_block(target_block.block_p.block);
-    }
+    RaycastBlockResult target_block = player.get_targeted_block();
+    BlockType targeted_block = m_world.get_block(target_block.block_p.block);
 
     /* Push debug text here */ {
         debug_line("Build: %s", BUILD_TYPE);
@@ -766,9 +767,9 @@ void Game::render_ui_debug_info(void) {
         debug_line("meshes built:       %d", m_world.m_meshes_built.size());
         debug_line(NULL);
 
-        if(targeted_block) {
+        if(targeted_block != BlockType::_INVALID) {
             debug_line("--- Target Block ---");
-            debug_line("block: %s", block_type_string[(uint32_t)targeted_block->type]);
+            debug_line("block: %s", block_type_string[(uint32_t)targeted_block]);
             debug_line("block abs: %+02d, %+02d, %+02d", target_block.block_p.block.x, target_block.block_p.block.y, target_block.block_p.block.z);
             debug_line(NULL);
         }
@@ -810,10 +811,6 @@ World &Game::get_world(void) {
 
 Camera &Game::get_camera(void) {
     return m_camera;
-}
-
-Player &Game::get_player(void) {
-    return m_player;
 }
 
 Console &Game::get_console(void) {
@@ -864,8 +861,7 @@ CONSOLE_COMMAND_PROC(command_reset_world) {
     }
 
     game.stop_threads();
-    game.get_world().initialize_new_world(seed, game.get_player());
-    game.get_world().create_chunks_in_range_offload(game.get_player().get_position_chunk(), g_load_radius + 1);
+    game.get_world().initialize_new_world(seed);
     game.start_threads();
 }
 
@@ -933,7 +929,7 @@ CONSOLE_COMMAND_PROC(command_set_fov) {
         console.add_to_history("Invalid FOV value.");
     }
 
-    game.get_player().get_head_camera().set_fov(DEG_TO_RAD(fov));
+    game.get_world().get_player().get_head_camera().set_fov(DEG_TO_RAD(fov));
 }
 
 CONSOLE_COMMAND_PROC(command_spawn_stuff) {
@@ -949,11 +945,11 @@ CONSOLE_COMMAND_PROC(command_spawn_stuff) {
         for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
             for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
                 for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
-                    Block *block = iter.value->get_block({ x, y, z });
+                    const vec3i block_rel = { x, y, z };
+                    BlockType block = iter.value->get_block(block_rel);
                     if(rand() % 100 == 0) {
-                        BlockType type;
-                        type = (BlockType)(rand() % ((int32_t)BlockType::_COUNT - 1));
-                        block->type = type;
+                        BlockType type = (BlockType)(rand() % ((int32_t)BlockType::_COUNT - 1));
+                        iter.value->set_block(block_rel, type);
                     }
                 }
             }
@@ -1034,7 +1030,7 @@ CONSOLE_COMMAND_PROC(command_set_pos) {
     float y = std::stof(s_viu_to_std_string(args[1]));
     float z = std::stof(s_viu_to_std_string(args[2]));
 
-    game.get_player().set_position({ x, y, z });
+    game.get_world().get_player().set_position({ x, y, z });
 }
 
 CONSOLE_COMMAND_PROC(command_fly) {
@@ -1043,7 +1039,7 @@ CONSOLE_COMMAND_PROC(command_fly) {
         return;
     }
 
-    Player &player = game.get_player();
+    Player &player = game.get_world().get_player();
     if(player.get_movement_mode() == PlayerMovementMode::NORMAL) {
         player.set_movement_mode(PlayerMovementMode::FLYING);
     } else {
