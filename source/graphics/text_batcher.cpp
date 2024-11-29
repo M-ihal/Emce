@@ -18,7 +18,7 @@ void TextBatcher::initialize(void) {
     ASSERT(!g_initialized, "TextBatcher already initialized.\n");
     g_initialized = true;
 
-    g_shader.set_filepath_and_load("C://dev//emce//source//shaders//simple_text.glsl");
+    g_shader.set_filepath_and_load("source//shaders//simple_text.glsl");
 
     BufferLayout layout;
     layout.push_attribute("a_position", 2, BufferDataType::FLOAT);

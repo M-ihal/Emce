@@ -6,7 +6,7 @@
 
 struct ChunkMeshData {
     std::vector<ChunkVaoVertexPacked> vertices;
-    std::vector<uint32_t>       indices;
+    std::vector<uint32_t>             indices;
 };
 
 /* @TODO : For neighbouring chunks only need neighbouring blocks... */
@@ -15,6 +15,10 @@ struct ChunkMeshGenData {
     Block chunk_z_neg[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
     Block chunk_x_pos[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
     Block chunk_x_neg[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+    Block chunk_x_neg_z_neg[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+    Block chunk_x_pos_z_pos[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+    Block chunk_x_neg_z_pos[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+    Block chunk_x_pos_z_neg[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
     Block chunk_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
     vec2i chunk_xz;
 

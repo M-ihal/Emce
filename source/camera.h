@@ -17,7 +17,7 @@ public:
 
     vec3 calc_direction_xz(void) const;
     mat4 calc_proj(float aspect_ratio) const;
-    mat4 calc_view(void) const;
+    mat4 calc_view(const vec3 &offset = { }) const;
 
     void set_position(const vec3 &position);
     vec3 get_position(void) const;

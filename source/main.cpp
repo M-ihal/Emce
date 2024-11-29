@@ -22,6 +22,9 @@
 #include "game.h"
 #include "simple_draw.h"
 #include "framebuffer.h"
+#include "opengl_abs.h"
+
+#include <filesystem>
 
 namespace {
     constexpr int32_t INIT_WINDOW_WIDTH  = 1280;
@@ -30,6 +33,12 @@ namespace {
 }
 
 int SDL_main(int argc, char *argv[]) {
+    /* Set working directory to folder above .exe file @TODO */ {
+        std::filesystem::path folder = std::filesystem::path(SDL_GetBasePath()).parent_path().parent_path();
+        fprintf(stdout, "[info] Setting working directory to: \"%s\"\n", folder.string().c_str());
+        std::filesystem::current_path(folder);
+    }
+
     /* init std randomizer */
     srand(time(NULL));
 
@@ -56,7 +65,7 @@ int SDL_main(int argc, char *argv[]) {
     SimpleDraw::initialize();
 
     Input input;
-    Game  game(window);
+    Game game(window);
 
     game.get_console().set_command("quit", { CONSOLE_COMMAND_LAMBDA {
             window.set_should_close();
@@ -68,7 +77,6 @@ int SDL_main(int argc, char *argv[]) {
     uint64_t time_last = SDL_GetPerformanceCounter();
     double elapsed_time = 0.0;
     double delta_time   = 0.0;
-
 
     while(window.get_should_close()) {
         window.process_events(input);
@@ -90,16 +98,16 @@ int SDL_main(int argc, char *argv[]) {
         /* Hotload stuff here */
         TextBatcher::hotload_shader();
         SimpleDraw::hotload_shader();
-        game.hotload_stuff();
+        game.hotload_shaders();
 
         game.update(window, input, delta_time);
 
         /* Render */ {
             SimpleDraw::set_camera(game.get_camera(), window.calc_aspect());
 
-            glViewport(0, 0, window.get_width(), window.get_height());
+            set_viewport({ 0, 0, window.get_width(), window.get_height() });
             GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
-            GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+            GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
 
             game.render_frame();
         }
@@ -111,8 +119,7 @@ int SDL_main(int argc, char *argv[]) {
     SimpleDraw::destroy();
     TextBatcher::destroy();
 
-    fprintf(stdout, "Successfuly exited without a crash...\n");
-
+    fprintf(stdout, "[Info] Exited without a crash...\n");
     return 0;
 }
 

@@ -134,7 +134,7 @@ void chunk_gen(ChunkGenData &gen) {
 
             if(height_map[x][z] > ocean_level) {
                 // PLANT GRASS
-                if(false && rand() % 10 == 0) {
+                if(rand() % 40 == 0) {
                     if(get_block(gen, vec3i{ x, height_map[x][z], z }).type == BlockType::AIR) {
                         set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
                     }

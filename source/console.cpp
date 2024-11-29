@@ -17,11 +17,11 @@ void Console::initialize(void) {
     m_commands.initialize_table(64);
 
     /* Load font */
-    m_font.load_from_file("C://dev//emce//data//MinecraftRegular-Bmg3.otf", 20);
+    m_font.load_from_file("data//MinecraftRegular-Bmg3.otf", 20);
     m_font.get_atlas().set_filter_min(TextureFilter::NEAREST);
     m_font.get_atlas().set_filter_mag(TextureFilter::NEAREST);
 
-    m_quad_shader.set_filepath_and_load("C://dev//emce//source//shaders//simple_quad.glsl");
+    m_quad_shader.set_filepath_and_load("source//shaders//simple_quad.glsl");
 
     /* Initialize quad vertex array */ {
         const float vbo_data[] = {

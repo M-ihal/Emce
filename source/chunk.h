@@ -219,10 +219,12 @@ public:
     CLASS_COPY_DISABLE(Chunk);
 
     friend class World;
-    friend class Game;
 
     explicit Chunk(World *world, vec2i chunk_xz);
     ~Chunk(void);
+
+    /* Get world containing this chunk */
+    World *get_world(void);
 
     /* Access chunk vao */
     const VertexArray &get_vao(void);
@@ -247,11 +249,35 @@ public:
 
     /* Get chunk xz position */
     vec2i get_chunk_xz(void);
+    
+    /* Sets ChunkMeshState to WAITING so next frame it will get checked for mesh reload */
+    void set_wait_for_mesh_reload(void);
+
+    /* Sets chunk blocks */
+    void set_chunk_blocks(Block blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]);
+
+    /* Get current chunk state */
+    ChunkState get_chunk_state(void);
+
+    /* Set chunk state */
+    void set_chunk_state(ChunkState state);
+
+    /* Re/Sets mesh for this chunk based on gen data */
+    void set_mesh(ChunkMeshGenData *gen_data);
+
+    /* Get current mesh state */
+    ChunkMeshState get_mesh_state(void);
+
+    /* Set mesh state */
+    void set_mesh_state(ChunkMeshState state);
+
+    /* Make chunk do appear animation when mesh gets created */
+    void set_appear_animation(void);
+
+    /* Calc chunk y position offset for rendering */
+    float get_chunk_render_offset_y(void);
 
 private:
-    /* Re/Generates vao for this chunk based on gen data */
-    void set_mesh_vao(ChunkMeshGenData *gen_data);
-
     class World *m_owner;
     vec2i        m_chunk_xz;
     VertexArray  m_chunk_vao;
@@ -260,6 +286,9 @@ private:
 
     ChunkState m_state;
     ChunkMeshState m_mesh_state;
+
+    bool  m_appear_do_anim = false;
+    float m_appear_timer = 1.0f;
 
     bool  m_should_unload;
     float m_unload_timer;

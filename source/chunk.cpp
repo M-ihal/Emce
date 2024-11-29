@@ -73,6 +73,11 @@ void init_water_texture_array(TextureArray &texture_array, const char *water_fil
     }
 }
 
+World *Chunk::get_world(void) {
+    ASSERT(m_owner != NULL && "Chunk without owner error!.");
+    return m_owner;
+}
+
 Chunk::Chunk(class World *world, vec2i chunk_xz) {
     ASSERT(world);
     m_owner = world;
@@ -143,7 +148,23 @@ vec2i Chunk::get_chunk_xz(void) {
     return m_chunk_xz;
 }
 
-void Chunk::set_mesh_vao(ChunkMeshGenData *gen_data) {
+void Chunk::set_wait_for_mesh_reload(void) {
+    m_mesh_state = ChunkMeshState::WAITING;
+}
+
+void Chunk::set_chunk_blocks(Block blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]) {
+   memcpy(m_blocks, blocks, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(Block)); 
+}
+
+ChunkState Chunk::get_chunk_state(void) {
+    return m_state;
+}
+
+void Chunk::set_chunk_state(ChunkState state) {
+    m_state = state;
+}
+
+void Chunk::set_mesh(ChunkMeshGenData *gen_data) {
     BufferLayout layout;
     layout.push_attribute("a_packed", 2, BufferDataType::UINT);
 
@@ -158,4 +179,27 @@ void Chunk::set_mesh_vao(ChunkMeshGenData *gen_data) {
     m_water_vao.set_vbo_data(gen_data->water.vertices.data(), gen_data->water.vertices.size() * sizeof(ChunkVaoVertexPacked));
     m_water_vao.set_ibo_data(gen_data->water.indices.data(),  gen_data->water.indices.size());
     m_water_vao.apply_vao_attributes();
+}
+
+ChunkMeshState Chunk::get_mesh_state(void) {
+    return m_mesh_state;
+}
+
+void Chunk::set_mesh_state(ChunkMeshState state) {
+    m_mesh_state = state;
+}
+
+void Chunk::set_appear_animation(void) {
+    m_appear_do_anim = true;
+    m_appear_timer = 0.0f;
+}
+
+float Chunk::get_chunk_render_offset_y(void) {
+    float offset;
+    if(m_appear_do_anim && m_mesh_state == ChunkMeshState::LOADED) {
+        offset = -(CHUNK_SIZE_Y * (1.0f - m_appear_timer));
+    } else {
+        offset = 0.0f;
+    }
+    return offset;
 }

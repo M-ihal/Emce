@@ -13,23 +13,25 @@
 #include <queue>
 
 inline uint64_t func_hash_chunk_key(const vec2i &key);
-inline bool func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
+inline bool     func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
 typedef meh::Table<vec2i, Chunk *, func_hash_chunk_key, func_compare_chunk_key, 85> ChunkHashTable;
 
-class Game;
+class Player;
 
 class World {
 public:
     CLASS_COPY_DISABLE(World);
     
-    friend Game;
-    friend Chunk;
+    friend class Game;
 
     explicit World(Game *game);
     ~World(void);
 
-    /* Resets world if exists, and sets the new seed, NEED STOP THREADS BEFORE CALLING */
-    void initialize_world(uint32_t seed);
+    /* Get _Game_ containing that world */
+    Game *get_game(void);
+
+    /* Deletes current world and initializes new one */
+    void initialize_new_world(uint32_t seed, Player &player);
 
     /* Deletes chunks and gen queues, NEED STOP THREADS BEFORE CALLING */
     void delete_chunks(void);
@@ -41,16 +43,19 @@ public:
     WorldGenSeed get_gen_seed(void);
 
     /* Access chunk hash table */
-    ChunkHashTable *get_chunk_table(void);
+    ChunkHashTable &get_chunk_table(void);
 
     /* Returns chunk if has been generated */
     Chunk *get_chunk(vec2i chunk_xz);
 
-    /* Creates chunk if doesn't exist, and returns it */
+    /* Creates chunk if doesn't exist, and returns it, ONLY MAIN THREAD */
     Chunk *get_chunk_create(vec2i chunk_xz);
 
     /* Returns Block and _opt_ Chunk from absolute position */
     Block *get_block(vec3i block_abs, Chunk **out_chunk = NULL);
+
+    /* Load chunks in range, ONLY MAIN THREAD */
+    void create_chunks_in_range(vec2i origin, int32_t radius);
 
     /* Offload chunk creati onto other thread */
     void create_chunk_offload(vec2i chunk_xz);
@@ -68,11 +73,10 @@ public:
     bool chunk_neighbours_generated(vec2i chunk_xz);
 
 private:
-    /* Pointer to the Game class where world lives */
     Game *m_owner;
 
-    /* Hash table storing the chunks */
     ChunkHashTable m_chunk_table;
+    WorldGenSeed   m_gen_seed;
 
     SDL_Mutex *m_lock_chunk_gen;
     SDL_Mutex *m_lock_mesh_gen;
@@ -81,8 +85,6 @@ private:
     std::vector<ChunkGenData> m_chunks_generated;
     std::queue<ChunkMeshGenData *>  m_meshes_to_build;
     std::vector<ChunkMeshGenData *> m_meshes_built;
-
-    WorldGenSeed m_gen_seed;
 };
 
 inline uint64_t func_hash_chunk_key(const vec2i &key) {

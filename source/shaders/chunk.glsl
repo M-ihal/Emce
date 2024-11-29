@@ -33,7 +33,6 @@ out vec3 v_normal;
 out float v_tex_slot;
 out float v_ambient_occlusion;
 
-
 void main() {
     uint pos_x = (a_packed.x >> 0u) & 0xFFu;
     uint pos_y = (a_packed.x >> 8u) & 0xFFu;
@@ -71,11 +70,11 @@ layout (location = 3) out vec4 out_ambient_occlusion;
 void main() {
     float ambient_occlusion = mix(0.3, 1.0, v_ambient_occlusion / 3.0);
 
-    const vec3 sun_diffuse = vec3(0.8, 0.82, 0.85);
-    const vec3 sun_dir = normalize(vec3(-0.3, -0.55, +0.22));
+    const vec3 sun_diffuse = vec3(0.78, 0.80, 0.85);
+    const vec3 sun_dir = normalize(vec3(+0.5, -0.75, -0.12));
     vec3 normal        = normalize(v_normal);
     vec3 dir_to_sun    = -sun_dir; 
-    float diff = max(dot(normal, dir_to_sun), 0.35);
+    float diff = max(dot(normal, dir_to_sun), 0.4);
     vec3  diffuse = sun_diffuse * diff * ambient_occlusion;
 
     // vertex sh

@@ -60,10 +60,11 @@ mat4 Camera::calc_proj(float aspect_ratio) const {
     return mat4::perspective(m_field_of_view, aspect_ratio, m_plane_near, m_plane_far);
 }
 
-mat4 Camera::calc_view(void) const {
+mat4 Camera::calc_view(const vec3 &offset) const {
+    vec3 position = m_position - offset;
     vec3 forward = this->calc_direction();
-    vec3 focus_p = m_position + forward;
-    return mat4::look_at(m_position, focus_p, m_up_vector);
+    vec3 focus_p = position + forward;
+    return mat4::look_at(position, focus_p, m_up_vector);
 }
 
 void Camera::set_position(const vec3 &position) {

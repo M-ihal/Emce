@@ -10,14 +10,19 @@ class Input;
 class Game;
 class Console;
 
+enum class PlayerMovementMode {
+    NORMAL,
+    FLYING,
+};
+
 class Player {
 public:
     CLASS_COPY_DISABLE(Player);
 
     Player(void) = default;
 
-    void initialize(Console &console);
-    void destroy(void);
+    /* Initialize player values */
+    void initialize(World &world, vec2i spawn_chunk);
 
     /* Player's update proc */
     void update(Game &game, const Input &input, float delta_time);
@@ -64,6 +69,12 @@ public:
     /* Ground check collider */
     void get_ground_collider_info(vec3 &pos, vec3 &size);
 
+    /* Set player movement mode */
+    void set_movement_mode(PlayerMovementMode mode);
+
+    /* Get currently set movement mode */
+    PlayerMovementMode get_movement_mode(void);
+
     /* Currently held block */
     BlockType get_held_block(void);
 
@@ -72,6 +83,7 @@ public:
 
 private:
     bool check_if_collides_with_any_block(World &world, vec3 position, vec3 size);
+
     void move_in_xz(World &world, float delta_time);
     void move_in_y(World &world, float delta_time);
  
@@ -84,6 +96,8 @@ private:
     BlockType m_held_block;
 
     bool m_moved_chunk_last_frame;
+
+    PlayerMovementMode m_movement_mode;
 
     /* Targeted block by player */
     RaycastBlockResult m_targeted_block;
