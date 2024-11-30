@@ -15,6 +15,8 @@ constexpr int32_t CHUNK_SIZE_Z = 32;
         for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)\
             for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)
 
+// @TODO : better way of adding new block types
+
 struct ChunkMeshGenData;
 
 struct ChunkVaoVertex {

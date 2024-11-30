@@ -1,99 +1,6 @@
 #include "chunk_gen.h"
 #include <PerlinNoise.hpp>
 
-enum {
-    BIOME_PLAINS = 0,
-    BIOME_DESERT = 1,
-    BIOME__COUNT
-};
-
-struct BlockOffset {
-    BlockType type;
-    vec3i offset;
-};
-
-BlockOffset cactus_blocks[] = {
-    { BlockType::CACTUS, { 0, 0, 0 } },
-    { BlockType::CACTUS, { 0, 1, 0 } },
-    { BlockType::CACTUS, { 0, 2, 0 } },
-};
-
-BlockOffset oak_tree_blocks[] = {
-    // Trunk
-    { BlockType::TREE_LOG, {0, 0, 0} },
-    { BlockType::TREE_LOG, {0, 1, 0} },
-    { BlockType::TREE_LOG, {0, 2, 0} },
-    { BlockType::TREE_LOG, {0, 3, 0} },
-    { BlockType::TREE_LOG, {0, 4, 0} },
-    { BlockType::TREE_LOG, {0, 5, 0} },
-    
-    { BlockType::TREE_LEAVES, { 0, 6, 0 } },
-    { BlockType::TREE_LEAVES, {-1, 6, 0 } },
-    { BlockType::TREE_LEAVES, { 1, 6, 0 } },
-    { BlockType::TREE_LEAVES, { 0, 6, -1} },
-    { BlockType::TREE_LEAVES, { 0, 6, +1} },
-
-    { BlockType::TREE_LEAVES, {-1, 5, 0 } },
-    { BlockType::TREE_LEAVES, { 1, 5, 0 } },
-    { BlockType::TREE_LEAVES, { 0, 5, -1} },
-    { BlockType::TREE_LEAVES, { 0, 5, +1} },
-
-    { BlockType::TREE_LEAVES, { +1, 5, +1} },
-    { BlockType::TREE_LEAVES, { -1, 5, -1} },
-
-    { BlockType::TREE_LEAVES, {-1, 4, 0 } },
-    { BlockType::TREE_LEAVES, { 1, 4, 0 } },
-    { BlockType::TREE_LEAVES, { 0, 4, -1} },
-    { BlockType::TREE_LEAVES, { 0, 4, +1} },
-    { BlockType::TREE_LEAVES, {-1, 4, -1 } },
-    { BlockType::TREE_LEAVES, { 1, 4, 1 } },
-    { BlockType::TREE_LEAVES, {-1, 4, 1} },
-    { BlockType::TREE_LEAVES, { 1, 4, -1} },
-
-    { BlockType::TREE_LEAVES, {-1, 3, 0 } },
-    { BlockType::TREE_LEAVES, { 1, 3, 0 } },
-    { BlockType::TREE_LEAVES, { 0, 3, -1} },
-    { BlockType::TREE_LEAVES, { 0, 3, +1} },
-    { BlockType::TREE_LEAVES, {-1, 3, -1 } },
-    { BlockType::TREE_LEAVES, { 1, 3, 1 } },
-    { BlockType::TREE_LEAVES, {-1, 3, 1} },
-    { BlockType::TREE_LEAVES, { 1, 3, -1} },
-
-
-    { BlockType::TREE_LEAVES, {-2, 4, 0 } },
-    { BlockType::TREE_LEAVES, {-2, 4, 1 } },
-    { BlockType::TREE_LEAVES, {-2, 4, -1 } },
-
-    { BlockType::TREE_LEAVES, { 2, 4, 0 } },
-    { BlockType::TREE_LEAVES, { 2, 4, 1 } },
-    { BlockType::TREE_LEAVES, { 2, 4, -1 } },
-
-    { BlockType::TREE_LEAVES, { 0, 4, -2} },
-    { BlockType::TREE_LEAVES, { -1, 4, -2} },
-    { BlockType::TREE_LEAVES, { 1, 4, -2} },
-
-    { BlockType::TREE_LEAVES, { 0, 4, 2} },
-    { BlockType::TREE_LEAVES, { -1, 4, 2} },
-    { BlockType::TREE_LEAVES, { 1, 4, 2} },
-
-
-    { BlockType::TREE_LEAVES, {-2, 3, 0 } },
-    { BlockType::TREE_LEAVES, {-2, 3, 1 } },
-    { BlockType::TREE_LEAVES, {-2, 3, -1 } },
-
-    { BlockType::TREE_LEAVES, { 2, 3, 0 } },
-    { BlockType::TREE_LEAVES, { 2, 3, 1 } },
-    { BlockType::TREE_LEAVES, { 2, 3, -1 } },
-
-    { BlockType::TREE_LEAVES, { 0, 3, -2} },
-    { BlockType::TREE_LEAVES, { -1, 3, -2} },
-    { BlockType::TREE_LEAVES, { 1, 3, -2} },
-
-    { BlockType::TREE_LEAVES, { 0, 3, 2} },
-    { BlockType::TREE_LEAVES, { -1, 3, 2} },
-    { BlockType::TREE_LEAVES, { 1, 3, 2} },
-};
-
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
     return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
 }
@@ -125,7 +32,6 @@ void chunk_gen(ChunkGenData &gen) {
 
     for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
-
             /* Fill structure of the chunk */
             for(int32_t y = 0; y < height_map[x][z]; ++y) {
                 set_block(gen, vec3i{ x, y, z }, BlockType::STONE);
@@ -137,59 +43,63 @@ void chunk_gen(ChunkGenData &gen) {
                 if(y <= ocean_level) {
                     set_block(gen, vec3i{ x, y, z }, BlockType::SAND);
                 } else {
-                    if(biome_map[x][z] == BIOME_PLAINS) {
-                    if(y == height_map[x][z] - 1) {
-                        set_block(gen, vec3i{ x, y, z }, BlockType::DIRT_WITH_GRASS);
-                    } else {
-                        set_block(gen, vec3i{ x, y, z }, BlockType::DIRT);
-                    }
-                    } else if(biome_map[x][z] == BIOME_DESERT) {
-                        set_block(gen, vec3i{ x, y, z }, BlockType::SAND);
+                    switch(biome_map[x][z]) {
+                        case BIOME_PLAINS: {
+                            if(y == height_map[x][z] - 1) {
+                                set_block(gen, vec3i{ x, y, z }, BlockType::DIRT_WITH_GRASS);
+                            } else {
+                                set_block(gen, vec3i{ x, y, z }, BlockType::DIRT);
+                            }
+                        } break;
+
+                        case BIOME_DESERT: {
+                            set_block(gen, vec3i{ x, y, z }, BlockType::SAND);
+                        } break;
                     }
                 }
             }
 
-            // @TEMP STUFF
-
+            /* @TEMP : Basic structure inserting */
             if(height_map[x][z] > ocean_level) {
-                // PLANT GRASS
-                if(biome_map[x][z] != BIOME_DESERT) {
-                    if(rand() % 40 == 0) {
-                        if(get_block(gen, vec3i{ x, height_map[x][z], z }) == BlockType::AIR) {
-                            set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+                switch(biome_map[x][z]) {
+                    case BIOME_PLAINS: {
+                        /* Plant grass */
+                        if(rand() % 40 == 0) {
+                            if(get_block(gen, vec3i{ x, height_map[x][z], z }) == BlockType::AIR) {
+                                set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+                            }
                         }
-                    }
-                }
 
-                // TREES
-                if(biome_map[x][z] != BIOME_DESERT) {
-                    if(rand() % 585 == 0) {
-                        if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
-                            for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
-                                BlockOffset block = oak_tree_blocks[index];
+                        /* Plant trees */
+                        if(rand() % 585 == 0) {
+                            if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
+                                for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
+                                    BlockOffset block = oak_tree_blocks[index];
 
-                                vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
-                                if(get_block(gen, block_rel) == BlockType::AIR) {
-                                    set_block(gen, block_rel, block.type);
+                                    vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
+                                    if(get_block(gen, block_rel) == BlockType::AIR) {
+                                        set_block(gen, block_rel, block.type);
+                                    }
                                 }
                             }
                         }
-                    }
-                }
+                    } break;
 
-                if(biome_map[x][z] == BIOME_DESERT) {
-                    if(rand() % 200 == 0) {
-                        if(height_map[x][z] + 2 < CHUNK_SIZE_Y) {
-                            for(int32_t index = 0; index < ARRAY_COUNT(cactus_blocks); ++index) {
-                                BlockOffset block = cactus_blocks[index];
+                    case BIOME_DESERT: {
+                        /* Plant cacti */
+                        if(rand() % 200 == 0) {
+                            if(height_map[x][z] + 2 < CHUNK_SIZE_Y) {
+                                for(int32_t index = 0; index < ARRAY_COUNT(cactus_blocks); ++index) {
+                                    BlockOffset block = cactus_blocks[index];
 
-                                vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
-                                if(get_block(gen, block_rel) == BlockType::AIR) {
-                                    set_block(gen, block_rel, block.type);
+                                    vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
+                                    if(get_block(gen, block_rel) == BlockType::AIR) {
+                                        set_block(gen, block_rel, block.type);
+                                    }
                                 }
                             }
                         }
-                    }
+                    } break;
                 }
             } else {
                 int32_t y = ocean_level;
@@ -220,16 +130,6 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
                 int32_t height_left; 
                 int32_t height_right; 
             } segments[] = {
-#if 0
-                { 0.00, 0.25, 40 + 0,   40 + 6  },
-                { 0.25, 0.30, 40 + 6,   40 + 14  },
-                { 0.30, 0.65, 40 + 14,  40 + 80  },
-                { 0.65, 0.68, 40 + 80,  40 + 96 },
-                { 0.68, 0.75, 40 + 96,  40 + 128 },
-                { 0.75, 0.80, 40 + 128, 40 + 164 },
-                { 0.80, 0.90, 40 + 164, 40 + 196 },
-                { 0.90, 1.00, 40 + 196, 40 + 200 },
-#else
                 { 0.00, 0.35, 40, 48 },
                 { 0.35, 0.40, 48, 70 },
                 { 0.40, 0.55, 70, 90 },
@@ -237,7 +137,6 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
                 { 0.75, 0.85, 120, 142 },
                 { 0.85, 0.90, 142, 160 },
                 { 0.90, 1.00, 160, 200 },
-#endif
             };
 
             int32_t height = 0;

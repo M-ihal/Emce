@@ -1,6 +1,8 @@
 #include "chunk_mesh_gen.h"
 #include "world.h"
 
+/* @TODO , @TEMP : Temporary mesh gen code... !!! */
+
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
     return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
 }

@@ -39,6 +39,8 @@ public:
     /* Window size changed callback */
     void resize(int32_t width, int32_t height);
 
+    void check_for_chunks_to_load(void);
+
     void wake_up_gen_chunks_threads(void);
     void wake_up_gen_meshes_threads(void);
 

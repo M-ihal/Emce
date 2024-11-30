@@ -26,6 +26,7 @@ void Player::setup_player(World &world, vec2i spawn_chunk) {
     m_held_block   = BlockType::TREE_LOG;
     m_head_camera.initialize();
     m_movement_mode = PlayerMovementMode::NORMAL;
+    m_moved_chunk_last_frame = true;
 
     const vec3i spawn_block_rel = { CHUNK_SIZE_X / 2, 0, CHUNK_SIZE_Z / 2 };
     const vec2i spawn_chunk_block = vec2i::make_xz(block_position_from_relative(spawn_block_rel, spawn_chunk));
@@ -33,16 +34,16 @@ void Player::setup_player(World &world, vec2i spawn_chunk) {
     /* Figure player spawn position */
     int32_t spawn_x = spawn_chunk_block.x;
     int32_t spawn_z = spawn_chunk_block.y;
-    int32_t spawn_y = 0;
+    int32_t spawn_y = CHUNK_SIZE_Y;
 
     /* Find 2 not solid blocks to set player position */
-    while(spawn_y < CHUNK_SIZE_Y + 1) {
-        BlockType block_0 = world.get_block({ spawn_x, spawn_y + 0, spawn_z });
-        BlockType block_1 = world.get_block({ spawn_x, spawn_y + 1, spawn_z });
-        if(block_0 != BlockType::_INVALID && block_1 != BlockType::_INVALID && !(get_block_flags(block_0) & IS_SOLID) && !(get_block_flags(block_1) & IS_SOLID)) {
+    while(spawn_y >= 0) {
+        BlockType block = world.get_block({ spawn_x, spawn_y, spawn_z });
+        if(block != BlockType::_INVALID && get_block_flags(block) & IS_SOLID) {
+            spawn_y++;
             break;
         }
-        spawn_y++;
+        spawn_y--;
     }
     this->set_position_origin(real_position_from_block({ spawn_x, spawn_y, spawn_z }));
 }
@@ -321,6 +322,7 @@ static bool test_block_edge(float pos_x, float pos_z, float delta_x, float delta
     return false;
 }
 
+/* @TODO: */
 void Player::move_in_xz(World &world, float delta_time) {
     float t_remaining  = 1.0f;
     uint32_t iteration = 0;
@@ -499,7 +501,11 @@ vec3 Player::get_velocity(void) const {
 
 void Player::get_ground_collider_info(vec3 &pos, vec3 &size) {
     pos = this->get_position_origin() - vec3{ 0.0f, PLAYER_GROUND_COLLIDER_HEIGHT * 0.5f, 0.0f  };
-    size = { PLAYER_COLLIDER_SIZE.x, PLAYER_GROUND_COLLIDER_HEIGHT, PLAYER_COLLIDER_SIZE.z };
+    size = { 
+        PLAYER_COLLIDER_SIZE.x, 
+        PLAYER_GROUND_COLLIDER_HEIGHT, 
+        PLAYER_COLLIDER_SIZE.z 
+    };
 }
 
 void Player::set_movement_mode(PlayerMovementMode mode) {

@@ -51,7 +51,7 @@ public:
     Chunk *get_chunk(vec2i chunk_xz);
 
     /* Creates chunk if doesn't exist, and returns it, ONLY MAIN THREAD */
-    Chunk *get_chunk_create(vec2i chunk_xz);
+    Chunk *get_chunk_create(vec2i chunk_xz, BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z] = NULL);
 
     /* Returns Block and _opt_ Chunk from absolute position */
     BlockType get_block(vec3i block_abs, Chunk **out_chunk = NULL);

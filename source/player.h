@@ -83,7 +83,6 @@ public:
 
 private:
     bool check_if_collides_with_any_block(World &world, vec3 position, vec3 size);
-
     void move_in_xz(World &world, float delta_time);
     void move_in_y(World &world, float delta_time);
  

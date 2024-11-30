@@ -40,6 +40,24 @@ bool read_entire_file(const std::string &filepath, FileContents &file, bool null
     return read_entire_file_c(filepath.c_str(), file, null_terminated);
 }
 
+bool write_entire_file(const char *filepath, uint8_t *buffer, size_t bytes) {
+    ASSERT(buffer && bytes);
+
+    FILE *f = NULL;
+    if(fopen_s(&f, filepath, "wb") != 0) {
+        return false;
+    }
+
+    size_t bytes_written = fwrite(buffer, sizeof(uint8_t), bytes, f);
+    if(bytes_written != bytes) {
+        fclose(f);
+        return false;
+    }
+
+    fclose(f);
+    return true;
+}
+
 void free_loaded_file(FileContents &file) {
     free(file.data);
     file.data = NULL;

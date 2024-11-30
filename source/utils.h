@@ -11,6 +11,7 @@ struct FileContents {
 
 bool read_entire_file_c(const char *filepath, FileContents &file, bool null_terminated = false);
 bool read_entire_file(const std::string &filepath, FileContents &file, bool null_terminated = false);
+bool write_entire_file(const char *filepath, uint8_t *buffer, size_t length);
 void free_loaded_file(FileContents &file);
 
 struct FileTime {

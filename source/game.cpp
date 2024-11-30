@@ -54,7 +54,7 @@ Game::Game(Window &window) : m_world(this) {
     /* Create VAO's, Framebuffers and stuff */
     this->initialize_render_resources();
 
-    m_world.initialize_new_world(rand() % 400);
+    m_world.initialize_new_world(rand() % RAND_MAX);
 
     this->add_console_commands();
 }
@@ -131,7 +131,7 @@ void Game::update(Window &window, const Input &input, double delta_time) {
 
     /* Queue generation of new chunks */
     if(player.moved_chunk_last_frame()) {
-        m_world.create_chunks_in_range_offload(player.get_position_chunk(), g_load_radius + 1);
+        this->check_for_chunks_to_load();
     }
 
     /* Insert generated chunks, and queue mesh generation */
@@ -322,10 +322,10 @@ void Game::stop_threads(void) {
 }
 
 void Game::render_frame(void) {
-    Player &player = m_world.get_player();
-
     const float aspect_ratio = (float)m_width / (float)m_height;
     mat4 proj_m = m_camera.calc_proj(aspect_ratio);
+
+    Player &player = m_world.get_player();
 
     /* Gather chunk vao triangles rendered */
     g_triangles_rendered_last_frame = 0;
@@ -682,15 +682,14 @@ void Game::render_crosshair(void) {
 }
 
 void Game::render_ui(void) {
-    /* Render held block text */ {
+    if(g_debug_show_ui_info) {
+        /* Render held block text */
         TextBatcher batcher;
         batcher.begin();
         const vec2 text_pos = vec2{ 6.0f, -m_ui_font_big.get_descent() * m_ui_font_big.get_scale_for_pixel_height() };
         batcher.push_text_formatted(text_pos, m_ui_font_big, "Held block: %s", block_type_string[(int32_t)m_world.get_player().get_held_block()]);
         batcher.render(m_width, m_height, m_ui_font_big, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
-    }
 
-    if(g_debug_show_ui_info) {
         this->render_ui_debug_info();
     }
 
@@ -791,6 +790,10 @@ void Game::resize(int32_t width, int32_t height) {
     m_height = height;
     m_fbo_ms.resize_fbo(width, height);
     m_fbo.resize_fbo(width, height);
+}
+
+void Game::check_for_chunks_to_load(void) {
+    m_world.create_chunks_in_range_offload(m_world.get_player().get_position_chunk(), g_load_radius + 1);
 }
 
 void Game::wake_up_gen_chunks_threads(void) {
@@ -1045,6 +1048,27 @@ CONSOLE_COMMAND_PROC(command_fly) {
     } else {
         player.set_movement_mode(PlayerMovementMode::NORMAL);
     }
+}
+
+SDL_EnumerationResult enumerate_load_chunk(void *userdata, const char *dir_name, const char *name) {
+    World *world = static_cast<World *>(userdata);
+
+    StringViu name_view = s_viu(name);
+    StringViu name_no_ext;
+    if(s_viu_ends_with(name_view, &name_no_ext, ".chunk")) {
+        int32_t x, z;
+        sscanf_s(name_no_ext.data, "%d_%d", &x, &z);
+
+        char buffer[32];
+        sprintf_s(buffer, 32, "save_data/%d_%d.chunk", x, z);
+
+        FileContents file;
+        if(read_entire_file(buffer, file)) {
+            Chunk *chunk = world->get_chunk_create({ x, z }, (BlockType *)file.data);
+            chunk->set_mesh_state(ChunkMeshState::WAITING);
+        }
+    }
+    return SDL_ENUM_CONTINUE;
 }
 
 void Game::add_console_commands(void) {

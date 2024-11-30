@@ -32,10 +32,15 @@ void World::initialize_new_world(uint32_t seed) {
     this->delete_chunks();
     m_gen_seed.seed = seed;
 
-    const vec2i spawn_chunk = vec2i::zero();
-    this->create_chunks_in_range(spawn_chunk, 4);
+    /* Create spawn chunk before initializing player */
+    const vec2i spawn_chunk = { 0, 0 };
+    this->get_chunk_create(spawn_chunk);
 
+    /* Setup player state and position */
     m_player.setup_player(*this, spawn_chunk);
+
+    /* Queue loading chunks */
+    m_owner->check_for_chunks_to_load();
 }
 
 void World::delete_chunks(void) {
@@ -145,7 +150,7 @@ Chunk *World::get_chunk(vec2i chunk_xz) {
     return NULL;
 }
 
-Chunk *World::get_chunk_create(vec2i chunk_xz) {
+Chunk *World::get_chunk_create(vec2i chunk_xz, BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]) {
     Chunk *to_generate = NULL;
     Chunk **chunk_hash = m_chunk_table.find(chunk_xz);
     if(chunk_hash != NULL) {
@@ -161,11 +166,16 @@ Chunk *World::get_chunk_create(vec2i chunk_xz) {
     }
 
     if(to_generate != NULL) {
-        ChunkGenData gen_data;
-        chunk_gen_data_init(gen_data, chunk_xz, get_gen_seed());
-        chunk_gen(gen_data);
+        if(blocks) {
+            to_generate->set_chunk_blocks(blocks);
+        } else {
+            ChunkGenData gen_data;
+            chunk_gen_data_init(gen_data, chunk_xz, get_gen_seed());
+            chunk_gen(gen_data);
 
-        to_generate->set_chunk_blocks(gen_data.blocks);
+            to_generate->set_chunk_blocks(gen_data.blocks);
+        }
+
         to_generate->set_chunk_state(ChunkState::GENERATED);
         to_generate->set_mesh_state(ChunkMeshState::WAITING);
     }
