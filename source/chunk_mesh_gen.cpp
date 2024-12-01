@@ -597,7 +597,6 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
     }
 }
 
-/* @TODO */
 void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType type) {
     bool connect_wall[BLOCK_SIDE_COUNT] = {
         false, false, false, 

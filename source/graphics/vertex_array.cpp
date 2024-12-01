@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <cstring>
 
-static inline constexpr int32_t gl_from_array_buffer_usage(ArrayBufferUsage usage) {
+inline constexpr int32_t gl_from_array_buffer_usage(ArrayBufferUsage usage) {
     switch(usage) {
         default: INVALID_CODE_PATH;     return -1;
         case ArrayBufferUsage::STATIC:  return GL_STATIC_DRAW;
@@ -12,7 +12,7 @@ static inline constexpr int32_t gl_from_array_buffer_usage(ArrayBufferUsage usag
     }
 }
 
-static inline constexpr int32_t gl_from_buffer_data_type(BufferDataType type) {
+inline constexpr int32_t gl_from_buffer_data_type(BufferDataType type) {
     switch(type) {
         default: INVALID_CODE_PATH; return -1;
         case BufferDataType::INT:   return GL_INT;
@@ -21,7 +21,7 @@ static inline constexpr int32_t gl_from_buffer_data_type(BufferDataType type) {
     }
 }
 
-static inline constexpr int32_t size_of_buffer_data_type(BufferDataType type) {
+inline constexpr int32_t size_of_buffer_data_type(BufferDataType type) {
     switch(type) {
         default: INVALID_CODE_PATH; return -1;
         case BufferDataType::INT:   return 4;
@@ -30,11 +30,7 @@ static inline constexpr int32_t size_of_buffer_data_type(BufferDataType type) {
     }
 }
 
-VertexArray::VertexArray(void) {
-    ZERO_STRUCT(*this);
-}
-
-void VertexArray::bind_no_vao(void) {
+void bind_no_vao(void) {
     GL_CHECK(glBindVertexArray(0));
 }
 
@@ -56,7 +52,6 @@ void VertexArray::create_vao(const BufferLayout &vbo_layout, ArrayBufferUsage us
         return;
     } else {
         GL_CHECK(glBindVertexArray(m_vao_id));
-        // fprintf(stdout, "[info] VAO: Created vertex array, ID: %d\n", m_vao_id);
     }
 
     /* Generate vbo ID */
@@ -67,7 +62,6 @@ void VertexArray::create_vao(const BufferLayout &vbo_layout, ArrayBufferUsage us
         return;
     } else {
         GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, m_vbo_id));
-        // fprintf(stdout, "[info] VAO: VBO ID: %d attached to VAO ID: %d\n", m_vbo_id, m_vao_id);
     }
 
     /* Generate ibo ID */
@@ -78,27 +72,23 @@ void VertexArray::create_vao(const BufferLayout &vbo_layout, ArrayBufferUsage us
         return;
     } else {
         GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo_id));
-        // fprintf(stdout, "[info] VAO: IBO ID: %d attached to VAO ID: %d\n", m_ibo_id, m_vao_id);
     }
 
-    this->bind_no_vao();
+    bind_no_vao();
 }
     
 void VertexArray::delete_vao(void) {
     if(m_ibo_id) {
-        // fprintf(stdout, "[info] VAO: Deleted attached IBO, ID: %d\n", m_ibo_id);
         GL_CHECK(glDeleteBuffers(1, &m_ibo_id));
         m_ibo_id = 0;
     }
 
     if(m_vbo_id) {
-        // fprintf(stdout, "[info] VAO: Deleted attached VBO, ID: %d\n", m_vbo_id);
         GL_CHECK(glDeleteBuffers(1, &m_vbo_id));
         m_vbo_id = 0;
     }
 
     if(m_vao_id) {
-        // fprintf(stdout, "[info] VAO: Deleted VAO, ID: %d\n", m_vao_id);
         glDeleteVertexArrays(1, &m_vao_id);
         m_vao_id = 0;
     }
@@ -132,7 +122,7 @@ void VertexArray::apply_vao_attributes(void) const {
         }
     }
 
-    VertexArray::bind_no_vao();
+    bind_no_vao();
 }
 
 void VertexArray::set_vbo_data(const void *data, size_t size) {
@@ -190,7 +180,7 @@ int32_t VertexArray::get_ibo_count(void) const {
 }
 
 /*
-    class BufferLayout
+    BufferLayout
 */
 
 BufferLayout::BufferLayout(void) {
@@ -204,12 +194,12 @@ void BufferLayout::reset(void) {
     ZERO_ARRAY(m_attributes);
 }
 
-void BufferLayout::push_attribute(const char *name, int32_t count, BufferDataType data_type) {
+void BufferLayout::push_attribute(const char name[32], int32_t count, BufferDataType data_type) {
     ASSERT(m_next_attribute < ARRAY_COUNT(m_attributes));
     const int32_t att_index = m_next_attribute;
 
     Attribute *att = &m_attributes[att_index];
-    strcpy_s(att->name, ARRAY_COUNT(att->name), name); // @check
+    strcpy_s(att->name, ARRAY_COUNT(att->name), name);
     att->count = count;
     att->offset = m_stride;
     att->data_type = data_type;

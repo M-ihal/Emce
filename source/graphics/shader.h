@@ -2,64 +2,61 @@
 
 #include "common.h"
 #include "utils.h"
+#include "math_types.h"
 
 #include <string>
 
-/*
-    TODO: Better logging when loading and hotloading shaders
-
-
-    @todo explicit delete function !!!!
-*/
-
-struct mat4;
+/* Unbind shader program */
+static void use_no_program(void);
 
 class Shader {
 public:
     CLASS_COPY_DISABLE(Shader);
 
-    Shader(void);
-    
-    void delete_shader(void);
+    Shader(void) = default;
 
-    static void use_no_program(void);
-
+    /* Bind shader */
     void use_program(void) const;
 
+    /* Create the shader from memory, should be called at init or after deletion */
     bool load_from_memory(const char *vs, size_t vs_len, const char *fs, size_t fs_len, const char *gs = NULL, size_t gs_len = 0);
 
+    /* Load the shader from file, should be called at init or after deletion */
+    /* Shader sources need to be separated by @shader_vertex, @shader_fragment, @shader_geometry, placed before each shader */
     bool load_from_file(const std::string &filepath);
 
-    void upload_int(const char *name, int32_t value) const;
+    /* Delete the shader */
+    void delete_shader(void);
 
-    void upload_float(const char *name, float value) const;
-
-    void upload_vec2(const char *name, float values[2]) const;
-
-    void upload_vec3(const char *name, float values[3]) const;
-
-    void upload_vec4(const char *name, float values[4]) const;
-
-    void upload_mat4(const char *name, const mat4 &mat) const;
-
+    /* Check if the shader's program is valid */
     bool is_valid_program(void) const;
 
-private:
-    void delete_program_if_exists(bool log = true);
+    /* Uniform procs */
+    void upload_int(const char *name, int32_t value) const;
+    void upload_float(const char *name, float value) const;
+    void upload_vec2(const char *name, float values[2]) const;
+    void upload_vec3(const char *name, float values[3]) const;
+    void upload_vec4(const char *name, float values[4]) const;
+    void upload_mat4(const char *name, const mat4 &mat) const;
 
-    uint32_t m_program_id;
+private:
+    uint32_t m_program_id = 0;
 };
 
+/* Shader abstraction that allows hotloading from file */
 class ShaderFile : public Shader {
 public:
     CLASS_COPY_DISABLE(ShaderFile);
 
-    ShaderFile(void);
+    ShaderFile(void) = default;
 
-    void delete_shader_file(void);
-
+    /* Set filepath and load shader from it */
     void set_filepath_and_load(const std::string &filepath);
-    
+
+    /* Delete shader and clear data */
+    void delete_shader_file(void);
+ 
+    /* Deletes and reloads shader from the file */
     void hotload(void);
 
 private:

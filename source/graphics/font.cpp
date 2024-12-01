@@ -7,15 +7,6 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <stb_truetype.h>
 
-Font::Font(void) {
-    m_scale_for_pixel_height = 0.0f;
-    m_height = 0;
-    m_ascent = 0;
-    m_descent = 0;
-    m_line_gap = 0;
-    m_font_stb_info = NULL;
-}
-
 bool Font::load_from_file(const char *filepath, int32_t height_in_pixels) {
     fprintf(stdout, "[info] Font: Loading font from ttf file, path: %s\n", filepath);
 
@@ -31,11 +22,13 @@ bool Font::load_from_file(const char *filepath, int32_t height_in_pixels) {
         return false;
     }
 
+    m_glyph_table.initialize_table(255);
+
     /* Keep the stb struct and loaded file in memory */
     m_font_stb_info = (void *)font_info;
     m_font_file = font_file;
 
-    /* Get basic font variables @todo Check stuff about the font sizing... */
+    /* Get basic font variables... */
     m_height = height_in_pixels;
     m_scale_for_pixel_height = stbtt_ScaleForMappingEmToPixels(font_info, height_in_pixels);
     // m_scale_for_pixel_height = stbtt_ScaleForPixelHeight(font_info, height_in_pixels);
@@ -58,15 +51,14 @@ bool Font::load_from_file(const char *filepath, int32_t height_in_pixels) {
     const float fatlas_w = float(atlas_w);
     const float fatlas_h = float(atlas_h);
 
-    /* @todo Try to load all ASCII characters for now */
     for(int32_t codepoint = 0; codepoint  < 255; ++codepoint) {
         Font::Glyph glyph = { };
         stbtt_GetCodepointHMetrics(font_info, codepoint, &glyph.advance, &glyph.left_side_bearing);
 
         uint8_t *glyph_bitmap = stbtt_GetCodepointBitmap(font_info, 0, m_scale_for_pixel_height, codepoint, &glyph.width, &glyph.height, &glyph.offset_y, &glyph.offset_y);
         if(!glyph_bitmap) {
-            /* No bitmap for this character -> Do not add @todo */
-            m_glyphs.insert({ codepoint, glyph });
+            /* No bitmap for this character -> Do not add */
+            m_glyph_table.insert(codepoint, glyph);
             continue;
         }
 
@@ -83,7 +75,8 @@ bool Font::load_from_file(const char *filepath, int32_t height_in_pixels) {
             continue;
         }
 
-        // @todo @hack Quick solution to edge artefacts when rendering, leaving one pixel border around each glyph
+        // @TODO: 
+        // Quick solution to edge artefacts when rendering, leaving one pixel border around each glyph
         glyph_rect.w -= 2;
         glyph_rect.h -= 2;
         glyph_rect.x += 1;
@@ -105,13 +98,13 @@ bool Font::load_from_file(const char *filepath, int32_t height_in_pixels) {
         glyph.tex_coords[3] = { glyph_rect.x / fatlas_w,                  (glyph_rect.y + glyph_rect.h) / fatlas_h };
 
         free(glyph_bitmap);
-        m_glyphs.insert({ codepoint, glyph });
+        m_glyph_table.insert(codepoint, glyph);
     }
 
     TextureLoadSpec spec = {
         .internal_format = TextureDataFormat::RED,
-        .data_format     = TextureDataFormat::RED,
-        .data_type       = TextureDataType::UNSIGNED_BYTE
+        .data_format = TextureDataFormat::RED,
+        .data_type = TextureDataType::UNSIGNED_BYTE
     };
 
     const bool success = m_atlas.load_from_memory(atlas_bitmap, atlas_w, atlas_h, spec);
@@ -119,7 +112,6 @@ bool Font::load_from_file(const char *filepath, int32_t height_in_pixels) {
     
     free(rp_nodes);
     free(atlas_bitmap);
-
     return false;
 }
 
@@ -127,15 +119,49 @@ void Font::delete_font(void) {
     m_atlas.delete_texture();
     free_loaded_file(m_font_file);
     free(m_font_stb_info);
-    m_glyphs.clear();
+    m_glyph_table.delete_table();
 }
 
-int32_t Font::get_kerning_advance(int32_t codepoint_left, int32_t codepoint_right) const {
+int32_t Font::get_kerning_advance(int32_t codepoint_left, int32_t codepoint_right) {
     return stbtt_GetGlyphKernAdvance((stbtt_fontinfo *)m_font_stb_info, codepoint_left, codepoint_right);
 }
 
+bool Font::get_glyph(int32_t codepoint, Glyph &glyph) {
+    Glyph *glyph_slot = m_glyph_table.find(codepoint);
+    if(glyph_slot == NULL) {
+        return false;
+    }
+
+    glyph = *glyph_slot;
+    return true;
+}
+
+Texture &Font::get_atlas(void) {
+    return m_atlas;
+}
+
+float Font::get_scale_for_pixel_height(void) {
+    return m_scale_for_pixel_height;
+}
+
+int32_t Font::get_height(void) {
+    return m_height;
+}
+
+int32_t Font::get_line_gap(void) {
+    return m_line_gap;
+}
+
+int32_t Font::get_descent(void) {
+    return m_descent;
+}
+
+int32_t Font::get_ascent(void) {
+    return m_ascent;
+}
+
 // @TODO: Copied!!!!
-float Font::calc_text_width(const char *text) const {
+float Font::calc_text_width(const char *text) {
     const char  *string = text;
     const size_t length = strlen(string);
 

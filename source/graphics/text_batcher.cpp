@@ -62,21 +62,18 @@ TextBatcher::TextBatcher(void) {
         fprintf(stderr, "[Error] TextBatcher: Failed to allocate memory.\n");
         ASSERT(m_vertices);
     }
-    // fprintf(stdout, "[info] TextBatcher: Allocated memory. %lld bytes.\n", size_in_bytes);
 }
 
 TextBatcher::~TextBatcher(void) {
     free(m_vertices);
     m_vertices = NULL;
-    // fprintf(stdout, "[info] TextBatcher: Deallocated memory.\n");
 }
 
 void TextBatcher::begin(void) {
     m_chars_pushed = 0;
 }
 
-void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 color, vec2i shadow_offset) {
-
+void TextBatcher::render(int32_t width, int32_t height, Font &font, vec3 color, vec2i shadow_offset) {
     set_render_state({
         .blend = BlendFunc::STANDARD,
         .depth = DepthFunc::DISABLE,
@@ -104,7 +101,7 @@ void TextBatcher::render(int32_t width, int32_t height, const Font &font, vec3 c
     draw_elements_triangles(m_chars_pushed * 6);
 }
 
-void TextBatcher::push_text(vec2 position, const Font &font, const char *string) {
+void TextBatcher::push_text(vec2 position, Font &font, const char *string) {
     const size_t length = strlen(string);
 
     vec2 text_cursor = position;
@@ -151,14 +148,14 @@ void TextBatcher::push_text(vec2 position, const Font &font, const char *string)
 }
 
 
-void TextBatcher::push_text_formatted(vec2 position, const Font &font, const char *format, ...) {
+void TextBatcher::push_text_formatted(vec2 position, Font &font, const char *format, ...) {
     va_list args;
     va_start(args, format);
     this->push_text_va_args(position, font, format, args);
     va_end(args);
 }
 
-void TextBatcher::push_text_va_args(vec2 position, const Font &font, const char *format, va_list args) {
+void TextBatcher::push_text_va_args(vec2 position, Font &font, const char *format, va_list args) {
     char buffer[1024];
     vsnprintf_s(buffer, ARRAY_COUNT(buffer), format, args);
     push_text(position, font, buffer);

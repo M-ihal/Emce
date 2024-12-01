@@ -1,7 +1,6 @@
 #pragma once
-#include "common.h"
 
-// #define DO_VAO_LOGS
+#include "common.h"
 
 enum class BufferDataType : int32_t {
     INT   = 1,
@@ -9,8 +8,12 @@ enum class BufferDataType : int32_t {
     UINT  = 3
 };
 
+enum class ArrayBufferUsage : int32_t {
+    STATIC  = 1,
+    DYNAMIC = 2
+};
+
 class BufferLayout {
-private:
     struct Attribute {
         char    name[32];
         int32_t count;
@@ -23,10 +26,11 @@ public:
 
     BufferLayout(void);
 
+    /* Reset attributes */
     void reset(void);
 
-    /* name max length : 32 */
-    void push_attribute(const char *name, int32_t count, BufferDataType data_type);
+    /* Push next vertex attribute */
+    void push_attribute(const char name[32], int32_t count, BufferDataType data_type);
 
 private:
     int32_t m_stride;
@@ -35,35 +39,29 @@ private:
     Attribute m_attributes[8];
 };
 
-enum class ArrayBufferUsage : int32_t {
-    STATIC  = 1,
-    DYNAMIC = 2
-};
+/* Unbind vertex array */
+static void bind_no_vao(void);
 
 class VertexArray {
 public:
     CLASS_COPY_DISABLE(VertexArray);
     CLASS_MOVE_ALLOW(VertexArray);
-
-    /* Initialize variables */
-    VertexArray(void);
-
-    /* Unbind any bound vertex array */
-    static void bind_no_vao(void);
+    
+    VertexArray(void) = default;
 
     /* Bind vertex array */
     void bind_vao(void) const;
 
-    /* Create or recreates IDs */
+    /* Creates array IDs, call only at init or after deletion */
     void create_vao(const BufferLayout &vbo_layout, ArrayBufferUsage usage);
 
     /* Delete IDs */
     void delete_vao(void);
     
-    /* */
+    /* Check if vao has been created */
     bool has_been_created(void) const;
 
-    /* Apply Attrib Pointers */
+    /* Apply attrib pointers */
     void apply_vao_attributes(void) const;
 
     /* Recreate the buffers */
@@ -74,7 +72,7 @@ public:
     void upload_vbo_data(const void *data, size_t size, int32_t offset) const;
     void upload_ibo_data(const uint32_t *data, int32_t count, int32_t offset) const;
 
-    /* For debug */
+    /* Debug */
     uint32_t get_vao_id(void) const;
 
     /* Get buffers' sizes */
@@ -82,13 +80,11 @@ public:
     int32_t get_ibo_count(void) const;
 
 private:
-    void delete_vao_if_exists(void);
-
-    uint32_t m_vao_id;
-    uint32_t m_vbo_id;
-    uint32_t m_ibo_id;
-    uint32_t m_vbo_size;
-    uint32_t m_ibo_count;
+    uint32_t m_vao_id = 0;
+    uint32_t m_vbo_id = 0;
+    uint32_t m_ibo_id = 0;
+    uint32_t m_vbo_size  = 0;
+    uint32_t m_ibo_count = 0;
     BufferLayout m_vbo_layout;
     ArrayBufferUsage m_usage;
 };

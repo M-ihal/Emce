@@ -4,10 +4,6 @@
 #include "math_types.h"
 #include "camera.h"
 
-/*
-    Collection of simple drawing shapes like cube outlines and stuff
-*/
-
 class Texture;
 class TextureMultisample;
 

@@ -22,7 +22,7 @@ namespace {
 }
 
 void SimpleDraw::initialize(void) {
-    ASSERT(!g_initialized, "SimpleDraw already initialized.\n");
+    ASSERT(!g_initialized);
     g_initialized = true;
 
     g_triangle_shader.set_filepath_and_load("source//shaders//triangle.glsl");

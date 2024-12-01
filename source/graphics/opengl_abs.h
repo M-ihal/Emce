@@ -3,17 +3,13 @@
 #include "common.h"
 #include "math_types.h"
 
-/* 
-    Abstraction for opengl to avoid confusing gl* calls... 
-*/
-
 enum class BlendFunc {
-    DISABLE,
+    DISABLE = 0,
     STANDARD
 };
 
 enum class DepthFunc {
-    DISABLE,
+    DISABLE = 0,
     LESS,
     LESS_OR_EQUAL,
     ALWAYS
@@ -28,16 +24,11 @@ struct RenderSetup {
 };
 
 void set_viewport(const vec4i &viewport);
-
 void set_polygon_mode(bool enable);
-
 void set_render_state(const RenderSetup &setup);
+void set_line_width(float width);
 
 /* Assumes GL_UNSIGNED_INT as indices type */
-
 void draw_elements_triangles(uint32_t index_count, uint64_t offset = 0);
-
 void draw_elements_lines(uint32_t index_count, uint64_t offset = 0);
 
-/**/
-void set_line_width(float width);

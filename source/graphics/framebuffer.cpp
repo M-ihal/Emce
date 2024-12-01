@@ -3,11 +3,11 @@
 
 #include <glew.h>
 
-extern constexpr int32_t gl_filter_from_texture_filter(TextureFilter param);
-extern constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param);
-extern constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format);
-extern constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
-extern constexpr int32_t gl_data_type_from_texture_data_type(TextureDataType type);
+extern int32_t gl_filter_from_texture_filter(TextureFilter param);
+extern int32_t gl_wrap_from_texture_wrap(TextureWrap param);
+extern int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format);
+extern int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
+extern int32_t gl_data_type_from_texture_data_type(TextureDataType type);
 
 void bind_no_fbo(void) {
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
@@ -22,7 +22,7 @@ bool Framebuffer::create_fbo(int32_t width, int32_t height, FboConfig &config) {
     ASSERT(m_fbo_id == 0);
     ASSERT(width && height);
 
-    m_width = width;
+    m_width  = width;
     m_height = height;
     m_config = config;
 
@@ -37,8 +37,8 @@ bool Framebuffer::create_fbo(int32_t width, int32_t height, FboConfig &config) {
     int32_t fbo_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if(fbo_status != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "[Error] Framebuffer: Framebuffer incomplete!\n");
-        GL_CHECK(glDeleteFramebuffers(1, &m_fbo_id));
-        m_fbo_id = 0;
+
+        this->delete_fbo();
         return false;
     }
 
@@ -103,12 +103,12 @@ uint32_t Framebuffer::get_fbo_id(void) {
 }
 
 uint32_t Framebuffer::get_color_attachment_id(uint32_t slot) {
-    ASSERT(slot < m_config.color_attachment_count); // @todo
+    ASSERT(slot < m_config.color_attachment_count);
     return m_color_attachments[slot];
 }
 
 uint32_t Framebuffer::get_depth_attachment_id(void) {
-    ASSERT(m_config.depth_attachment_set); // @todo
+    ASSERT(m_config.depth_attachment_set);
     return m_depth_attachment;
 }
 
@@ -154,7 +154,6 @@ vec2i Framebuffer::get_size(void) {
 void Framebuffer::gen_attachments(void) {
     ASSERT(m_config.color_attachment_count <= FBO_COLOR_MAX);
 
-    /* Make sure the fbo is bound */
     this->bind_fbo();
 
     /* Generate color attachments */

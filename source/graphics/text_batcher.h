@@ -6,8 +6,6 @@
 
 #define TEXT_BATCHER_QUAD_MAX 4096
 
-struct Color;
-
 struct TextQuadVertex {
     vec2 position;
     vec2 tex_coord;
@@ -27,10 +25,10 @@ public:
     ~TextBatcher(void);
 
     void begin(void);
-    void render(int32_t window_w, int32_t window_h, const Font &font, vec3 color, vec2i shadow_offset = vec2i::zero());
-    void push_text(vec2 position, const Font &font, const char *string);
-    void push_text_formatted(vec2 position, const Font &font, const char *string, ...);
-    void push_text_va_args(vec2 position, const Font &font, const char *string, va_list args);
+    void render(int32_t window_w, int32_t window_h, Font &font, vec3 color, vec2i shadow_offset = vec2i::zero());
+    void push_text(vec2 position, Font &font, const char *string);
+    void push_text_formatted(vec2 position, Font &font, const char *string, ...);
+    void push_text_va_args(vec2 position, Font &font, const char *string, va_list args);
 
 private:
     TextQuadVertex *m_vertices;

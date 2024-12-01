@@ -72,6 +72,10 @@ void set_render_state(const RenderSetup &setup) {
     }
 }
 
+void set_line_width(float width) {
+    GL_CHECK(glLineWidth(width));
+}
+
 void draw_elements_triangles(uint32_t index_count, uint64_t offset) {
     GL_CHECK(glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_INT, (void *)offset));
 }
@@ -80,6 +84,3 @@ void draw_elements_lines(uint32_t index_count, uint64_t offset) {
     GL_CHECK(glDrawElements(GL_LINES, index_count, GL_UNSIGNED_INT, (void *)offset));
 }
 
-void set_line_width(float width) {
-    GL_CHECK(glLineWidth(width));
-}

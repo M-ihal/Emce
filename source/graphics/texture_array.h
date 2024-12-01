@@ -10,18 +10,18 @@ public:
 
     TextureArray(void) = default;
 
+    /* Bind texture array */
+    void bind_texture(void);
+
+    /* Bind texture array to specific slot */
+    void bind_texture_unit(uint32_t unit);
+
     /* Must be called once or after deletion */
     /* Generates Texture 2d array for *count* textures */
     bool load_empty_reserve(uint32_t width, uint32_t height, uint32_t count, TextureDataFormat internal_format);
 
     /* Deletes the texture */
     void delete_texture_array(void);
-
-    /* Bind texture array */
-    void bind_texture(void);
-
-    /* Bind texture array to specific slot */
-    void bind_texture_unit(uint32_t unit);
 
     /* Sets pixels for *slot* texture in the array */
     void set_pixels(uint32_t slot, uint8_t *pixels, uint32_t width, uint32_t height, TextureDataFormat pixel_format, TextureDataType pixel_type, uint32_t off_x = 0, uint32_t off_y = 0);

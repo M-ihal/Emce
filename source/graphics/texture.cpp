@@ -120,7 +120,6 @@ void Texture::bind_texture(void) const {
     GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_tex_id));
 }
 
-// TODO: Don't crash and use placeholder image/texture?
 void Texture::bind_texture_unit(uint32_t unit) const {
     ASSERT(m_tex_id);
     GL_CHECK(glBindTextureUnit(unit, m_tex_id));
@@ -136,7 +135,7 @@ void Texture::set_pixels(uint8_t *data, int32_t off_x, int32_t off_y, int32_t wi
     const int32_t gl_data_format = gl_data_format_from_texture_data_format(data_format);
     const int32_t gl_data_type   = gl_data_type_from_texture_data_type(data_type);
 
-    // Keep this, or do something better
+    // Keep this?
     GL_CHECK(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
 
     this->bind_texture();
@@ -171,7 +170,6 @@ vec2i Texture::get_size(void) const {
     return vec2i{ m_width, m_height };
 }
 
-/* Get equivalent opengl enums for custom enum classes */
 int32_t gl_filter_from_texture_filter(TextureFilter param) {
     switch(param) {
         default: INVALID_CODE_PATH;  return -1;

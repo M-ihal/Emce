@@ -4,11 +4,11 @@
 
 #include <stb_image.h>
 
-extern constexpr int32_t gl_filter_from_texture_filter(TextureFilter param);
-extern constexpr int32_t gl_wrap_from_texture_wrap(TextureWrap param);
-extern constexpr int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format);
-extern constexpr int32_t gl_data_type_from_texture_data_type(TextureDataType type);
-extern constexpr int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
+extern int32_t gl_filter_from_texture_filter(TextureFilter param);
+extern int32_t gl_wrap_from_texture_wrap(TextureWrap param);
+extern int32_t gl_internal_format_from_texture_data_format(TextureDataFormat format);
+extern int32_t gl_data_type_from_texture_data_type(TextureDataType type);
+extern int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
 
 bool TextureArray::load_empty_reserve(uint32_t width, uint32_t height, uint32_t count, TextureDataFormat internal_format) {
     ASSERT(m_tex_id == 0);
@@ -31,7 +31,6 @@ bool TextureArray::load_empty_reserve(uint32_t width, uint32_t height, uint32_t 
     this->set_filter_mag(TextureFilter::NEAREST);
     this->set_wrap_s(TextureWrap::CLAMP);
     this->set_wrap_t(TextureWrap::CLAMP);
-
 
     return true;
 }

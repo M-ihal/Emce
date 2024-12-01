@@ -54,7 +54,7 @@ Game::Game(Window &window) : m_world(this) {
     /* Create VAO's, Framebuffers and stuff */
     this->initialize_render_resources();
 
-    m_world.initialize_new_world(rand() % RAND_MAX);
+    m_world.initialize_new_world(5554);
 
     this->add_console_commands();
 }

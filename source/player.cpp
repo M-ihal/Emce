@@ -246,6 +246,7 @@ void Player::update(Game &game, const Input &input, float delta_time) {
                         place_block_chunk->set_block(place_block_p.block_rel, m_held_block);
 
                         // @TODO : If no bordering chunks will crash !!
+                        
                         vec2i chunk_xz = m_targeted_block.block_p.chunk;
                         world.gen_chunk_mesh_imm(chunk_xz);
 

@@ -5,11 +5,24 @@
 #include "texture.h"
 #include "utils.h"
 
-// meh
-#include <unordered_map>
+#include <meh_hash.h>
+
+inline uint64_t font_glyph_table_hash_func(const int32_t &key) {
+    uint64_t hash = (uint64_t)*(uint32_t *)&key;
+    hash *= 31;
+    return hash;
+}
+
+inline bool font_glyph_table_comp_func(const int32_t &key_a, const int32_t &key_b) {
+    return key_a == key_b;
+}
 
 class Font {
 public:
+    CLASS_COPY_DISABLE(Font);
+
+    Font(void) = default;
+
     struct Glyph {
         bool    has_glyph;
         int32_t width;
@@ -21,58 +34,32 @@ public:
         vec2    tex_coords[4];
     };
 
-public:
-    CLASS_COPY_DISABLE(Font);
+    typedef meh::Table<int32_t, Glyph, font_glyph_table_hash_func, font_glyph_table_comp_func, 100> FontGlyphTable;
     
-    Font(void);
-
+    /* Loads font from .ttf file */
     bool load_from_file(const char *filepath, int32_t height_in_pixels);
     
     /* Deletes allocated structs and the atlas texture */
     void delete_font(void);
 
-    int32_t get_kerning_advance(int32_t codepoint_left, int32_t codepoint_right) const;
+    /* Fill glyph structure with data */
+    bool get_glyph(int32_t codepoint, Glyph &glyph);
 
-    // @temp
-    bool get_glyph(int32_t codepoint, Glyph &glyph) const {
-        auto slot = m_glyphs.find(codepoint);
-        if(slot == m_glyphs.end()) {
-            return false;
-        }
+    /* Get advance value */
+    int32_t get_kerning_advance(int32_t codepoint_left, int32_t codepoint_right);
 
-        glyph = slot->second;
-        return true;
-    }
-    
-    Texture &get_atlas(void) {
-        return m_atlas;
-    }
-    
-    const Texture &get_atlas(void) const {
-        return m_atlas;
-    }
+    /* Access font atlas texture */
+    Texture &get_atlas(void);
+ 
+    /* Get scale value */
+    float get_scale_for_pixel_height(void);
 
-    float get_scale_for_pixel_height(void) const {
-        return m_scale_for_pixel_height;
-    }
+    int32_t get_height(void);
+    int32_t get_line_gap(void);
+    int32_t get_descent(void);
+    int32_t get_ascent(void);
 
-    int32_t get_height(void) const {
-        return m_height;
-    }
-
-    int32_t get_line_gap(void) const {
-        return m_line_gap;
-    }
-
-    int32_t get_descent(void) const {
-        return m_descent;
-    }
-
-    int32_t get_ascent(void) const {
-        return m_ascent;
-    }
-
-    float calc_text_width(const char *text) const;
+    float calc_text_width(const char *text);
 
 private:
     float   m_scale_for_pixel_height;
@@ -84,5 +71,8 @@ private:
     FileContents m_font_file; // @allocated
     void   *m_font_stb_info;  // @allocated
     Texture m_atlas;
-    std::unordered_map<int32_t, Glyph> m_glyphs; // @todo How to delete this
+    
+    /* @TODO: probably should just use flat array.. */
+    FontGlyphTable m_glyph_table;
 };
+

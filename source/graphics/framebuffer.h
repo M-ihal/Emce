@@ -6,29 +6,30 @@
 #define FBO_COLOR_MAX 8
 
 enum class FboAttachmentTarget {
-    NONE,
+    NONE = 0,
     TEXTURE,
     TEXTURE_MULTISAMPLE,
 };
 
 struct FboColorConfig {
     FboAttachmentTarget target;
-    TextureDataFormat   format;
+    TextureDataFormat format;
 };
 
 struct FboDepthConfig {
     FboAttachmentTarget target;
-    TextureDataFormat   format;
+    TextureDataFormat format;
 };
 
 struct FboConfig {
-    uint32_t       ms_samples = 1; /* For ms attachments */
+    uint32_t       ms_samples = 1; /* For multisampled attachments */
     uint32_t       color_attachment_count = 0;
     FboColorConfig color_attachments[FBO_COLOR_MAX];
     bool           depth_attachment_set = false;
     FboDepthConfig depth_attachment;
 };
 
+/* Bind default framebuffer */
 void bind_no_fbo(void);
 
 class Framebuffer {
@@ -71,7 +72,7 @@ public:
     /* Blit onto backbuffer */
     void blit_depth_attachment(int32_t width, int32_t height);
 
-    bool is_complete(void); /* Is fbo valid && are attachments generated */
+    bool is_complete(void); /* Check if fbo valid && are attachments generated */
 
     int32_t get_width(void);
 

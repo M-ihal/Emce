@@ -6,15 +6,14 @@
 extern int32_t gl_wrap_from_texture_wrap(TextureWrap param);
 extern int32_t gl_filter_from_texture_filter(TextureFilter param);
 
-Cubemap::Cubemap(void) {
-    m_cubemap_id = 0;
+void Cubemap::bind_cubemap(void) {
+    ASSERT(m_cubemap_id);
+    GL_CHECK(glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap_id));
 }
 
-void Cubemap::delete_cubemap(void) {
-    if(m_cubemap_id) {
-        GL_CHECK(glDeleteTextures(1, &m_cubemap_id));
-        m_cubemap_id = 0;
-    }
+void Cubemap::bind_cubemap_unit(uint32_t slot) {
+    ASSERT(m_cubemap_id);
+    GL_CHECK(glBindTextureUnit(slot, m_cubemap_id));
 }
 
 bool Cubemap::load_from_file(const std::string (&filepaths)[6], bool flip_on_load) {
@@ -61,18 +60,14 @@ bool Cubemap::load_from_file(const std::string (&filepaths)[6], bool flip_on_loa
     this->set_wrap_t(TextureWrap::CLAMP);
     this->set_wrap_r(TextureWrap::CLAMP);
 
-    // fprintf(stdout, "[info] Cubemap: Loaded successfully.\n");
     return true;
 }
 
-void Cubemap::bind_cubemap(void) {
-    ASSERT(m_cubemap_id);
-    GL_CHECK(glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap_id));
-}
-
-void Cubemap::bind_cubemap_unit(uint32_t slot) {
-    ASSERT(m_cubemap_id);
-    GL_CHECK(glBindTextureUnit(slot, m_cubemap_id));
+void Cubemap::delete_cubemap(void) {
+    if(m_cubemap_id) {
+        GL_CHECK(glDeleteTextures(1, &m_cubemap_id));
+        m_cubemap_id = 0;
+    }
 }
 
 void Cubemap::set_filter_min(TextureFilter param) {
