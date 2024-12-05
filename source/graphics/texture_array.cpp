@@ -10,7 +10,7 @@ extern int32_t gl_internal_format_from_texture_data_format(TextureDataFormat for
 extern int32_t gl_data_type_from_texture_data_type(TextureDataType type);
 extern int32_t gl_data_format_from_texture_data_format(TextureDataFormat format);
 
-bool TextureArray::load_empty_reserve(uint32_t width, uint32_t height, uint32_t count, TextureDataFormat internal_format) {
+bool TextureArray::load_empty_reserve(uint32_t width, uint32_t height, uint32_t count, TextureDataFormat internal_format, uint32_t levels) {
     ASSERT(m_tex_id == 0);
 
     GL_CHECK(glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &m_tex_id));
@@ -21,11 +21,12 @@ bool TextureArray::load_empty_reserve(uint32_t width, uint32_t height, uint32_t 
 
     int32_t gl_internal_format = gl_internal_format_from_texture_data_format(internal_format);
 
-    GL_CHECK(glTextureStorage3D(m_tex_id, 1, gl_internal_format, width, height, count));
+    GL_CHECK(glTextureStorage3D(m_tex_id, levels, gl_internal_format, width, height, count));
 
     m_width  = width;
     m_height = height;
     m_count  = count;
+    m_levels = levels;
 
     this->set_filter_min(TextureFilter::NEAREST);
     this->set_filter_mag(TextureFilter::NEAREST);
@@ -82,6 +83,12 @@ void TextureArray::set_wrap_s(TextureWrap param) {
 void TextureArray::set_wrap_t(TextureWrap param) {
     GL_CHECK(glTextureParameteri(m_tex_id, GL_TEXTURE_WRAP_T, gl_wrap_from_texture_wrap(param)));
     m_wrap_t = param;
+}
+
+void TextureArray::gen_mipmaps(void) {
+    if(m_levels > 1) {
+        GL_CHECK(glGenerateTextureMipmap(m_tex_id));
+    }
 }
 
 uint32_t TextureArray::get_width(void) {

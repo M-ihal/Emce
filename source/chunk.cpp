@@ -28,17 +28,18 @@ void init_block_texture_array(TextureArray &texture_array, const char *atlas_fil
         uint8_t *rect = (uint8_t *)malloc(16 * 16 * 4);
         ASSERT(rect);
 
-        for(int32_t texture_id = 0; texture_id < BlockTextureID::_TEX_COUNT; ++texture_id) {
-            if(texture_id >= texture_array.get_count()) {
+        for(uint8_t texture = 0; texture < (uint8_t)BlockTexture::_COUNT; ++texture) {
+            if(texture >= texture_array.get_count()) {
                 fprintf(stderr, "[Error] Not enough texture array slots to fill block textures.\n");
                 break;
             }
 
-            const uint32_t rect_x = block_texture_atlas_positions[texture_id].x * 16;
-            const uint32_t rect_y = block_texture_atlas_positions[texture_id].y * 16;
+            const vec2i texture_tile = get_block_texture_tile((BlockTexture)texture);
+            const uint32_t rect_x = texture_tile.x * 16;
+            const uint32_t rect_y = texture_tile.y * 16;
 
             rect = copy_image_memory_rect(pixels, width, height, channels, rect_x, rect_y, 16, 16, rect);
-            texture_array.set_pixels(texture_id, rect, 16, 16, TextureDataFormat::RGBA, TextureDataType::UNSIGNED_BYTE);
+            texture_array.set_pixels(texture, rect, 16, 16, TextureDataFormat::RGBA, TextureDataType::UNSIGNED_BYTE);
         }
 
         free(rect);

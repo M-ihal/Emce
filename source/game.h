@@ -14,8 +14,6 @@
 #define MAX_GEN_CHUNKS_THREADS 2
 #define MAX_GEN_MESHES_THREADS 8
 
-class Window;
-
 int32_t get_load_radius(void);
 int32_t get_deload_radius(void);
 
@@ -24,11 +22,11 @@ public:
     CLASS_COPY_DISABLE(Game);
 
     /* Initializes and deletes game world and stuff */
-    Game(Window &window);
+    Game(void);
     ~Game(void);
 
     /* Update the game state */
-    void update(Window &window, const Input &input, double delta_time);
+    void update(const Input &input, double delta_time);
 
     /* Renders frame onto backbuffer */
     void render_frame(void);
@@ -49,6 +47,7 @@ public:
     Console &get_console(void);
 
     /* Threads */
+    /* @TODO : Chunk meshes sometimes do not get updated correctly if there are more queued !!! */
     int32_t thread_gen_chunks_proc(void);
     int32_t thread_gen_meshes_proc(void);
     void start_threads(int32_t chunks_threads, int32_t meshes_threads);
@@ -67,7 +66,6 @@ private:
     void render_ui(void);
     void render_ui_debug_info(void);
     void render_single_block(BlockType type, const mat4 &model_m, const mat4 &proj_m, const mat4 &view_m);
-
 
     /* Game state */
     double  m_time_elapsed;
@@ -128,6 +126,8 @@ private:
 
     /* For single block rendering */
     VertexArray m_block_vao; 
+
+    TextBatcher m_batcher;
 };
 
 enum class WorldBlitMode {

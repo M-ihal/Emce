@@ -86,6 +86,70 @@ vec2 &operator *= (vec2 &l, float r) {
     return l;
 }
 
+/*
+    --- vec2d ---
+*/
+
+vec2d vec2d::make(double x, double y) {
+    return vec2d{ x, y };
+}
+
+vec2d vec2d::make(double xy) {
+    return vec2d{ xy, xy };
+}
+
+vec2d vec2d::make(const vec2i &v) {
+    return vec2d{ double(v.x), double(v.y) };
+}
+
+vec2d vec2d::make_xz(const vec3d &v) {
+    return vec2d{ v.x, v.z };
+}
+
+vec2d vec2d::zero(void) {
+    return vec2d{ 0.0f, 0.0f };
+}
+
+vec2d vec2d::absolute(const vec2d &v) {
+    return vec2d{ ABS(v.x), ABS(v.y) };
+}
+
+double vec2d::length_sq(const vec2d &v) {
+    return vec2d::dot(v, v);
+}
+
+double vec2d::length(const vec2d &v) {
+    return sqrtf(vec2d::length_sq(v));
+}
+
+double vec2d::dot(const vec2d &a, const vec2d &b) {
+    return a.x * b.x + a.y * b.y;
+}
+
+vec2d vec2d::normalize(const vec2d &v) {
+    const double length = vec2d::length(v);
+    return vec2d{
+        .x = v.x / length,
+        .y = v.y / length
+    };
+}
+
+vec2d operator + (const vec2d &l, const vec2d &r) {
+    return vec2d{ l.x + r.x, l.y + r.y };
+}
+
+vec2d operator - (const vec2d &l, const vec2d &r) {
+    return vec2d{ l.x - r.x, l.y - r.y };
+}
+
+vec2d operator * (const vec2d &l, double r) {
+    return vec2d{ l.x * r, l.y * r };
+}
+
+vec2d &operator *= (vec2d &l, double r) {
+    l = l * r;
+    return l;
+}
 
 /*
    --- vec2i ---
@@ -150,6 +214,10 @@ vec3 vec3::make(const vec2 &v, float z) {
 
 vec3 vec3::make(const vec3i &v) {
     return vec3{ float(v.x), float(v.y), float(v.z) };
+}
+
+vec3 vec3::make(const struct vec3d &v) {
+    return vec3{ (float)v.x, (float)v.y, (float)v.z };
 }
 
 vec3 vec3::absolute(const vec3 &vec) {
@@ -226,6 +294,106 @@ vec3 &operator *= (vec3 &l, const float &r) {
     l = l * r;
     return l;
 }
+
+/*
+    --- vec3d ---
+*/
+
+vec3d vec3d::zero(void) {
+    return vec3d{ 0.0f, 0.0f, 0.0f, };
+}
+
+vec3d vec3d::make(double x, double y, double z) {
+    return vec3d{ x, y, z };
+}
+
+vec3d vec3d::make(double xyz) {
+    return vec3d{ xyz, xyz, xyz };
+}
+
+vec3d vec3d::make(const vec3i &v) {
+    return vec3d{ (double)v.x, (double)v.y, (double)v.z };
+}
+
+vec3d vec3d::make(const struct vec3 &v) {
+    return vec3d{ (double)v.x, (double)v.y, (double)v.z };
+}
+
+vec3d vec3d::absolute(const vec3d &vec) {
+    return vec3d{ ABS(vec.x), ABS(vec.y), ABS(vec.z) };
+}
+
+double vec3d::length_sq(const vec3d &vec) {
+    return vec3d::dot(vec, vec);
+}
+
+double vec3d::length(const vec3d &vec) {
+    return sqrtf(vec3d::length_sq(vec));
+}
+
+vec3d vec3d::normalize(const vec3d &vec) {
+    const double length = vec3d::length(vec);
+    return vec / length;
+}
+
+/* TODO Copied, learn */
+vec3d vec3d::cross(const vec3d &a, const vec3d &b) {
+    return vec3d{
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+}
+
+double vec3d::dot(const vec3d &a, const vec3d &b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+
+vec3d operator + (const vec3d &l, const vec3d r) {
+    return vec3d{ l.x + r.x, l.y + r.y, l.z + r.z };
+}
+
+vec3d operator - (const vec3d &l, const vec3d r) {
+    return vec3d{ l.x - r.x, l.y - r.y, l.z - r.z };
+}
+
+vec3d operator * (const vec3d &l, const vec3d r) {
+    return vec3d{ l.x * r.x, l.y * r.y, l.z * r.z };
+}
+
+vec3d operator * (const vec3d &l, const double r) {
+    return vec3d{ l.x * r, l.y * r, l.z * r };
+}
+
+vec3d operator * (const double l, const vec3d &r) {
+    return r * l;
+}
+
+vec3d operator / (const vec3d &l, const double r) {
+    return vec3d{ l.x / r, l.y / r, l.z / r };
+}
+
+vec3d &operator += (vec3d &l, const vec3d &r) {
+    l = l + r;
+    return l;
+}
+
+vec3d &operator -= (vec3d &l, const vec3d &r) {
+    l = l - r;
+    return l;
+}
+
+vec3d &operator *= (vec3d &l, const vec3d &r) {
+    l = l * r;
+    return l;
+}
+
+vec3d &operator *= (vec3d &l, const double &r) {
+    l = l * r;
+    return l;
+}
+
 
 /*
     --- vec3i ---
@@ -407,3 +575,45 @@ mat4 &operator *= (mat4 &l, const mat4 &r) {
     l = l * r;
     return l;
 }
+
+mat4 mat4::orthographic(double left, double bottom, double right, double top, double near, double far) {
+    return mat4::orthographic((float)left, (float)bottom, (float)right, (float)top, (float)near, (float)far);
+}
+
+mat4 mat4::perspective(double fov, double aspect, double near, double far) {
+    return mat4::perspective((float)fov, (float)aspect, (float)near, (float)far);
+}
+
+mat4 mat4::look_at(vec3d eye, vec3d focus, vec3d up_vec) {
+    return mat4::look_at(vec3::make(eye), vec3::make(focus), vec3::make(up_vec));
+}
+
+mat4 mat4::translate(const vec3d &vec) {
+    return mat4::translate(vec3::make(vec));
+}
+
+mat4 mat4::translate(double x, double y, double z) {
+    return mat4::translate((float)x, (float)y, (float)z);
+}
+
+mat4 mat4::rotate_x(double theta) {
+    return mat4::rotate_x((float)theta);
+}
+
+mat4 mat4::rotate_y(double theta) {
+    return mat4::rotate_y((float)theta);
+}
+
+mat4 mat4::rotate_z(double theta) {
+    return mat4::rotate_z((float)theta);
+}
+
+mat4 mat4::scale(const vec3d &vec) {
+    return mat4::scale(vec3::make(vec));
+}
+
+mat4 mat4::scale(double x, double y, double z) {
+    return mat4::scale((float)x, (float)y, (float)z);
+}
+
+

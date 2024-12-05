@@ -2,6 +2,7 @@
 #include "input.h"
 
 #include <stdio.h>
+#include <stdexcept>
 
 #include <SDL3/SDL.h>
 
@@ -11,17 +12,44 @@
 #else
 #endif
 
-namespace {
-    static bool g_has_any_window_been_created = false;
-}
+std::unique_ptr<Window> Window::_window = NULL;
 
 Window::Window(void) {
-    m_sdl_window   = NULL;
-    m_gl_context   = NULL;
-    m_width        = 0;
-    m_height       = 0;
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4); // 3
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5); // 3
+
+    unsigned int window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
+
+    m_sdl_window = SDL_CreateWindow(INIT_WINDOW_TITLE, INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT, window_flags);
+    if(!m_sdl_window) {
+        fprintf(stderr, "[error] Window: Failed to create SDL window.\n");
+        throw std::exception();
+    }
+
+    m_gl_context = SDL_GL_CreateContext(m_sdl_window);
+    if(!m_gl_context) {
+        fprintf(stderr, "[error] Window: Failed to create GL Context.\n");
+        throw std::exception();
+    }
+
+    fprintf(stdout, "[info] Window: Window created.\n");
+
+    /* Initialize window size */
+    SDL_GetWindowSize(m_sdl_window, &m_width, &m_height);
+
+    /* Set vsync */
+    SDL_GL_SetSwapInterval(1);
+
+    /* Do not query text input by default */
+    this->set_text_input_active(false);
+
+    /* Do not capture mouse by default */
+    this->set_rel_mouse_active(false);
+
     m_should_close = false;
-    m_size_changed_this_frame = false;
+    m_size_changed_this_frame = true;
 }
 
 Window::~Window(void) {
@@ -42,47 +70,15 @@ Window::~Window(void) {
     fprintf(stdout, "[info] Window: Window destroyed.\n");
 }
 
-bool Window::initialize(int width, int height, const char *title) {
-    ASSERT(::g_has_any_window_been_created == false, "Only one window allowed.\n");
-    ASSERT(!m_sdl_window);
-    ASSERT(!m_gl_context);
-
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4); // 3
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5); // 3
-
-    unsigned int window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
-
-    m_sdl_window = SDL_CreateWindow(title, width, height, window_flags);
-    if(!m_sdl_window) {
-        fprintf(stderr, "[error] Window: Failed to create SDL window.\n");
-        return false;
+Window &Window::get(void) {
+    if(Window::_window == NULL) {
+        try {
+            _window = std::unique_ptr<Window>(new Window());
+        } catch(const std::exception &exc) {
+            throw exc;
+        }
     }
-
-
-    m_gl_context = SDL_GL_CreateContext(m_sdl_window);
-    if(!m_gl_context) {
-        fprintf(stderr, "[error] Window: Failed to create GL Context.\n");
-        return false;
-    }
-
-    fprintf(stdout, "[info] Window: Window created.\n");
-    ::g_has_any_window_been_created = true;
-
-    /* Initialize window size */
-    SDL_GetWindowSize(m_sdl_window, &m_width, &m_height);
-
-    /* Set vsync */
-    SDL_GL_SetSwapInterval(1);
-
-    /* Do not query text input by default */
-    this->set_text_input_active(false);
-
-    /* Do not capture mouse by default */
-    this->set_rel_mouse_active(false);
-
-    return true;
+    return *_window;
 }
 
 void Window::process_events(Input &input) {
@@ -129,7 +125,7 @@ int32_t Window::get_height(void) const {
     return m_height;
 }
 
-float Window::calc_aspect(void) const {
+float Window::get_aspect(void) const {
     return float(m_width) / float(m_height);
 }
 
@@ -176,4 +172,3 @@ void *Window::get_os_native_handle(void) {
     INVALID_CODE_PATH;
 #endif
 }
-

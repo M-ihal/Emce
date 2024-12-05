@@ -34,7 +34,9 @@ void Shader::use_program(void) const {
 }
 
 bool Shader::load_from_memory(const char *vs, size_t vs_len, const char *fs, size_t fs_len, const char *gs, size_t gs_len) {
-    ASSERT(m_program_id == 0 && "Shader already exists");
+    if(m_program_id != 0) {
+        this->delete_shader();
+    }
 
     GL_CHECK(m_program_id = glCreateProgram());
     if(!m_program_id) {

@@ -18,7 +18,7 @@ public:
 
     /* Must be called once or after deletion */
     /* Generates Texture 2d array for *count* textures */
-    bool load_empty_reserve(uint32_t width, uint32_t height, uint32_t count, TextureDataFormat internal_format);
+    bool load_empty_reserve(uint32_t width, uint32_t height, uint32_t count, TextureDataFormat internal_format, uint32_t levels = 1);
 
     /* Deletes the texture */
     void delete_texture_array(void);
@@ -38,6 +38,9 @@ public:
     /* Sets the Texture wrap t mode */
     void set_wrap_t(TextureWrap param);
 
+    /* Generate mipmaps */
+    void gen_mipmaps(void);
+
     /* Getters */
     uint32_t get_width(void);
 
@@ -50,6 +53,7 @@ private:
     uint32_t m_width;
     uint32_t m_height;
     uint32_t m_count;
+    uint32_t m_levels;
     TextureDataFormat m_internal_format;
 
     TextureFilter m_filter_min;

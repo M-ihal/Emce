@@ -119,7 +119,7 @@ void Framebuffer::bind_color_texture_unit(uint32_t unit, uint32_t slot) {
 void Framebuffer::blit_color_attachment(uint32_t slot, Framebuffer &dest, uint32_t dest_slot) {
     GL_CHECK(glNamedFramebufferReadBuffer(m_fbo_id, GL_COLOR_ATTACHMENT0 + slot));
     GL_CHECK(glNamedFramebufferDrawBuffer(dest.get_fbo_id(), GL_COLOR_ATTACHMENT0 + dest_slot));
-    GL_CHECK(glBlitNamedFramebuffer(m_fbo_id, dest.get_fbo_id(), 0, 0, m_width, m_height, 0, 0, dest.get_width(), dest.get_height(), GL_COLOR_BUFFER_BIT, GL_NEAREST));
+    GL_CHECK(glBlitNamedFramebuffer(m_fbo_id, dest.get_fbo_id(), 0, 0, m_width, m_height, 0, 0, dest.get_width(), dest.get_height(), GL_COLOR_BUFFER_BIT, GL_LINEAR));
 }
 
 void Framebuffer::blit_color_attachment(uint32_t slot, int32_t width, int32_t height) {

@@ -3,6 +3,22 @@
 
 /* @TODO , @TEMP : Temporary mesh gen code... !!! */
 
+#define MAX_MESH_GEN_DATA_COUNT 512
+static ChunkMeshGenData *g_mesh_data;
+static std::vector<int32_t> g_free_mesh_data_index;
+
+void chunk_mesh_gen_data_init_global(void) {
+    g_mesh_data = new ChunkMeshGenData[MAX_MESH_GEN_DATA_COUNT];
+    for(int32_t index = 0; index < MAX_MESH_GEN_DATA_COUNT; ++index) {
+        g_mesh_data[index].array_index = index;
+        g_free_mesh_data_index.push_back(index);
+    }
+}
+
+void chunk_mesh_gen_data_free_global(void) {
+    delete[] g_mesh_data;
+}
+
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
     return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
 }
@@ -145,9 +161,30 @@ static vec3i g_ao_offsets[6][4][2] = {
     { { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, -1 } } },
 };
 
-void fill_block_cube_vao_ao(ChunkMeshGenData *gen, ChunkVaoVertex v[4], BlockSide side, const vec3i &block_rel, bool connect_wall[BLOCK_SIDE_COUNT]) {
+inline constexpr bool block_casts_ao(BlockType type) {
+    BlockShape shape = get_block_type_shape(type);
+    uint32_t flags = get_block_type_flags(type);
+    return shape != BlockShape::CROSS && !(flags & NO_AO_CAST);
+}
+
+void fill_block_cube_vao_ao(ChunkMeshGenData *gen, ChunkVaoVertex v[4], BlockSide side, const vec3i &block_rel, bool connect_wall[6]) {
     const int32_t side_id = (int32_t)side;
     vec3i normal = get_side_normal(side);
+
+    vec3i _block = block_rel + normal;
+    BlockType _BLOCK;
+    if(is_inside_chunk(_block)) {
+        _BLOCK = get_block(gen, _block);
+    } else {
+        _BLOCK = get_block_bordering(gen, _block);
+    }
+    if(_BLOCK != BlockType::AIR && get_block_type_shape(_BLOCK) != BlockShape::CROSS && !(get_block_type_flags(_BLOCK) & NO_AO_CAST)) {
+        v[0].ao = 1;
+        v[1].ao = 1;
+        v[2].ao = 1;
+        v[3].ao = 1;
+        return;
+    }
 
     for(int32_t vert = 0; vert < 4; ++vert) {
         vec3i block_0 = block_rel + g_ao_offsets[side_id][vert][0] + normal;
@@ -167,8 +204,8 @@ void fill_block_cube_vao_ao(ChunkMeshGenData *gen, ChunkVaoVertex v[4], BlockSid
             block__1 = get_block_bordering(gen, block_1);
         }
 
-        bool side_0 = block__0 != BlockType::AIR && block__0 != BlockType::GRASS && block__0 != BlockType::GLASS;
-        bool side_1 = block__1 != BlockType::AIR && block__1 != BlockType::GRASS && block__1 != BlockType::GLASS;
+        bool side_0 = block_casts_ao(block__0);
+        bool side_1 = block_casts_ao(block__1);
 
         if(side_0 && side_1) {
             v[vert].ao = 0;
@@ -182,7 +219,7 @@ void fill_block_cube_vao_ao(ChunkMeshGenData *gen, ChunkVaoVertex v[4], BlockSid
                 block__corner = get_block_bordering(gen, block_corner);
             }
 
-            bool corner = block__corner != BlockType::AIR && block__corner != BlockType::GRASS && block__corner != BlockType::GLASS;
+            bool corner = block_casts_ao(block__corner);
 
             v[vert].ao = 3 - ((int32_t)side_0 + (int32_t)side_1 + (int32_t)corner);
         }
@@ -190,90 +227,9 @@ void fill_block_cube_vao_ao(ChunkMeshGenData *gen, ChunkVaoVertex v[4], BlockSid
 }
 
 static void fill_block_cube_vao_tex_coords(ChunkVaoVertex v[4], BlockType type, BlockSide side) {
-    BlockTextureID texture_id = TEX_SAND;
-    switch(type) {
-        default: INVALID_CODE_PATH; break;
-
-        case BlockType::SAND: {
-            texture_id = TEX_SAND;
-        } break;
-
-        case BlockType::DIRT: {
-            texture_id = TEX_DIRT;
-        } break;
-
-        case BlockType::DIRT_WITH_GRASS: {
-            switch(side) {
-                case BlockSide::Y_NEG: {
-                    texture_id = TEX_DIRT;
-                } break;
-                case BlockSide::Y_POS: {
-                    texture_id = TEX_DIRT_WITH_GRASS_TOP;
-                } break;
-                case BlockSide::X_POS:
-                case BlockSide::X_NEG:
-                case BlockSide::Z_POS:
-                case BlockSide::Z_NEG: {
-                    texture_id = TEX_DIRT_WITH_GRASS_SIDE;
-                } break;
-            }
-        } break;
-
-        case BlockType::COBBLESTONE: {
-            texture_id = TEX_COBBLESTONE;
-        } break;
-
-        case BlockType::STONE: {
-            texture_id = TEX_STONE;
-        } break;
-
-        case BlockType::TREE_LOG: {
-            switch(side) {
-                case BlockSide::Y_POS:
-                case BlockSide::Y_NEG: {
-                    texture_id = TEX_TREE_LOG_TOP;
-                } break;
-
-                case BlockSide::X_POS:
-                case BlockSide::X_NEG:
-                case BlockSide::Z_POS:
-                case BlockSide::Z_NEG: {
-                    texture_id = TEX_TREE_LOG_SIDE;
-                } break;
-            };
-        } break;
-
-        case BlockType::TREE_LEAVES: {
-            texture_id = TEX_TREE_LEAVES;
-        } break;
-        
-        case BlockType::GLASS: {
-            texture_id = TEX_GLASS;
-        } break;
-
-        case BlockType::WATER: {
-            texture_id = TEX_WATER;
-        } break;
-
-        case BlockType::CACTUS: {
-            switch(side) {
-                case BlockSide::Y_POS:
-                case BlockSide::Y_NEG: {
-                    texture_id = TEX_CACTUS_TOP;
-                } break;
-
-                case BlockSide::X_POS:
-                case BlockSide::X_NEG:
-                case BlockSide::Z_POS:
-                case BlockSide::Z_NEG: {
-                    texture_id = TEX_CACTUS_SIDE;
-                } break;
-            }
-        } break;
-    }
-
+    BlockTexture texture = get_block_cube_texture(type, side);
     fill_tex_coords(v);
-    fill_tex_slots(v, texture_id);
+    fill_tex_slots(v, (uint8_t)texture);
 }
 
 static void fill_block_cross_vao_vertex(ChunkVaoVertex v[4][4], const vec3i &offset) {
@@ -304,24 +260,17 @@ static void fill_block_cross_vao_vertex(ChunkVaoVertex v[4][4], const vec3i &off
 }
 
 static void fill_block_cross_vao_tex_coords(ChunkVaoVertex v[4][4], BlockType type) {
-    BlockTextureID texture_id = TEX_SAND;
-    switch(type) {
-        default: break;
-
-        case BlockType::GRASS: {
-            texture_id = BlockTextureID::TEX_GRASS;
-        } break;
-    }
+    BlockTexture texture = get_block_cross_texture(type);
 
     fill_tex_coords(v[0]);
     fill_tex_coords(v[1]);
     fill_tex_coords(v[2]);
     fill_tex_coords(v[3]);
 
-    fill_tex_slots(v[0], texture_id);
-    fill_tex_slots(v[1], texture_id);
-    fill_tex_slots(v[2], texture_id);
-    fill_tex_slots(v[3], texture_id);
+    fill_tex_slots(v[0], (int32_t)texture);
+    fill_tex_slots(v[1], (int32_t)texture);
+    fill_tex_slots(v[2], (int32_t)texture);
+    fill_tex_slots(v[3], (int32_t)texture);
 }
 
 
@@ -350,8 +299,8 @@ static void push_vao_quad(ChunkVaoVertex quad_vertices[4], ChunkMeshData &data) 
     }
 }
 
-static void push_water_vao_data(ChunkMeshGenData *gen_data, ChunkMeshData &data, const vec3i &block_rel, bool connect_wall[BLOCK_SIDE_COUNT]) {
-    for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
+static void push_water_vao_data(ChunkMeshGenData *gen_data, ChunkMeshData &data, const vec3i &block_rel, bool connect_wall[6]) {
+    for(int32_t side = 0; side < 6; ++side) {
         ChunkVaoVertex v[4] = { };
 
         if(!connect_wall[side]) {
@@ -386,44 +335,21 @@ static void push_water_vao_data(ChunkMeshGenData *gen_data, ChunkMeshData &data,
 }
 
 
-static void push_block_vao_data(ChunkMeshGenData *gen_data, BlockType type, ChunkMeshData &data, const vec3i &block_rel, bool connect_wall[BLOCK_SIDE_COUNT]) {
-    enum : int32_t { CUBE, CROSS, NOT_SET } block_vis;
+static void push_block_vao_data(ChunkMeshGenData *gen_data, BlockType type, ChunkMeshData &data, const vec3i &block_rel, bool connect_wall[6]) {
 
-    switch(type) {
+    BlockShape shape = get_block_type_shape(type);
+    switch(shape) {
         default: {
-            INVALID_CODE_PATH;
+            return;
         } break;
 
-        case BlockType::SAND:
-        case BlockType::DIRT:
-        case BlockType::DIRT_WITH_GRASS:
-        case BlockType::COBBLESTONE:
-        case BlockType::STONE:
-        case BlockType::TREE_LOG:
-        case BlockType::TREE_LEAVES:
-        case BlockType::GLASS:
-        case BlockType::WATER:
-        case BlockType::CACTUS: {
-            block_vis = CUBE;
-        } break;
-
-        case BlockType::GRASS: {
-            block_vis = CROSS;
-        } break;
-    }
-
-    switch(block_vis) {
-        default: {
-            INVALID_CODE_PATH;
-        } break;
-
-        case CUBE: {
-            for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
+        case BlockShape::CUBE: {
+            for(int32_t side = 0; side < 6; ++side) {
                 ChunkVaoVertex v[4] = { };
                 if(!connect_wall[side]) {
                     fill_block_cube_vao_vertex(v, (BlockSide)side, block_rel);
                     fill_block_cube_vao_tex_coords(v, type, (BlockSide)side);
-                    if(gen_data && type != BlockType::GLASS) {
+                    if(gen_data && !(get_block_type_flags(type) & NO_AO)) {
                         fill_block_cube_vao_ao(gen_data, v, (BlockSide)side, block_rel, connect_wall);
                     } else {
                         v[0].ao = 3;
@@ -436,7 +362,7 @@ static void push_block_vao_data(ChunkMeshGenData *gen_data, BlockType type, Chun
             }
         } break;
 
-        case CROSS: {
+        case BlockShape::CROSS: {
             /* Pushing 4 quads for crosses because of face culling */
             ChunkVaoVertex v[4][4] = { };
             fill_block_cross_vao_vertex(v, block_rel);
@@ -449,11 +375,37 @@ static void push_block_vao_data(ChunkMeshGenData *gen_data, BlockType type, Chun
     }
 }
 
-void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec2i chunk_xz) {
-    *gen_data_ptr = new ChunkMeshGenData;
+void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec2i chunk_xz, bool supplied_memory) {
+    // *gen_data_ptr = new ChunkMeshGenData;
+    // ChunkMeshGenData *gen_data = *gen_data_ptr;
+    // ASSERT(gen_data);
 
-    ChunkMeshGenData *gen_data = *gen_data_ptr;
-    ASSERT(gen_data);
+    ChunkMeshGenData *gen_data = NULL;
+
+    if(supplied_memory) {
+        gen_data = *gen_data_ptr;
+        gen_data->array_index = -1;
+    } else if(g_free_mesh_data_index.size()) {
+        int32_t index = g_free_mesh_data_index[g_free_mesh_data_index.size() - 1];
+        g_free_mesh_data_index.pop_back();
+
+        gen_data = &g_mesh_data[index];
+        gen_data->array_index = index;
+        *gen_data_ptr = gen_data;
+
+        ZERO_ARRAY(gen_data->chunk_blocks);
+        ZERO_ARRAY(gen_data->chunk_x_neg);
+        ZERO_ARRAY(gen_data->chunk_x_pos);
+        ZERO_ARRAY(gen_data->chunk_z_neg);
+        ZERO_ARRAY(gen_data->chunk_z_pos);
+        ZERO_ARRAY(gen_data->chunk_x_neg_z_neg);
+        ZERO_ARRAY(gen_data->chunk_x_pos_z_pos);
+        ZERO_ARRAY(gen_data->chunk_x_neg_z_pos);
+        ZERO_ARRAY(gen_data->chunk_x_pos_z_neg);
+    } else {
+        *gen_data_ptr = NULL;
+        return;
+    }
 
     Chunk *chunk = world.get_chunk(chunk_xz);
     Chunk *chunk_z_neg = world.get_chunk(chunk_xz + vec2i{ 0, -1 });
@@ -471,7 +423,7 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec
     const size_t chunk_blocks_size = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(BlockType);
 
     /* Copy the main chunk's blocks */
-    gen_data->chunk_xz = chunk->get_chunk_xz();
+    gen_data->chunk_xz = chunk_xz;
     memcpy(gen_data->chunk_blocks, chunk->get_block_data(), chunk_blocks_size);
 
     /* Copy the neighbouring chunks' blocks */
@@ -486,13 +438,36 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec
 }
 
 void chunk_mesh_gen_data_free(ChunkMeshGenData **gen_data_ptr) {
-    if(*gen_data_ptr != NULL) {
-        delete *gen_data_ptr;
-        *gen_data_ptr = NULL;
+    // delete *gen_data_ptr;
+    // *gen_data_ptr = NULL;
+    //
+    
+    
+    ASSERT(gen_data_ptr != NULL);
+
+    /* supplied memory */
+    if((*gen_data_ptr)->array_index == -1) {
+        return;
     }
+    
+    (*gen_data_ptr)->chunk.vertices.clear();
+    (*gen_data_ptr)->chunk.indices.clear();
+    (*gen_data_ptr)->water.vertices.clear();
+    (*gen_data_ptr)->water.indices.clear();
+
+    (*gen_data_ptr)->chunk.vertices.shrink_to_fit();
+    (*gen_data_ptr)->chunk.indices.shrink_to_fit();
+    (*gen_data_ptr)->water.vertices.shrink_to_fit();
+    (*gen_data_ptr)->water.indices.shrink_to_fit();
+
+
+    int32_t index = (*gen_data_ptr)->array_index;
+    *gen_data_ptr = NULL;
+    g_free_mesh_data_index.push_back(index);
 }
 
 void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
+
     for_every_block(x, y, z) {
         vec3i block_rel = { x, y, z };
         BlockType block = get_block(gen_data, block_rel);
@@ -500,7 +475,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
         /* Water goes to different vao */
         if(block == BlockType::WATER) {
             bool connect_wall[8] = { };
-            for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
+            for(int32_t side = 0; side < 6; ++side) {
                 vec3i nb_block_rel = block_rel + get_block_side_dir((BlockSide)side);
 
                 BlockType nb_block = BlockType::AIR;
@@ -530,7 +505,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
                 }
 
                 if(nb_block!= BlockType::AIR) {
-                    uint32_t nb_flags = get_block_flags(nb_block);
+                    uint32_t nb_flags = get_block_type_flags(nb_block);
                     connect_wall[side] = !(nb_flags & IS_NOT_VISIBLE) && !(nb_flags & HAS_TRANSPARENCY);
 
 
@@ -544,14 +519,14 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
             continue;
         }
 
-        const uint32_t flags = get_block_flags(block);
+        const uint32_t flags = get_block_type_flags(block);
         if(flags & IS_NOT_VISIBLE) {
             continue;
         }
 
-        bool connect_wall[BLOCK_SIDE_COUNT] = { };
+        bool connect_wall[6] = { };
 
-        for(int32_t side = 0; side < BLOCK_SIDE_COUNT; ++side) {
+        for(int32_t side = 0; side < 6; ++side) {
             vec3i nb_block_rel = block_rel + get_block_side_dir((BlockSide)side);
 
             BlockType nb_block = BlockType::AIR;
@@ -580,16 +555,19 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
                 nb_block = get_block(gen_data, nb_block_rel);
             }
 
-            uint32_t nb_flags = get_block_flags(nb_block);
+            uint32_t nb_flags = get_block_type_flags(nb_block);
 
-            connect_wall[side] = !(nb_flags & IS_NOT_VISIBLE) && !(nb_flags & HAS_TRANSPARENCY);
 
-            if(nb_block == BlockType::WATER) {
+            if(nb_flags & IS_NOT_VISIBLE) {
                 connect_wall[side] = false;
-            } else {
-                if(flags & HAS_TRANSPARENCY && nb_flags & HAS_TRANSPARENCY && !(nb_flags & IS_NOT_VISIBLE) && block == nb_block && block!= BlockType::TREE_LEAVES) {
+            } else if(nb_flags & HAS_TRANSPARENCY) {
+                if(flags & CONNECTS_WITH_SAME_TYPE && block == nb_block) {
                     connect_wall[side] = true;
+                } else {
+                    connect_wall[side] = false;
                 }
+            } else {
+                connect_wall[side] = true;
             }
         }
 
@@ -598,7 +576,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
 }
 
 void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType type) {
-    bool connect_wall[BLOCK_SIDE_COUNT] = {
+    bool connect_wall[6] = {
         false, false, false, 
         false, false, false
     };

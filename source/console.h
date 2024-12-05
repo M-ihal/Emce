@@ -26,7 +26,7 @@ struct CommandTableKey {
     char string[CONSOLE_COMMAND_NAME_MAX]; // This includes the null terminator
 };
 
-#define CONSOLE_COMMAND_PROC_ARGS class Console &console, const std::vector<StringViu> &args, Window &window, Game &game
+#define CONSOLE_COMMAND_PROC_ARGS class Console &console, const std::vector<StringViu> &args, Game &game
 #define CONSOLE_COMMAND_PROC(proc) void proc(CONSOLE_COMMAND_PROC_ARGS)
 typedef CONSOLE_COMMAND_PROC(console_command_proc);
 #define CONSOLE_COMMAND_LAMBDA [](CONSOLE_COMMAND_PROC_ARGS) -> void
@@ -46,7 +46,7 @@ public:
 
     void destroy(void);
 
-    void update(Game &game, const Input &input, Window &window, double delta_time);
+    void update(Game &game, const Input &input, double delta_time);
 
     void render(int32_t width, int32_t height);
 
@@ -54,7 +54,7 @@ public:
 
     void clear_history(void);
 
-    void set_open_state(bool open, Window &window);
+    void set_open_state(bool open);
 
     bool is_open(void);
 

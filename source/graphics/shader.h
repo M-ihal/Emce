@@ -18,10 +18,10 @@ public:
     /* Bind shader */
     void use_program(void) const;
 
-    /* Create the shader from memory, should be called at init or after deletion */
+    /* Create or recreate the shader from memory */
     bool load_from_memory(const char *vs, size_t vs_len, const char *fs, size_t fs_len, const char *gs = NULL, size_t gs_len = 0);
 
-    /* Load the shader from file, should be called at init or after deletion */
+    /* Load or reload the shader from file */
     /* Shader sources need to be separated by @shader_vertex, @shader_fragment, @shader_geometry, placed before each shader */
     bool load_from_file(const std::string &filepath);
 

@@ -10,16 +10,10 @@ uniform mat4 u_view;
 out vec3 v_tex_coord;
 
 void main() {
-    /* Clear translation from view matrix */
-    mat4 view_no_move = u_view;
-    view_no_move[3][0] = 0.0;
-    view_no_move[3][1] = 0.0;
-    view_no_move[3][2] = 0.0;
-
     /* data must be 1x1 cube */
     v_tex_coord = a_position;
 
-    gl_Position = u_proj * view_no_move * vec4(a_position, 1.0);
+    gl_Position = u_proj * u_view * vec4(a_position, 1.0);
     gl_Position = gl_Position.xyww; // So the depth component is always 1.0 -> z(w)/w
 }
 

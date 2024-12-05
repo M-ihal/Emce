@@ -5,6 +5,7 @@
 #include "shader.h"
 #include "texture.h"
 #include "texture_array.h"
+#include "blocks.h"
 
 constexpr int32_t CHUNK_SIZE_X = 32;
 constexpr int32_t CHUNK_SIZE_Y = 255;
@@ -46,16 +47,6 @@ inline ChunkVaoVertexPacked pack_chunk_vertex(ChunkVaoVertex vx) {
               | ((vx.ao & 0b00000011) << 10);
     return v;
 }
-
-#define BLOCK_SIDE_COUNT 6
-enum class BlockSide : uint8_t {
-    X_NEG,
-    X_POS,
-    Z_NEG,
-    Z_POS,
-    Y_NEG,
-    Y_POS,
-};
 
 inline constexpr vec3i get_side_normal(BlockSide side) {
     switch(side) {
@@ -100,105 +91,6 @@ inline constexpr vec3i get_block_side_dir(BlockSide side) {
     }
     INVALID_CODE_PATH;
     return { };
-};
-
-enum class BlockType : uint8_t {
-    AIR = 0,
-    SAND,
-    DIRT,
-    DIRT_WITH_GRASS,
-    COBBLESTONE,
-    STONE,
-    TREE_LOG,
-    TREE_LEAVES,
-    GLASS,
-    GRASS,
-    WATER,
-    CACTUS,
-    _COUNT,
-    _INVALID
-};
-
-inline const char *block_type_string[] = {
-    "Air",
-    "Sand",
-    "Dirt",
-    "Dirt with grass",
-    "Cobblestone",
-    "Stone",
-    "Tree log",
-    "Tree leaves",
-    "Glass",
-    "Grass",
-    "Water",
-    "Cactus"
-};
-
-static_assert(ARRAY_COUNT(block_type_string) == (int32_t)BlockType::_COUNT);
-
-enum BlockTypeFlags : uint32_t {
-    IS_PLACABLE      = 1 << 0,
-    IS_SOLID         = 1 << 1,
-    IS_NOT_VISIBLE   = 1 << 2,
-    IS_NOT_TARGETABLE = 1 << 4,
-    HAS_TRANSPARENCY = 1 << 16,
-};
-
-inline uint32_t get_block_flags(BlockType type) {
-    switch(type) {
-
-        default: {
-            return IS_NOT_VISIBLE;
-        }
-
-        case BlockType::SAND: return IS_SOLID | IS_PLACABLE;
-        case BlockType::DIRT: return IS_SOLID | IS_PLACABLE;
-        case BlockType::DIRT_WITH_GRASS: return IS_SOLID | IS_PLACABLE;
-        case BlockType::COBBLESTONE: return IS_SOLID | IS_PLACABLE;
-        case BlockType::STONE: return IS_SOLID | IS_PLACABLE;
-        case BlockType::TREE_LOG: return IS_SOLID | IS_PLACABLE;
-        case BlockType::TREE_LEAVES: return IS_SOLID | IS_PLACABLE | HAS_TRANSPARENCY;
-        case BlockType::GLASS: return IS_SOLID | IS_PLACABLE | HAS_TRANSPARENCY;
-        case BlockType::GRASS: return IS_PLACABLE | HAS_TRANSPARENCY;
-
-        case BlockType::WATER: return IS_PLACABLE | HAS_TRANSPARENCY;
-        case BlockType::CACTUS: return IS_PLACABLE | IS_SOLID;
-    }
-}
-
-enum BlockTextureID : uint32_t {
-    TEX_SAND = 0,
-    TEX_DIRT,
-    TEX_DIRT_WITH_GRASS_SIDE,
-    TEX_DIRT_WITH_GRASS_TOP,
-    TEX_COBBLESTONE,
-    TEX_STONE,
-    TEX_TREE_LOG_SIDE,
-    TEX_TREE_LOG_TOP,
-    TEX_TREE_LEAVES,
-    TEX_GLASS,
-    TEX_GRASS,
-    TEX_WATER,
-    TEX_CACTUS_SIDE,
-    TEX_CACTUS_TOP,
-    _TEX_COUNT
-};
-
-inline vec2i block_texture_atlas_positions[BlockTextureID::_TEX_COUNT] = {
-    { 0, 0 },
-    { 1, 0 },
-    { 1, 1 },
-    { 1, 2 },
-    { 2, 0 },
-    { 2, 1 },
-    { 7, 1 },
-    { 7, 0 },
-    { 7, 2 },
-    { 0, 1 },
-    { 1, 3 },
-    { 31, 0 },
-    { 3, 0 },
-    { 3, 1 },
 };
 
 /* Upload block pixels from atlas to _created_ TextureArray */

@@ -113,7 +113,7 @@ command_parsed:
     if(arg3.length) out_args.push_back(arg3);
 }
 
-void Console::update(Game &game, const Input &input, Window &window, double delta_time) {
+void Console::update(Game &game, const Input &input, double delta_time) {
     if(!m_is_open) {
         return;
     }
@@ -153,7 +153,8 @@ void Console::update(Game &game, const Input &input, Window &window, double delt
 
         console_command_proc **command_proc = m_commands.find(command_key);
         if(command_proc != NULL) {
-            (*command_proc)(*this, args, window, game);
+            this->add_to_history("> %s", m_input.c_str());
+            (*command_proc)(*this, args, game);
         } else {
             /* Custom command */
             if(command == "commands") {
@@ -283,7 +284,7 @@ void Console::clear_history(void) {
     }
 }
 
-void Console::set_open_state(bool open, Window &window) {
+void Console::set_open_state(bool open) {
     if(m_is_open == open) {
         return;
     }
@@ -291,7 +292,7 @@ void Console::set_open_state(bool open, Window &window) {
     if(open) { m_input = ""; }
 
     m_is_open = open;
-    window.set_text_input_active(open);
+    Window::get().set_text_input_active(open);
 }
 
 bool Console::is_open(void) {

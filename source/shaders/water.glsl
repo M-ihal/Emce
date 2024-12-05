@@ -31,6 +31,7 @@ out vec3 v_normal;
 out float v_ambient_occlusion;
 out vec3 v_camera_pos;
 out vec3 v_position;
+out float v_wave_delta;
 
 void main() {
     uint pos_x = (a_packed.x >> 0u) & 0xFFu;
@@ -49,20 +50,28 @@ void main() {
 
     v_position = (u_model * vec4(pos_x, pos_y, pos_z, 1.0)).xyz;
 
-    /* Wave animation */ {
-        float wave_speed = 1.0;
-        float wave_height = 0.22;
-        float wave_frequency = 2.0 * 3.14159265 / 32.0 * 2;
+    v_tex_coord = tex_coords[tex_coord_id];
 
-        position.y += wave_height * sin(u_time_elapsed * wave_speed + position.x * wave_frequency) 
-            * cos(u_time_elapsed * wave_speed + position.z * wave_frequency);
+    /* Wave animation */ {
+        float wave_speed = 0.4;
+        float wave_height = 0.42;
+        float wave_frequency_x = 1.0 * 3.14159265 / 32.0 * 2;
+        float wave_frequency_z = 2.0 * 3.14159265 / 32.0 * 2;
+
+        float y_base = position.y;
+
+        position.y += wave_height * sin(u_time_elapsed * wave_speed + position.x * wave_frequency_x) 
+            * cos(u_time_elapsed * wave_speed + position.z * wave_frequency_z);
         
-        position.y -= 0.2;
+        position.y -= wave_height;
+
+
+        v_wave_delta = (1.0 - (y_base - position.y + wave_height) / (wave_height * 2.0)) * ((cos(u_time_elapsed) * 0.5f + 0.5f) * 0.7);
+        v_wave_delta += (y_base - position.y + wave_height) / (wave_height * 2.0) * ((sin(u_time_elapsed) * 0.5f + 0.5f) * 0.7);
     }
     v_ambient_occlusion = float(ambient_occlusion);
 
 
-    v_tex_coord = tex_coords[tex_coord_id];
     v_normal = mat3(transpose(inverse(u_model))) * normals[normal_id];
     gl_Position = u_proj * u_view * position;
 }
@@ -81,6 +90,7 @@ in vec3 v_normal;
 in float v_ambient_occlusion;
 in vec3 v_camera_pos;
 in vec3 v_position;
+in float v_wave_delta;
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_normal;
@@ -104,7 +114,14 @@ void main() {
 
  //   out_color = texture(u_water_texture_array, tex_arr_coord) * vec4(1,1,1,0.8);
     out_color = texture(u_skybox, frag_to_sky) + vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord) * 0.22;
-    out_color *= vec4(1, 1, 1, 0.5);
+    out_color *= vec4(1, 1, 1, 0.7);
+
+    float wave_delta = v_wave_delta * v_wave_delta * v_wave_delta;
+
+    out_color.a += wave_delta * wave_delta * 0.16;
+    out_color.xyz += wave_delta * 0.07;
+
+    //out_color = vec4(wave_delta, wave_delta, wave_delta, 1.0);
 
     out_normal = vec4(v_normal, 1.0);
 

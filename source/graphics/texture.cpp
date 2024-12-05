@@ -18,7 +18,7 @@ void Texture::delete_texture(void) {
     }
 }
 
-bool Texture::load_empty(int32_t width, int32_t height, TextureDataFormat internal_format) {
+bool Texture::load_empty(int32_t width, int32_t height, TextureDataFormat internal_format, int32_t levels) {
     ASSERT(m_tex_id == 0);
 
     GL_CHECK(glCreateTextures(GL_TEXTURE_2D, 1, &m_tex_id));
@@ -30,10 +30,11 @@ bool Texture::load_empty(int32_t width, int32_t height, TextureDataFormat intern
     const int32_t gl_internal_format = gl_internal_format_from_texture_data_format(internal_format);
 
     GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_tex_id));
-    GL_CHECK(glTexStorage2D(GL_TEXTURE_2D, 1, gl_internal_format, width, height));
+    GL_CHECK(glTexStorage2D(GL_TEXTURE_2D, levels, gl_internal_format, width, height));
 
     m_width = width;
     m_height = height;
+    m_levels = levels;
     m_internal_format = internal_format;
 
     this->set_filter_min(TextureFilter::NEAREST);
@@ -41,24 +42,24 @@ bool Texture::load_empty(int32_t width, int32_t height, TextureDataFormat intern
     this->set_wrap_s(TextureWrap::CLAMP);
     this->set_wrap_t(TextureWrap::CLAMP);
 
-    glGenerateMipmap(GL_TEXTURE_2D);
-
     return true;
 }
 
-bool Texture::load_from_memory(uint8_t *data, int32_t width, int32_t height, TextureLoadSpec spec) {
+bool Texture::load_from_memory(uint8_t *data, int32_t width, int32_t height, TextureLoadSpec spec, int32_t levels) {
     ASSERT(data);
     ASSERT(width && height);
 
-    if(!this->load_empty(width, height, spec.internal_format)) {
+    if(!this->load_empty(width, height, spec.internal_format, levels)) {
         return false;
     }
 
     this->set_pixels(data, 0, 0, width, height, spec.data_format, spec.data_type);
+    this->gen_mipmaps();
+
     return true;
 }
 
-bool Texture::load_from_file(const std::string &filepath, bool flip_on_load, TextureLoadSpec spec) {
+bool Texture::load_from_file(const std::string &filepath, bool flip_on_load, TextureLoadSpec spec, int32_t levels) {
     fprintf(stdout, "[info] Texture: Loading texture from file, path: %s\n", filepath.c_str());
 
     stbi_set_flip_vertically_on_load(flip_on_load);
@@ -85,7 +86,7 @@ bool Texture::load_from_file(const std::string &filepath, bool flip_on_load, Tex
         internal_format = spec.internal_format;
     }
 
-    if(!this->load_empty(width, height, internal_format)) {
+    if(!this->load_empty(width, height, internal_format, levels)) {
         free(pixels);
         return false;
     }
@@ -110,6 +111,7 @@ bool Texture::load_from_file(const std::string &filepath, bool flip_on_load, Tex
     }
 
     this->set_pixels(pixels, 0, 0, width, height, data_format, data_type);
+    this->gen_mipmaps();
     free(pixels);
 
     return true;
@@ -140,6 +142,9 @@ void Texture::set_pixels(uint8_t *data, int32_t off_x, int32_t off_y, int32_t wi
 
     this->bind_texture();
     GL_CHECK(glTexSubImage2D(GL_TEXTURE_2D, 0, off_x, off_y, width, height, gl_data_format, gl_data_type, data));
+
+    // Regenerate mipmaps @TODO move?
+    GL_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
 }
 
 void Texture::set_filter_min(TextureFilter param) {
@@ -166,6 +171,12 @@ void Texture::set_wrap_t(TextureWrap param) {
     m_wrap_t = param;
 }
 
+void Texture::gen_mipmaps(void) {
+    if(m_levels > 1) {
+        GL_CHECK(glGenerateTextureMipmap(m_tex_id));
+    }
+}
+
 vec2i Texture::get_size(void) const {
     return vec2i{ m_width, m_height };
 }
@@ -175,6 +186,10 @@ int32_t gl_filter_from_texture_filter(TextureFilter param) {
         default: INVALID_CODE_PATH;  return -1;
         case TextureFilter::NEAREST: return GL_NEAREST;
         case TextureFilter::LINEAR:  return GL_LINEAR;
+        case TextureFilter::LINEAR_MIPMAP_LINEAR: return GL_LINEAR_MIPMAP_LINEAR;
+        case TextureFilter::LINEAR_MIPMAP_NEAREST: return GL_LINEAR_MIPMAP_NEAREST;
+        case TextureFilter::NEAREST_MIPMAP_LINEAR: return GL_NEAREST_MIPMAP_LINEAR;
+        case TextureFilter::NEAREST_MIPMAP_NEAREST: return GL_NEAREST_MIPMAP_NEAREST;
     }
 }
 

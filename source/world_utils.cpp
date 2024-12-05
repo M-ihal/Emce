@@ -9,7 +9,7 @@ bool is_chunk_in_range(vec2i chunk_xz, vec2i origin, int32_t radius) {
     return result;
 }
 
-vec3 real_position_from_block(const vec3i &block) {
+vec3d real_position_from_block(const vec3i &block) {
     return {
         (float)block.x,
         (float)block.y,
@@ -17,11 +17,11 @@ vec3 real_position_from_block(const vec3i &block) {
     };
 }
 
-vec3i block_position_from_real(const vec3 &real) {
+vec3i block_position_from_real(const vec3d &real) {
     return {
-        (int32_t)floorf(real.x),
-        (int32_t)floorf(real.y),
-        (int32_t)floorf(real.z),
+        (int32_t)floor(real.x),
+        (int32_t)floor(real.y),
+        (int32_t)floor(real.z),
     };
 }
 
@@ -32,7 +32,7 @@ vec2i chunk_position_from_block(const vec3i &block) {
     };
 }
 
-vec2i chunk_position_from_real(const vec3 &real) {
+vec2i chunk_position_from_real(const vec3d &real) {
     vec3i block = block_position_from_real(real);
     return chunk_position_from_block(block);
 }
@@ -53,14 +53,14 @@ vec3i block_position_from_relative(const vec3i &block_rel, const vec2i &chunk) {
     };
 }
 
-void calc_overlapping_blocks(vec3 pos, vec3 size, WorldPosition &min, WorldPosition &max) {
+void calc_overlapping_blocks(vec3d pos, vec3d size, WorldPosition &min, WorldPosition &max) {
     vec3i block_min_p = block_position_from_real(pos);
     vec3i block_max_p = block_position_from_real(pos + size);
     min = WorldPosition::from_block(block_min_p);
     max = WorldPosition::from_block(block_max_p);
 }
 
-WorldPosition WorldPosition::from_real(const vec3 &real) {
+WorldPosition WorldPosition::from_real(const vec3d &real) {
     WorldPosition result;
     result.real = real;
     result.block = block_position_from_real(real);
@@ -79,13 +79,13 @@ WorldPosition WorldPosition::from_block(const vec3i &block) {
 }
 
 // https://www.youtube.com/watch?v=fIu_8b2n8ZM
-bool ray_plane_intersection(const vec3 &ray_origin, const vec3 &ray_end, const vec3 &plane_p, const vec3 &plane_normal, float &out_k, vec3 &out_p) {
-    const vec3  v = ray_end - ray_origin;
-    const vec3  w = plane_p - ray_origin;
-    const float k = vec3::dot(w, plane_normal) / vec3::dot(v, plane_normal);
-    const vec3  p = ray_origin + v * k;
+bool ray_plane_intersection(const vec3d &ray_origin, const vec3d &ray_end, const vec3d &plane_p, const vec3d &plane_normal, double &out_k, vec3d &out_p) {
+    const vec3d v = ray_end - ray_origin;
+    const vec3d w = plane_p - ray_origin;
+    const double k = vec3d::dot(w, plane_normal) / vec3d::dot(v, plane_normal);
+    const vec3d p = ray_origin + v * k;
 
-    if(k < 0.0f || k > 1.0f) {
+    if(k < 0.0 || k > 1.0) {
         return false;
     }
 
@@ -95,50 +95,50 @@ bool ray_plane_intersection(const vec3 &ray_origin, const vec3 &ray_end, const v
 }
 
 // https://www.youtube.com/watch?v=EZXz-uPyCyA
-bool ray_triangle_intersection(const vec3 &ray_origin, const vec3 &ray_end, const vec3 &tri_a, const vec3 &tri_b, const vec3 &tri_c, float &out_k, vec3 &out_p) {
-    vec3 plane_normal = vec3::cross(tri_b - tri_a, tri_c - tri_a);
+bool ray_triangle_intersection(const vec3d &ray_origin, const vec3d &ray_end, const vec3d &tri_a, const vec3d &tri_b, const vec3d &tri_c, double &out_k, vec3d &out_p) {
+    vec3d plane_normal = vec3d::cross(tri_b - tri_a, tri_c - tri_a);
 
-    float k;
-    vec3  p;
+    double k;
+    vec3d  p;
     if(!ray_plane_intersection(ray_origin, ray_end, tri_a, plane_normal, k, p)) {
         return false;
     }
 
     /* Check a */ {
-        const vec3 cb = tri_b - tri_c;
-        const vec3 ab = tri_b - tri_a;
-        const vec3 ap = p - tri_a;
+        const vec3d cb = tri_b - tri_c;
+        const vec3d ab = tri_b - tri_a;
+        const vec3d ap = p - tri_a;
 
-        vec3  v = ab - cb * (vec3::dot(cb, ab) / vec3::dot(cb, cb));
-        float a = 1.0f - vec3::dot(v, ap) / vec3::dot(v, ab);
+        vec3d  v = ab - cb * (vec3d::dot(cb, ab) / vec3d::dot(cb, cb));
+        double a = 1.0 - vec3d::dot(v, ap) / vec3d::dot(v, ab);
 
-        if(a < 0.0f || a > 1.0f) {
+        if(a < 0.0 || a > 1.0) {
             return false;
         }
     }
 
     /* Check b */ {
-        const vec3 bc = tri_c - tri_b;
-        const vec3 ac = tri_c - tri_a;
-        const vec3 bp = p - tri_b;
+        const vec3d bc = tri_c - tri_b;
+        const vec3d ac = tri_c - tri_a;
+        const vec3d bp = p - tri_b;
 
-        vec3  v = bc - ac * (vec3::dot(ac, bc) / vec3::dot(ac, ac));
-        float b = 1.0f - vec3::dot(v, bp) / vec3::dot(v, bc);
+        vec3d  v = bc - ac * (vec3d::dot(ac, bc) / vec3d::dot(ac, ac));
+        double b = 1.0 - vec3d::dot(v, bp) / vec3d::dot(v, bc);
 
-        if(b < 0.0f || b > 1.0f) {
+        if(b < 0.0 || b > 1.0) {
             return false;
         }
     }
 
     /* Check c */ {
-        const vec3 ca = tri_a - tri_c;
-        const vec3 ba = tri_a - tri_b;
-        const vec3 cp = p - tri_c;
+        const vec3d ca = tri_a - tri_c;
+        const vec3d ba = tri_a - tri_b;
+        const vec3d cp = p - tri_c;
 
-        vec3  v = ca - ba * (vec3::dot(ba, ca) / vec3::dot(ba, ba));
-        float c = 1.0f - vec3::dot(v, cp) / vec3::dot(v, ca);
+        vec3d  v = ca - ba * (vec3d::dot(ba, ca) / vec3d::dot(ba, ba));
+        double c = 1.0 - vec3d::dot(v, cp) / vec3d::dot(v, ca);
 
-        if(c < 0.0f || c > 1.0f) {
+        if(c < 0.0 || c > 1.0) {
             return false;
         }
     }
@@ -151,67 +151,67 @@ bool ray_triangle_intersection(const vec3 &ray_origin, const vec3 &ray_end, cons
 struct CheckSide {
     BlockSide side;
     vec3i normal;
-    vec3  off_a;
-    vec3  off_b;
-    vec3  off_c;
-    vec3  off_d;
+    vec3d off_a;
+    vec3d off_b;
+    vec3d off_c;
+    vec3d off_d;
 };
 
 constexpr static CheckSide sides[6] = {
     /* Y pos */ {
         .side = BlockSide::Y_POS,
         .normal = { 0, 1, 0 },
-        .off_a = vec3{ 0.0f, 1.0f, 0.0f },
-        .off_b = vec3{ 1.0f, 1.0f, 0.0f },
-        .off_c = vec3{ 1.0f, 1.0f, 1.0f },
-        .off_d = vec3{ 0.0f, 1.0f, 1.0f },
+        .off_a = vec3d{ 0.0, 1.0, 0.0 },
+        .off_b = vec3d{ 1.0, 1.0, 0.0 },
+        .off_c = vec3d{ 1.0, 1.0, 1.0 },
+        .off_d = vec3d{ 0.0, 1.0, 1.0 },
     },
     /* Y neg */ {
         .side = BlockSide::Y_NEG,
         .normal = { 0, -1, 0 },
-        .off_a = vec3{ 0.0f, 0.0f, 0.0f },
-        .off_b = vec3{ 1.0f, 0.0f, 0.0f },
-        .off_c = vec3{ 1.0f, 0.0f, 1.0f },
-        .off_d = vec3{ 0.0f, 0.0f, 1.0f },
+        .off_a = vec3d{ 0.0, 0.0, 0.0 },
+        .off_b = vec3d{ 1.0, 0.0, 0.0 },
+        .off_c = vec3d{ 1.0, 0.0, 1.0 },
+        .off_d = vec3d{ 0.0, 0.0, 1.0 },
     },
     /* X neg */ {
         .side = BlockSide::X_NEG,
         .normal = { -1, 0, 0 },
-        .off_a = vec3{ 0.0f, 0.0f, 1.0f },
-        .off_b = vec3{ 0.0f, 0.0f, 0.0f },
-        .off_c = vec3{ 0.0f, 1.0f, 0.0f },
-        .off_d = vec3{ 0.0f, 1.0f, 1.0f },
+        .off_a = vec3d{ 0.0, 0.0, 1.0 },
+        .off_b = vec3d{ 0.0, 0.0, 0.0 },
+        .off_c = vec3d{ 0.0, 1.0, 0.0 },
+        .off_d = vec3d{ 0.0, 1.0, 1.0 },
     },
     /* X pos */ {
         .side = BlockSide::X_POS,
         .normal = { 1, 0, 0 },
-        .off_a = vec3{ 1.0f, 0.0f, 1.0f },
-        .off_b = vec3{ 1.0f, 0.0f, 0.0f },
-        .off_c = vec3{ 1.0f, 1.0f, 0.0f },
-        .off_d = vec3{ 1.0f, 1.0f, 1.0f },
+        .off_a = vec3d{ 1.0, 0.0, 1.0 },
+        .off_b = vec3d{ 1.0, 0.0, 0.0 },
+        .off_c = vec3d{ 1.0, 1.0, 0.0 },
+        .off_d = vec3d{ 1.0, 1.0, 1.0 },
     },
     /* Z neg */ {
         .side = BlockSide::Z_NEG,
         .normal = { 0, 0, -1 },
-        .off_a = vec3{ 0.0f, 0.0f, 0.0f },
-        .off_b = vec3{ 1.0f, 0.0f, 0.0f },
-        .off_c = vec3{ 1.0f, 1.0f, 0.0f },
-        .off_d = vec3{ 0.0f, 1.0f, 0.0f },
+        .off_a = vec3d{ 0.0, 0.0, 0.0 },
+        .off_b = vec3d{ 1.0, 0.0, 0.0 },
+        .off_c = vec3d{ 1.0, 1.0, 0.0 },
+        .off_d = vec3d{ 0.0, 1.0, 0.0 },
     },
     /* Z pos */ {
         .side = BlockSide::Z_POS,
         .normal = { 0, 0, 1 },
-        .off_a = vec3{ 0.0f, 0.0f, 1.0f },
-        .off_b = vec3{ 1.0f, 0.0f, 1.0f },
-        .off_c = vec3{ 1.0f, 1.0f, 1.0f },
-        .off_d = vec3{ 0.0f, 1.0f, 1.0f },
+        .off_a = vec3d{ 0.0, 0.0, 1.0 },
+        .off_b = vec3d{ 1.0, 0.0, 1.0 },
+        .off_c = vec3d{ 1.0, 1.0, 1.0 },
+        .off_d = vec3d{ 0.0, 1.0, 1.0 },
     },
 };
 
-RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec3 &ray_end) {
+RaycastBlockResult raycast_block(World &world, const vec3d &ray_origin, const vec3d &ray_end) {
     RaycastBlockResult result;
     result.found = false;
-    result.distance = 100000.0f; // FLT_MAX
+    result.distance = 100000.0;
 
     WorldPosition ray_origin_p = WorldPosition::from_real(ray_origin);
     WorldPosition ray_end_p = WorldPosition::from_real(ray_end);
@@ -243,23 +243,23 @@ RaycastBlockResult raycast_block(World &world, const vec3 &ray_origin, const vec
                 }
 
                 BlockType block = chunk->get_block(block_p.block_rel);
-                if(block == BlockType::_INVALID || block == BlockType::AIR || get_block_flags(block) & IS_NOT_TARGETABLE) {
+                if(block == BlockType::_INVALID || block == BlockType::AIR || get_block_type_flags(block) & IS_NOT_TARGETABLE) {
                     continue;
                 }
 
                 for(int32_t index = 0; index < ARRAY_COUNT(sides); ++index) {
                     CheckSide side = sides[index];
-                    vec3 tri_a = block_p.real + side.off_a;
-                    vec3 tri_b = block_p.real + side.off_b;
-                    vec3 tri_c = block_p.real + side.off_c;
-                    vec3 tri_d = block_p.real + side.off_d;
+                    vec3d tri_a = block_p.real + side.off_a;
+                    vec3d tri_b = block_p.real + side.off_b;
+                    vec3d tri_c = block_p.real + side.off_c;
+                    vec3d tri_d = block_p.real + side.off_d;
 
-                    if(vec3::dot(vec3::normalize(ray_end - ray_origin), vec3::make(side.normal)) >= 0.0f) {
+                    if(vec3d::dot(vec3d::normalize(ray_end - ray_origin), vec3d::make(side.normal)) >= 0.0) {
                         continue;
                     }
 
-                    float distance;
-                    vec3  intersection;
+                    double distance;
+                    vec3d  intersection;
                     if(ray_triangle_intersection(ray_origin, ray_end, tri_a, tri_b, tri_c, distance, intersection) || 
                        ray_triangle_intersection(ray_origin, ray_end, tri_c, tri_d, tri_a, distance, intersection)) {
                         if(distance < result.distance) {

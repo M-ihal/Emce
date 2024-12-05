@@ -79,6 +79,7 @@ void World::delete_chunks(void) {
 
 void World::update_loaded_chunks(float delta_time) {
     std::vector<vec2i> chunks_to_delete;
+    std::vector<Chunk *> to_mesh;
 
     ChunkHashTable::Iterator chunk_iter;
     while(m_chunk_table.iterate_all(chunk_iter)) {
@@ -115,7 +116,7 @@ void World::update_loaded_chunks(float delta_time) {
         /* If waiting and neighbours got generated -> queue for meshing */
         if(chunk->m_mesh_state == ChunkMeshState::WAITING) {
             if(this->chunk_neighbours_generated(chunk->m_chunk_xz)) {
-                this->gen_chunk_mesh_offload(chunk->m_chunk_xz);
+                to_mesh.push_back(chunk);
             }
         }
     }
@@ -127,6 +128,17 @@ void World::update_loaded_chunks(float delta_time) {
         Chunk *chunk = *chunk_hash;
         delete chunk;
         m_chunk_table.remove(chunk_xz);
+    }
+
+    std::sort(to_mesh.begin(), to_mesh.end(), [] (Chunk *a, Chunk *b) { 
+        vec2 chunk = vec2::make(a->get_world()->get_player().get_position_chunk()); // @TODO
+        float dist_a = vec2::length_sq(chunk - vec2::make(a->get_chunk_xz()));
+        float dist_b = vec2::length_sq(chunk - vec2::make(b->get_chunk_xz()));
+        return dist_a < dist_b; 
+    });
+
+    for(auto chunk : to_mesh) {
+        this->gen_chunk_mesh_offload(chunk->m_chunk_xz);
     }
 }
 
@@ -246,13 +258,17 @@ void World::gen_chunk_mesh_offload(vec2i chunk_xz) {
     }
 
     SDL_LockMutex(m_lock_mesh_gen);
-    ChunkMeshGenData *mesh_data;
+    ChunkMeshGenData *mesh_data = NULL;
     chunk_mesh_gen_data_init(&mesh_data, *this, chunk_xz);
-    m_meshes_to_build.push(mesh_data);
-    chunk->m_mesh_state = ChunkMeshState::QUEUED;
+    if(mesh_data != NULL) {
+        m_meshes_to_build.push(mesh_data);
+    }
     SDL_UnlockMutex(m_lock_mesh_gen);
 
-    m_owner->wake_up_gen_meshes_threads();
+    if(mesh_data != NULL) {
+        chunk->m_mesh_state = ChunkMeshState::QUEUED;
+        m_owner->wake_up_gen_meshes_threads();
+    }
 }
 
 void World::gen_chunk_mesh_imm(vec2i chunk_xz) {
@@ -262,12 +278,15 @@ void World::gen_chunk_mesh_imm(vec2i chunk_xz) {
         return;
     }
 
-    ChunkMeshGenData *mesh_data;
-    chunk_mesh_gen_data_init(&mesh_data, *this, chunk_xz);
+    ChunkMeshGenData *mesh_data = new ChunkMeshGenData;
+
+    chunk_mesh_gen_data_init(&mesh_data, *this, chunk_xz, true);
     chunk_mesh_gen(mesh_data);
     chunk->set_mesh(mesh_data);
     chunk->m_mesh_state = ChunkMeshState::LOADED;
     chunk_mesh_gen_data_free(&mesh_data);
+
+    delete mesh_data;
 }
 
 bool World::chunk_neighbours_generated(vec2i chunk_xz) {

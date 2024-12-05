@@ -205,31 +205,12 @@ void SimpleDraw::set_camera(const Camera &camera, float aspect_ratio) {
     g_set_camera = camera;
 }
 
-void SimpleDraw::draw_triangle(const vec3 &tri_a, const vec3 &tri_b, const vec3 &tri_c, const vec4 &color) {
-    mat4 view = g_set_camera.calc_view();
-    mat4 proj = g_set_camera.calc_proj(g_set_aspect);
-
-    g_triangle_shader.use_program();
-    g_triangle_shader.upload_mat4("u_view", view);
-    g_triangle_shader.upload_mat4("u_proj", proj);
-    g_triangle_shader.upload_vec4("u_color", (float *)color.e);
-
-    float vertices[] = {
-        tri_a.x, tri_a.y, tri_a.z,
-        tri_b.x, tri_b.y, tri_b.z,
-        tri_c.x, tri_c.y, tri_c.z,
-    };
-
-    g_triangle_vao.bind_vao();
-    g_triangle_vao.upload_vbo_data(vertices, ARRAY_COUNT(vertices) * sizeof(float), 0);
-
-    draw_elements_triangles(g_triangle_vao.get_ibo_count());
-}
-
 void SimpleDraw::draw_cube_line_outline(const vec3 &position, const vec3 &size, const vec3 &color) {
-    mat4 view = g_set_camera.calc_view(position);
+    const vec3 position_relative = vec3::make(g_set_camera.offset_to_relative(vec3d::make(position)));
+
+    mat4 view = g_set_camera.calc_view_at_origin();
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
-    mat4 model = mat4::scale(size.x, size.y, size.z);
+    mat4 model = mat4::scale(size.x, size.y, size.z) * mat4::translate(position_relative);
 
     g_cube_line_outline_shader.use_program();
     g_cube_line_outline_shader.upload_mat4("u_view", view);
@@ -242,9 +223,11 @@ void SimpleDraw::draw_cube_line_outline(const vec3 &position, const vec3 &size, 
 }
 
 void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float width, const vec3 &color, float border_perc, const vec3 &border_color) {
-    mat4 view = g_set_camera.calc_view(position);
+    const vec3 position_relative = vec3::make(g_set_camera.offset_to_relative(vec3d::make(position)));
+
+    mat4 view = g_set_camera.calc_view_at_origin();
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
-    mat4 model = mat4::scale(size.x, size.y, size.z);
+    mat4 model = mat4::scale(size.x, size.y, size.z) * mat4::translate(position_relative);
 
     g_cube_outline_shader.use_program();
     g_cube_outline_shader.upload_mat4("u_view", view);
@@ -261,12 +244,15 @@ void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float
 }
 
 void SimpleDraw::draw_line(const vec3 &point_a, const vec3 &point_b, float width, const vec3 &color) {
-    mat4 view = g_set_camera.calc_view();
+    const vec3 point_a_relative = vec3::make(g_set_camera.offset_to_relative(vec3d::make(point_a)));
+    const vec3 point_b_relative = vec3::make(g_set_camera.offset_to_relative(vec3d::make(point_b)));
+
+    mat4 view = g_set_camera.calc_view_at_origin();
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
 
     float vertices[] = {
-        point_a.x, point_a.y, point_a.z,
-        point_b.x, point_b.y, point_b.z
+        point_a_relative.x, point_a_relative.y, point_a_relative.z,
+        point_b_relative.x, point_b_relative.y, point_b_relative.z
     };
 
     const int32_t vbo_data_size = g_line_vao.get_vbo_size();

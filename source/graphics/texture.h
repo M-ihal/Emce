@@ -7,7 +7,11 @@
 
 enum class TextureFilter : int8_t {
     LINEAR  = 1,
-    NEAREST = 2
+    NEAREST = 2,
+    LINEAR_MIPMAP_LINEAR = 3,
+    LINEAR_MIPMAP_NEAREST = 4,
+    NEAREST_MIPMAP_LINEAR = 5,
+    NEAREST_MIPMAP_NEAREST = 6,
 };
 
 enum class TextureWrap : int8_t {
@@ -49,13 +53,13 @@ public:
     /* load_* procs should be called only once or after Texture deletion */
 
     /* Generates empty texture */
-    bool load_empty(int32_t width, int32_t height, TextureDataFormat internal_format);
+    bool load_empty(int32_t width, int32_t height, TextureDataFormat internal_format, int32_t levels = 1);
 
     /* Generates texture and sets the pixels from memory */
-    bool load_from_memory(uint8_t *data, int32_t width, int32_t height, TextureLoadSpec spec);
+    bool load_from_memory(uint8_t *data, int32_t width, int32_t height, TextureLoadSpec spec, int32_t levels = 1);
 
     /* Generates texture from file */
-    bool load_from_file(const std::string &filepath, bool flip_on_load = false, TextureLoadSpec spec = { TextureDataFormat::INVALID, TextureDataFormat::INVALID, TextureDataType::INVALID });
+    bool load_from_file(const std::string &filepath, bool flip_on_load = false, TextureLoadSpec spec = { TextureDataFormat::INVALID, TextureDataFormat::INVALID, TextureDataType::INVALID }, int32_t levels = 1);
 
     /* Deletes the texture */
     void delete_texture(void);
@@ -75,6 +79,9 @@ public:
     /* Sets the Texture wrap t mode */
     void set_wrap_t(TextureWrap param);
 
+    /* Generate mipmaps */
+    void gen_mipmaps(void);
+
     /* */
     vec2i get_size(void) const;
 
@@ -82,6 +89,7 @@ private:
     uint32_t m_tex_id = 0;
     int32_t  m_width;
     int32_t  m_height;
+    int32_t  m_levels;
     TextureDataFormat m_internal_format;
 
     TextureFilter m_filter_min;

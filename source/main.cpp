@@ -27,9 +27,6 @@
 #include <filesystem>
 
 namespace {
-    constexpr int32_t INIT_WINDOW_WIDTH  = 1280;
-    constexpr int32_t INIT_WINDOW_HEIGHT = 720;
-    const char       *INIT_WINDOW_TITLE  = "emce";
 }
 
 int SDL_main(int argc, char *argv[]) {
@@ -48,11 +45,15 @@ int SDL_main(int argc, char *argv[]) {
         return -1;
     }
 
-    Window window;
-    if(!window.initialize(INIT_WINDOW_WIDTH, INIT_WINDOW_HEIGHT, INIT_WINDOW_TITLE)) {
-        fprintf(stderr, "[error] Window: Failed to create valid opengl window.\n");
+    /* Initialize window */
+    try {
+        Window::get();
+    } catch(const std::exception &exc) {
+        fprintf(stderr, "[error] Window: Failed to create window.\n");
         return -1;
     }
+
+    Window &window = Window::get();
 
     const bool glew_success = glewInit() == GLEW_OK;
     if(!glew_success) {
@@ -65,10 +66,10 @@ int SDL_main(int argc, char *argv[]) {
     SimpleDraw::initialize();
 
     Input input;
-    Game game(window);
+    Game game;
 
     game.get_console().set_command("quit", { CONSOLE_COMMAND_LAMBDA {
-            window.set_should_close();
+            Window::get().set_should_close();
         }
     });
 
@@ -100,10 +101,10 @@ int SDL_main(int argc, char *argv[]) {
         SimpleDraw::hotload_shader();
         game.hotload_shaders();
 
-        game.update(window, input, delta_time);
+        game.update(input, delta_time);
 
         /* Render */ {
-            SimpleDraw::set_camera(game.get_camera(), window.calc_aspect());
+            SimpleDraw::set_camera(game.get_camera(), window.get_aspect());
 
             set_viewport({ 0, 0, window.get_width(), window.get_height() });
             GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));

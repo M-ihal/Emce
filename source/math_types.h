@@ -3,11 +3,11 @@
 #include "common.h"
 
 #if !defined(M_PI)
-#define M_PI 3.14159265f
+#define M_PI 3.14159265
 #endif
 
-#define DEG_TO_RAD(deg) ((deg) * (M_PI / 180.0f))
-#define RAD_TO_DEG(rad) ((rad) * (180.0f / M_PI))
+#define DEG_TO_RAD(deg) ((deg) * (M_PI / 180.0))
+#define RAD_TO_DEG(rad) ((rad) * (180.0 / M_PI))
 #define SQUARE(v) ((v) * (v))
 
 #define SIGN(v) (((v) < 0) ? -1 : ((v) > 0) ? 1 : 0)
@@ -53,6 +53,33 @@ vec2 operator - (const vec2 &l, const vec2 &r);
 vec2 operator * (const vec2 &l, float r);
 vec2 &operator *= (vec2 &l, float r);
 
+struct vec2d {
+    union {
+        struct {
+            double x;
+            double y;
+        };
+        double e[2];
+    };
+
+    static vec2d make(double x, double y);
+    static vec2d make(double xy);
+    static vec2d make(const struct vec2i &v);
+    static vec2d make_xz(const struct vec3d &v);
+    static vec2d zero(void);
+
+    static vec2d  absolute(const vec2d &v);
+    static double length_sq(const vec2d &v);
+    static double length(const vec2d &v);
+    static double dot(const vec2d &a, const vec2d &b);
+    static vec2d  normalize(const vec2d &v);
+};
+
+vec2d operator + (const vec2d &l, const vec2d &r);
+vec2d operator - (const vec2d &l, const vec2d &r);
+vec2d operator * (const vec2d &l, double r);
+vec2d &operator *= (vec2d &l, double r);
+
 struct vec2i {
     union {
         struct {
@@ -64,7 +91,6 @@ struct vec2i {
 
     static vec2i make_xz(const struct vec3i &v);
     static vec2i zero(void);
-
     static vec2i absolute(const vec2i &v);
 };
 
@@ -94,6 +120,7 @@ struct vec3 {
     static vec3 make(float xyz);
     static vec3 make(const vec2 &v, float z);
     static vec3 make(const struct vec3i &v);
+    static vec3 make(const struct vec3d &v);
 
     static vec3  absolute(const vec3 &vec);
     static float length_sq(const vec3 &vec);
@@ -113,6 +140,41 @@ vec3 &operator += (vec3 &l, const vec3 &r);
 vec3 &operator -= (vec3 &l, const vec3 &r);
 vec3 &operator *= (vec3 &l, const vec3 &r);
 vec3 &operator *= (vec3 &l, const float &r);
+
+struct vec3d {
+    union {
+        struct {
+            double x;
+            double y;
+            double z;
+        };
+        double e[3];
+    };
+
+    static vec3d zero(void);
+    static vec3d make(double x, double y, double z);
+    static vec3d make(double xyz);
+    static vec3d make(const struct vec3i &v);
+    static vec3d make(const struct vec3 &v);
+
+    static vec3d  absolute(const vec3d &vec);
+    static double length_sq(const vec3d &vec);
+    static double length(const vec3d &vec);
+    static vec3d  normalize(const vec3d &vec);
+    static vec3d  cross(const vec3d &a, const vec3d &b);
+    static double dot(const vec3d &a, const vec3d &b);
+};
+
+vec3d operator + (const vec3d &l, const vec3d r);
+vec3d operator - (const vec3d &l, const vec3d r);
+vec3d operator * (const vec3d &l, const vec3d r);
+vec3d operator * (const vec3d &l, const double r);
+vec3d operator * (const double l, const vec3d &r);
+vec3d operator / (const vec3d &l, const double r);
+vec3d &operator += (vec3d &l, const vec3d &r);
+vec3d &operator -= (vec3d &l, const vec3d &r);
+vec3d &operator *= (vec3d &l, const vec3d &r);
+vec3d &operator *= (vec3d &l, const double &r);
 
 struct vec3i {
     union {
@@ -182,6 +244,7 @@ struct mat4 {
 
     static mat4 transpose(const mat4 &m);
     static mat4 identity(void);
+
     static mat4 orthographic(float left, float bottom, float right, float top, float near, float far);
     static mat4 perspective(float fov, float aspect, float near, float far);
     static mat4 look_at(vec3 eye, vec3 focus, vec3 up_vec);
@@ -192,6 +255,18 @@ struct mat4 {
     static mat4 rotate_z(float theta);
     static mat4 scale(const vec3 &vec);
     static mat4 scale(float x, float y, float z);
+
+    /* Wrappers to be able to pass doubles and then convert them */
+    static mat4 orthographic(double left, double bottom, double right, double top, double near, double far);
+    static mat4 perspective(double fov, double aspect, double near, double far);
+    static mat4 look_at(vec3d eye, vec3d focus, vec3d up_vec);
+    static mat4 translate(const vec3d &vec);
+    static mat4 translate(double x, double y, double z);
+    static mat4 rotate_x(double theta);
+    static mat4 rotate_y(double theta);
+    static mat4 rotate_z(double theta);
+    static mat4 scale(const vec3d &vec);
+    static mat4 scale(double x, double y, double z);
 };
 
 mat4 operator * (const mat4 &l, const mat4 &r);

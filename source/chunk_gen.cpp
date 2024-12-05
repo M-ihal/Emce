@@ -44,7 +44,8 @@ void chunk_gen(ChunkGenData &gen) {
                     set_block(gen, vec3i{ x, y, z }, BlockType::SAND);
                 } else {
                     switch(biome_map[x][z]) {
-                        case BIOME_PLAINS: {
+                        case BIOME_PLAINS:
+                        case BIOME_FOREST: {
                             if(y == height_map[x][z] - 1) {
                                 set_block(gen, vec3i{ x, y, z }, BlockType::DIRT_WITH_GRASS);
                             } else {
@@ -62,16 +63,30 @@ void chunk_gen(ChunkGenData &gen) {
             /* @TEMP : Basic structure inserting */
             if(height_map[x][z] > ocean_level) {
                 switch(biome_map[x][z]) {
-                    case BIOME_PLAINS: {
-                        /* Plant grass */
-                        if(rand() % 40 == 0) {
+                    case BIOME_PLAINS:
+                    case BIOME_FOREST: {
+                        /* Plant foliage */
+                        if(rand() % 50 == 0) {
+
+                            BlockType to_plant;
+                            int plant_rand = rand() % 200;
+                            if(plant_rand < 120) {
+                                to_plant = BlockType::GRASS;
+                            } else if(plant_rand < 160) {
+                                to_plant = BlockType::DANDELION;
+                            } else {
+                                to_plant = BlockType::ROSE;
+                            }
+
                             if(get_block(gen, vec3i{ x, height_map[x][z], z }) == BlockType::AIR) {
-                                set_block(gen, vec3i{ x, height_map[x][z], z }, BlockType::GRASS);
+                                set_block(gen, vec3i{ x, height_map[x][z], z }, to_plant);
                             }
                         }
 
                         /* Plant trees */
-                        if(rand() % 585 == 0) {
+                        int32_t plant_tree_chance = biome_map[x][z] == BIOME_FOREST ? 40 : 585;
+                        bool plant_tree = rand() % plant_tree_chance == 0;
+                        if(plant_tree) {
                             if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
                                 for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
                                     BlockOffset block = oak_tree_blocks[index];
@@ -156,9 +171,9 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
 void chunk_gen_biome_map(ChunkGenData &gen, int32_t biome_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]) {
     siv::PerlinNoise perlin(gen.seed.seed + 2);
 
-    const int32_t octaves = 5;
-    const double freq_x = 0.00515;
-    const double freq_z = 0.00515;
+    const int32_t octaves = 3;
+    const double freq_x = 0.00315;
+    const double freq_z = 0.00315;
 
     for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
         for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
@@ -167,10 +182,12 @@ void chunk_gen_biome_map(ChunkGenData &gen, int32_t biome_map[CHUNK_SIZE_X][CHUN
             double noise = perlin.octave2D_01(abs_x * freq_x, abs_z * freq_z, octaves);
 
             int32_t biome;
-            if(noise < 0.3) {
+            if(noise < 0.2) {
                 biome = BIOME_DESERT;
-            } else {
+            } else if(noise < 0.7) {
                 biome = BIOME_PLAINS;
+            } else {
+                biome = BIOME_FOREST;
             }
             biome_map[x][z] = biome;
         }
