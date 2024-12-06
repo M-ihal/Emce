@@ -88,12 +88,26 @@ void chunk_gen(ChunkGenData &gen) {
                         bool plant_tree = rand() % plant_tree_chance == 0;
                         if(plant_tree) {
                             if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
-                                for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
-                                    BlockOffset block = oak_tree_blocks[index];
+                                int32_t tree_type_chance = rand() % 4;
+                                if(tree_type_chance == 0) {
+                                    /* Birch 1/4 */
+                                    for(int32_t index = 0; index < ARRAY_COUNT(birch_tree_blocks); ++index) {
+                                        BlockOffset block = birch_tree_blocks[index];
 
-                                    vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
-                                    if(get_block(gen, block_rel) == BlockType::AIR) {
-                                        set_block(gen, block_rel, block.type);
+                                        vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
+                                        if(get_block(gen, block_rel) == BlockType::AIR) {
+                                            set_block(gen, block_rel, block.type);
+                                        }
+                                    }
+                                } else {
+                                    /* Oak */
+                                    for(int32_t index = 0; index < ARRAY_COUNT(oak_tree_blocks); ++index) {
+                                        BlockOffset block = oak_tree_blocks[index];
+
+                                        vec3i block_rel = vec3i{ x, height_map[x][z], z } + block.offset;
+                                        if(get_block(gen, block_rel) == BlockType::AIR) {
+                                            set_block(gen, block_rel, block.type);
+                                        }
                                     }
                                 }
                             }

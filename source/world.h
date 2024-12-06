@@ -39,7 +39,7 @@ public:
     void delete_chunks(void);
 
     /* Update chunks */
-    void update_loaded_chunks(float delta_time);
+    void update_loaded_chunks(float delta_time, double aspect);
 
     /* Current gen seed */
     WorldGenSeed get_gen_seed(void);
@@ -53,7 +53,7 @@ public:
     /* Creates chunk if doesn't exist, and returns it, ONLY MAIN THREAD */
     Chunk *get_chunk_create(vec2i chunk_xz, BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z] = NULL);
 
-    /* Returns Block and _opt_ Chunk from absolute position */
+    /* Returns Block and _opt_ Chunk from absolute position, On fail returns BlockType::_INVALID */
     BlockType get_block(vec3i block_abs, Chunk **out_chunk = NULL);
 
     /* Load chunks in range, ONLY MAIN THREAD */

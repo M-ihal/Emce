@@ -14,7 +14,7 @@
 namespace {
     /* Move to _Game_? */
     static int32_t  g_load_radius = 10;
-    static int32_t  g_deload_radius = 8;
+    static int32_t  g_deload_radius = 2;
     static float    g_third_person_distance = 10.0f;
     static bool     g_third_person_mode = false;
     static uint32_t g_triangles_rendered_last_frame = 0;
@@ -40,10 +40,12 @@ int32_t get_deload_radius(void) {
     return g_load_radius + g_deload_radius;
 }
 
+
 Game::Game(void) : m_world(this) {
     Window &window = Window::get();
     m_width  = window.get_width();
     m_height = window.get_height();
+    m_aspect = (double)m_width / (double)m_height;
 
     chunk_mesh_gen_data_init_global();
 
@@ -137,9 +139,9 @@ void Game::update(const Input &input, double delta_time) {
     }
 
     /* Queue generation of new chunks */
-    if(player.moved_chunk_last_frame()) {
+ //   if(player.moved_chunk_last_frame()) {
         this->check_for_chunks_to_load();
-    }
+   // }
 
     /* Insert generated chunks, and queue mesh generation */
     while(m_world.m_chunks_generated.size()) {
@@ -163,6 +165,7 @@ void Game::update(const Input &input, double delta_time) {
         chunk->set_chunk_state(ChunkState::GENERATED);
         chunk->set_appear_animation();
 
+#if 0
         /* If chunk's neighbours are generated -> queue mesh generation, otherwise -> set waiting state */
         bool has_neighbours = m_world.chunk_neighbours_generated(chunk->get_chunk_xz());
         if(has_neighbours) {
@@ -171,6 +174,8 @@ void Game::update(const Input &input, double delta_time) {
         } else {
             chunk->set_mesh_state(ChunkMeshState::WAITING);
         }
+#endif
+            chunk->set_mesh_state(ChunkMeshState::WAITING);
     }
 
     /* Set generated meshes */
@@ -192,7 +197,7 @@ void Game::update(const Input &input, double delta_time) {
         chunk_mesh_gen_data_free(&mesh_data);
     }
 
-    m_world.update_loaded_chunks(delta_time);
+    m_world.update_loaded_chunks(delta_time, m_aspect);
 }
 
 int32_t Game::thread_gen_chunks_proc(void) {
@@ -338,8 +343,7 @@ void Game::stop_threads(void) {
 }
 
 void Game::render_frame(void) {
-    const float aspect_ratio = (float)m_width / (float)m_height;
-    mat4 proj_m = m_camera.calc_proj(aspect_ratio);
+    mat4 proj_m = m_camera.calc_proj(m_aspect);
 
     Player &player = m_world.get_player();
 
@@ -351,7 +355,21 @@ void Game::render_frame(void) {
     m_fbo_ms.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
     m_fbo_ms.bind_fbo();
 
+    // Render world to multisampled framebuffer
     this->render_world(proj_m);
+
+    this->render_skybox(proj_m);
+    this->render_water(proj_m);
+    this->render_held_block(proj_m, m_aspect);
+    this->render_target_block(proj_m);
+
+    /* Resolve multisampled framebuffer to normal framebuffer */
+    m_fbo.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
+    m_fbo_ms.blit_color_attachment(0, m_fbo, 0);
+    m_fbo_ms.blit_color_attachment(1, m_fbo, 1);
+    m_fbo_ms.blit_color_attachment(2, m_fbo, 2);
+    m_fbo_ms.blit_color_attachment(3, m_fbo, 3);
+    m_fbo_ms.blit_depth_attachment(m_fbo);
 
     switch(g_debug_world_blit_mode) {
         case WorldBlitMode::COLOR: {
@@ -360,9 +378,6 @@ void Game::render_frame(void) {
                 .depth = DepthFunc::DISABLE,
                 .multisample = true,
             });
-
-            m_fbo.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
-            m_fbo_ms.blit_color_attachment(0, m_fbo, 0);
 
             int32_t is_camera_in_water = 0;
 
@@ -380,45 +395,47 @@ void Game::render_frame(void) {
             m_post_process_shader.upload_int("u_texture", 0);
             m_post_process_shader.upload_int("u_in_water", is_camera_in_water);
             m_post_process_shader.upload_int("u_texture", 0);
+
             m_fbo.bind_color_texture_unit(0, 0);
 
             bind_no_fbo();
             m_post_process_vao.bind_vao();
             draw_elements_triangles(m_post_process_vao.get_ibo_count());
+
         } break;
 
         case WorldBlitMode::NORMALS: {
-            m_fbo_ms.blit_color_attachment(1, m_width, m_height);
+            m_fbo.blit_color_attachment(1, m_width, m_height);
         } break;
 
         case WorldBlitMode::DEPTH: {
-            m_fbo_ms.blit_color_attachment(2, m_width, m_height);
+            m_fbo.blit_color_attachment(2, m_width, m_height);
         } break;
 
         case WorldBlitMode::AMBIENT_OCCLUSION: {
-            m_fbo_ms.blit_color_attachment(3, m_width, m_height);
+            m_fbo.blit_color_attachment(3, m_width, m_height);
         } break;
     }
 
-    /* Copy chunks' depth values to backbuffer */
-    m_fbo_ms.blit_depth_attachment(m_width, m_height);
 
     bind_no_fbo();
-    this->render_skybox(proj_m);
-    this->render_water(proj_m);
-    this->render_target_block(proj_m);
-    this->render_held_block(proj_m, aspect_ratio);
     this->render_ui();
     this->render_crosshair();
 }
 
 void Game::render_world(const mat4 &proj_m) {
     Player &player = m_world.get_player();
+    Camera &camera = m_camera;
 
     m_chunk_shader.use_program();
     m_chunk_shader.upload_mat4("u_proj", proj_m);
     m_chunk_shader.upload_int("u_texture_array", 0);
+    m_chunk_shader.upload_int("u_load_radius", g_load_radius);
     m_chunk_tex_array.bind_texture_unit(0);
+
+    m_chunk_shader.upload_int("u_skybox", 3);
+    m_skybox_cubemap.bind_cubemap_unit(3);
+
 
     set_render_state({
         .blend = BlendFunc::DISABLE,
@@ -432,13 +449,21 @@ void Game::render_world(const mat4 &proj_m) {
         set_polygon_mode(true);
     }
 
-    /* Iterate chunks and render them, @TODO : Frustum cull */
+    double frustum[6][4];
+    camera.calc_frustum_at_origin(frustum, m_aspect);
+
     ChunkHashTable::Iterator iter;
     while(m_world.m_chunk_table.iterate_all(iter)) {
         Chunk *chunk = iter.value;
 
         const VertexArray &chunk_vao = chunk->get_vao();
         if(!chunk_vao.has_been_created() || !chunk_vao.get_ibo_count()) {
+            continue;
+        }
+
+        vec3d chunk_origin = camera.offset_to_relative(real_position_from_chunk(chunk->get_chunk_xz()));
+
+        if(!is_chunk_in_frustum(frustum, chunk_origin)) {
             continue;
         }
 
@@ -471,8 +496,8 @@ void Game::render_world(const mat4 &proj_m) {
     /* Render shape in third person mode */
     if(g_third_person_mode) {
         const vec3 color = { 0.7f, 0.9f, 0.6f };
-        const vec3 position = vec3::make(player.get_position_origin());
-        const vec3 size = vec3::make(player.get_collider_size());
+        const vec3d position = player.get_position_origin();
+        const vec3d size = player.get_collider_size();
         SimpleDraw::draw_cube_outline(position, size, 2.0f / 32.0f, color);
     }
 
@@ -492,10 +517,10 @@ void Game::render_world(const mat4 &proj_m) {
                 continue;
             }
 
-            vec3 chunk_pos = { 
-                float(chunk->get_chunk_xz().x * CHUNK_SIZE_X),
-                0.0f,
-                float(chunk->get_chunk_xz().y * CHUNK_SIZE_Z)
+            vec3d chunk_pos = { 
+                (double)(chunk->get_chunk_xz().x * CHUNK_SIZE_X),
+                0.0,
+                (double)(chunk->get_chunk_xz().y * CHUNK_SIZE_Z)
             };
 
             SimpleDraw::draw_cube_outline(chunk_pos, { CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }, 8.0f / 16.0f, { 1.0f, 1.0f, 1.0f }, 0.15f, { 0.1f, 0.1f, 0.1f });
@@ -504,6 +529,8 @@ void Game::render_world(const mat4 &proj_m) {
 }
 
 void Game::render_water(const mat4 &proj_m) {
+    Camera &camera = m_camera;
+
     set_render_state({
         .blend = BlendFunc::STANDARD,
         .depth = DepthFunc::LESS,
@@ -516,11 +543,15 @@ void Game::render_water(const mat4 &proj_m) {
     m_water_shader.upload_mat4("u_proj", proj_m);
     m_water_shader.upload_float("u_time_elapsed", m_time_elapsed);
     m_water_shader.upload_int("u_water_texture_array", 0);
+    m_water_shader.upload_int("u_load_radius", g_load_radius);
     m_water_tex_array.bind_texture_unit(0);
     m_water_shader.upload_int("u_skybox", 1);
     m_skybox_cubemap.bind_cubemap_unit(1);
 
     std::vector<Chunk *> chunks;
+
+    double frustum[6][4];
+    camera.calc_frustum_at_origin(frustum, m_aspect);
 
     /* Go through loaded chunks and collect water to render */
     ChunkHashTable::Iterator iter;
@@ -529,6 +560,11 @@ void Game::render_water(const mat4 &proj_m) {
 
         const VertexArray &water_vao = chunk->get_water_vao();
         if(!water_vao.has_been_created() || !water_vao.get_ibo_count()) {
+            continue;
+        }
+
+        vec3d chunk_origin = camera.offset_to_relative(real_position_from_chunk(chunk->get_chunk_xz()));
+        if(!is_chunk_in_frustum(frustum, chunk_origin)) {
             continue;
         }
 
@@ -581,21 +617,21 @@ void Game::render_target_block(const mat4 &proj_m) {
     set_line_width(2.0f);
 
     /* Line target block outline */ {
-        const vec3 block_position = vec3::make(target.block_p.real);
-        SimpleDraw::draw_cube_line_outline(block_position, vec3::make(1), { 0.0f, 0.0f, 0.0f });
+        const vec3d block_position = target.block_p.real;
+        SimpleDraw::draw_cube_line_outline(block_position, vec3d::make(1), { 0.0f, 0.0f, 0.0f });
     }
 
     if(g_debug_raycast_draw) {
         /* DEBUG: Itersection point */
-        const float point_size = 0.1f;
-        const vec3 intersect_position = vec3::make(target.intersection);
-        SimpleDraw::draw_cube_outline(intersect_position - vec3::make(point_size * 0.5f), vec3::make(point_size), 1.0f / 128.0f, { 1.0f, 1.0f, 1.0f });
+        const vec3d point_size_half = vec3d::make(0.5);
+        const vec3d intersect_position = target.intersection;
+        SimpleDraw::draw_cube_outline(intersect_position - point_size_half, point_size_half * 2.0, 1.0f / 128.0f, { 1.0f, 1.0f, 1.0f });
 
         /* DEBUG: Block's normal */
-        const vec3 next_position = vec3::make(WorldPosition::from_block(target.block_p.block + target.normal).real);
-        const vec3 block_position = vec3::make(target.block_p.real);
-        const vec3 line_color = vec3::absolute(vec3::make(get_block_side_dir(target.side)));
-        SimpleDraw::draw_line(block_position + vec3::make(0.5f), next_position + vec3::make(0.5f), 2.0f, line_color);
+        const vec3d next_position = WorldPosition::from_block(target.block_p.block + target.normal).real;
+        const vec3d block_position = target.block_p.real;
+        const vec3  line_color = vec3::absolute(vec3::make(get_block_side_dir(target.side)));
+        SimpleDraw::draw_line(block_position + vec3d::make(0.5), next_position + vec3d::make(0.5), 2.0f, line_color);
     }
 }
 
@@ -807,12 +843,33 @@ void Game::hotload_shaders(void) {
 void Game::resize(int32_t width, int32_t height) {
     m_width = width;
     m_height = height;
+    m_aspect = (double)width / (double)height;
     m_fbo_ms.resize_fbo(width, height);
     m_fbo.resize_fbo(width, height);
 }
 
 void Game::check_for_chunks_to_load(void) {
-    m_world.create_chunks_in_range_offload(m_world.get_player().get_position_chunk(), g_load_radius + 1);
+    for(int i = 0; i < 2; ++i) {
+        for(int32_t j = -i; j <= i; ++j) {
+            for(int32_t k = -i; k <= i; ++k) {
+                vec2i chunk_xz = m_world.get_player().get_position_chunk() + vec2i{ j, k };
+                m_world.create_chunk_offload(chunk_xz);
+            }
+        }
+    }
+
+    for(int32_t i = 0; i < g_load_radius + 1; ++i) {
+        for(int32_t j = -i; j <= i; ++j) {
+            for(int32_t k = -i; k <= i; ++k) {
+
+                vec2i chunk_xz = m_world.get_player().get_position_chunk() + vec2i{ j, k };
+                m_world.create_chunk_offload(chunk_xz);
+                // }
+            }
+        }
+    }
+no_slots:;
+    // m_world.create_chunks_in_range_offload(m_world.get_player().get_position_chunk(), g_load_radius + 1);
 }
 
 void Game::wake_up_gen_chunks_threads(void) {
@@ -1135,7 +1192,7 @@ static int32_t calc_fps(double delta_time) {
 void Game::initialize_render_resources(void) {
     /* Initialize framebuffers */ {
         FboConfig fbo_ms_config;
-        fbo_ms_config.ms_samples = 4;
+        fbo_ms_config.ms_samples = 16; // Window::get().get_samples();
         fbo_config_push_color(fbo_ms_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_push_color(fbo_ms_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_push_color(fbo_ms_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
@@ -1145,6 +1202,10 @@ void Game::initialize_render_resources(void) {
 
         FboConfig fbo_config;
         fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE, .format = TextureDataFormat::RGBA });
+        fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE, .format = TextureDataFormat::RGBA });
+        fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE, .format = TextureDataFormat::RGBA });
+        fbo_config_push_color(fbo_config, { .target = FboAttachmentTarget::TEXTURE, .format = TextureDataFormat::RGBA });
+        fbo_config_set_depth(fbo_config,  { .target = FboAttachmentTarget::TEXTURE, .format = TextureDataFormat::DEPTH24_STENCIL8 });
         m_fbo.create_fbo(m_width, m_height, fbo_config);
     }
 

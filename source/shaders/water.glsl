@@ -60,8 +60,8 @@ void main() {
 
         float y_base = position.y;
 
-        position.y += wave_height * sin(u_time_elapsed * wave_speed + position.x * wave_frequency_x) 
-            * cos(u_time_elapsed * wave_speed + position.z * wave_frequency_z);
+        position.y += wave_height * sin(u_time_elapsed * wave_speed + pos_x * wave_frequency_x) 
+            * cos(u_time_elapsed * wave_speed + pos_z * wave_frequency_z);
         
         position.y -= wave_height;
 
@@ -84,6 +84,7 @@ uniform sampler2DArray u_water_texture_array;
 uniform samplerCube    u_skybox;
 
 uniform float u_time_elapsed;
+uniform int u_load_radius;
 
 in vec2 v_tex_coord;
 in vec3 v_normal;
@@ -112,14 +113,27 @@ void main() {
     vec3 camera_to_frag = normalize(vec3(v_position - v_camera_pos));
     vec3 frag_to_sky = reflect(camera_to_frag, normal);
 
- //   out_color = texture(u_water_texture_array, tex_arr_coord) * vec4(1,1,1,0.8);
-    out_color = texture(u_skybox, frag_to_sky) + vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord) * 0.22;
-    out_color *= vec4(1, 1, 1, 0.7);
+    vec4 color = texture(u_skybox, frag_to_sky) + vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord) * 0.22;
+    color *= vec4(1, 1, 1, 0.7);
 
     float wave_delta = v_wave_delta * v_wave_delta * v_wave_delta;
+    color.a += wave_delta * wave_delta * 0.16;
+    color.xyz += wave_delta * 0.07;
 
-    out_color.a += wave_delta * wave_delta * 0.16;
-    out_color.xyz += wave_delta * 0.07;
+    float load_radius = float(u_load_radius);
+    float FOG_MIN = (load_radius - 3.5) * 32.0;
+    float FOG_MAX = (load_radius - 2.5) * 32.0;
+    const vec4 FOG_COLOR = vec4(19.0 / 255.0, 68.0 / 255.0, 100.0 / 255.0, 1.0);
+    float distance_to_frag = length(v_position.xz);
+
+    if(distance_to_frag > FOG_MIN) {
+        float perc = (FOG_MAX - distance_to_frag) / (FOG_MAX - FOG_MIN);
+        color = mix(texture(u_skybox, normalize(v_position)), color, clamp(perc, 0.0, 1.0));
+    }
+
+
+
+    out_color = color;
 
     //out_color = vec4(wave_delta, wave_delta, wave_delta, 1.0);
 

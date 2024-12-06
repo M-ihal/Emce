@@ -1,5 +1,6 @@
 #include "world_utils.h"
 #include "world.h"
+#include "camera.h"
 
 bool is_chunk_in_range(vec2i chunk_xz, vec2i origin, int32_t radius) {
     bool result = chunk_xz.x >= origin.x - radius
@@ -9,11 +10,41 @@ bool is_chunk_in_range(vec2i chunk_xz, vec2i origin, int32_t radius) {
     return result;
 }
 
+static bool test_plane(double plane[4], const vec3d &min, const vec3d &max) {
+    double d = 0.0;
+    if(plane[0] > 0.0) { d += max.x * plane[0]; } else { d += min.x * plane[0]; }
+    if(plane[1] > 0.0) { d += max.y * plane[1]; } else { d += min.y * plane[1]; }
+    if(plane[2] > 0.0) { d += max.z * plane[2]; } else { d += min.z * plane[2]; }
+    return (d + plane[3]) >= 0.0;
+}
+
+bool is_chunk_in_frustum(double frustum[6][4], const vec3d &chunk_origin_rel) {
+    const vec3d chunk_max = chunk_origin_rel + vec3d{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
+
+    /* Check if chunk is outside of frustum */
+    bool in_frustum = true;
+    for(int plane_index = 0; plane_index < 5; ++plane_index) {
+        if(!test_plane(frustum[plane_index], chunk_origin_rel, chunk_max)) {
+            in_frustum = false;
+            break;
+        }
+    }
+    return in_frustum;
+}
+
 vec3d real_position_from_block(const vec3i &block) {
     return {
-        (float)block.x,
-        (float)block.y,
-        (float)block.z,
+        (double)block.x,
+        (double)block.y,
+        (double)block.z,
+    };
+}
+
+vec3d real_position_from_chunk(const vec2i &chunk) {
+    return {
+        (double)(chunk.x * CHUNK_SIZE_X),
+        0.0,
+        (double)(chunk.y * CHUNK_SIZE_Z)
     };
 }
 
@@ -27,8 +58,8 @@ vec3i block_position_from_real(const vec3d &real) {
 
 vec2i chunk_position_from_block(const vec3i &block) {
     return {
-        (int32_t)floorf(float(block.x) / CHUNK_SIZE_X),
-        (int32_t)floorf(float(block.z) / CHUNK_SIZE_Z)
+        (int32_t)floor((double)block.x / (double)CHUNK_SIZE_X),
+        (int32_t)floor((double)block.z / (double)CHUNK_SIZE_Z)
     };
 }
 
@@ -249,10 +280,10 @@ RaycastBlockResult raycast_block(World &world, const vec3d &ray_origin, const ve
 
                 for(int32_t index = 0; index < ARRAY_COUNT(sides); ++index) {
                     CheckSide side = sides[index];
-                    vec3d tri_a = block_p.real + side.off_a;
-                    vec3d tri_b = block_p.real + side.off_b;
-                    vec3d tri_c = block_p.real + side.off_c;
-                    vec3d tri_d = block_p.real + side.off_d;
+                    const vec3d tri_a = block_p.real + side.off_a;
+                    const vec3d tri_b = block_p.real + side.off_b;
+                    const vec3d tri_c = block_p.real + side.off_c;
+                    const vec3d tri_d = block_p.real + side.off_d;
 
                     if(vec3d::dot(vec3d::normalize(ray_end - ray_origin), vec3d::make(side.normal)) >= 0.0) {
                         continue;
@@ -277,4 +308,5 @@ RaycastBlockResult raycast_block(World &world, const vec3d &ray_origin, const ve
     }
     return result;
 }
+
 

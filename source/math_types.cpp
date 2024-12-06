@@ -21,6 +21,18 @@ float wrap(float value, float left, float right) {
     }
 }
 
+double wrap(double value, double left, double right) {
+    ASSERT(left < right);
+
+    if(value < left) {
+        return right - (left - value);
+    } else if(value > right) {
+        return left + (value - right);
+    } else {
+        return value;
+    }
+}
+
 /*
     --- vec2 ---
 */
@@ -34,7 +46,7 @@ vec2 vec2::make(float xy) {
 }
 
 vec2 vec2::make(const vec2i &v) {
-    return vec2{ float(v.x), float(v.y) };
+    return vec2{ (float)v.x, (float)v.y };
 }
 
 vec2 vec2::make_xz(const vec3 &v) {
@@ -99,7 +111,7 @@ vec2d vec2d::make(double xy) {
 }
 
 vec2d vec2d::make(const vec2i &v) {
-    return vec2d{ double(v.x), double(v.y) };
+    return vec2d{ (double)v.x, (double)v.y };
 }
 
 vec2d vec2d::make_xz(const vec3d &v) {
@@ -107,7 +119,7 @@ vec2d vec2d::make_xz(const vec3d &v) {
 }
 
 vec2d vec2d::zero(void) {
-    return vec2d{ 0.0f, 0.0f };
+    return vec2d{ 0.0, 0.0 };
 }
 
 vec2d vec2d::absolute(const vec2d &v) {
@@ -140,6 +152,10 @@ vec2d operator + (const vec2d &l, const vec2d &r) {
 
 vec2d operator - (const vec2d &l, const vec2d &r) {
     return vec2d{ l.x - r.x, l.y - r.y };
+}
+
+vec2d operator * (const vec2d &l, const vec2d &r) {
+    return vec2d{ l.x * r.x, l.y * r.y };
 }
 
 vec2d operator * (const vec2d &l, double r) {
@@ -213,7 +229,7 @@ vec3 vec3::make(const vec2 &v, float z) {
 }
 
 vec3 vec3::make(const vec3i &v) {
-    return vec3{ float(v.x), float(v.y), float(v.z) };
+    return vec3{ (float)v.x, (float)v.y, (float)v.z };
 }
 
 vec3 vec3::make(const struct vec3d &v) {
@@ -300,7 +316,7 @@ vec3 &operator *= (vec3 &l, const float &r) {
 */
 
 vec3d vec3d::zero(void) {
-    return vec3d{ 0.0f, 0.0f, 0.0f, };
+    return vec3d{ 0.0, 0.0, 0.0, };
 }
 
 vec3d vec3d::make(double x, double y, double z) {
@@ -328,7 +344,7 @@ double vec3d::length_sq(const vec3d &vec) {
 }
 
 double vec3d::length(const vec3d &vec) {
-    return sqrtf(vec3d::length_sq(vec));
+    return sqrt(vec3d::length_sq(vec));
 }
 
 vec3d vec3d::normalize(const vec3d &vec) {
@@ -348,7 +364,6 @@ vec3d vec3d::cross(const vec3d &a, const vec3d &b) {
 double vec3d::dot(const vec3d &a, const vec3d &b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
-
 
 vec3d operator + (const vec3d &l, const vec3d r) {
     return vec3d{ l.x + r.x, l.y + r.y, l.z + r.z };
@@ -400,7 +415,7 @@ vec3d &operator *= (vec3d &l, const double &r) {
 */
 
 vec3i vec3i::make(const vec3 &v) {
-    return vec3i{ int32_t(v.x), int32_t(v.y), int32_t(v.z) };
+    return vec3i{ (int32_t)v.x, (int32_t)v.y, (int32_t)v.z };
 }
 
 bool operator == (const vec3i &l, const vec3i &r) {
@@ -424,7 +439,7 @@ vec3i operator - (const vec3i &l, const vec3i r) {
 */
 
 mat4 mat4::transpose(const mat4 &m) {
-    return mat4 {
+    return mat4{
         m.e00, m.e10, m.e20, m.e30,
         m.e01, m.e11, m.e21, m.e31,
         m.e02, m.e12, m.e22, m.e32,
@@ -433,7 +448,7 @@ mat4 mat4::transpose(const mat4 &m) {
 }
 
 mat4 mat4::identity(void) {
-    return mat4 {
+    return mat4{
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 1.0f, 0.0f,
@@ -453,6 +468,7 @@ mat4 mat4::orthographic(float left, float bottom, float right, float top, float 
     return proj;
 }
 
+// FROM LINMATH
 mat4 mat4::perspective(float fov, float aspect, float near, float far) {
     /* NOTE: Degrees are an unhandy unit to work with.
      * linmath.h uses radians for everything! */
@@ -484,17 +500,16 @@ mat4 mat4::perspective(float fov, float aspect, float near, float far) {
 }
 
 mat4 mat4::look_at(vec3 eye, vec3 focus, vec3 up_vec) {
-    vec3 z_axis = vec3::normalize(eye - focus);
-    vec3 x_axis = vec3::normalize(vec3::cross(up_vec, z_axis));
-    vec3 y_axis = vec3::cross(z_axis, x_axis);
+    const vec3 z_axis = vec3::normalize(eye - focus);
+    const vec3 x_axis = vec3::normalize(vec3::cross(up_vec, z_axis));
+    const vec3 y_axis = vec3::cross(z_axis, x_axis);
 
-    /* TODO: Retype this..., do not transpose loll */
-    return mat4::transpose(mat4 {
-        x_axis.x, x_axis.y, x_axis.z, -vec3::dot(x_axis, eye),
-        y_axis.x, y_axis.y, y_axis.z, -vec3::dot(y_axis, eye),
-        z_axis.x, z_axis.y, z_axis.z, -vec3::dot(z_axis, eye),
-        0.0f,     0.0f,     0.0f,      1.0f
-    });
+   return mat4{
+       x_axis.x, y_axis.x, z_axis.x, 0.0f,
+       x_axis.y, y_axis.y, z_axis.y, 0.0f,
+       x_axis.z, y_axis.z, z_axis.z, 0.0f,
+       -vec3::dot(x_axis, eye), -vec3::dot(y_axis, eye), -vec3::dot(z_axis, eye), 1.0f,
+    };
 }
 
 mat4 mat4::translate(const vec3 &vec) {
@@ -615,5 +630,3 @@ mat4 mat4::scale(const vec3d &vec) {
 mat4 mat4::scale(double x, double y, double z) {
     return mat4::scale((float)x, (float)y, (float)z);
 }
-
-

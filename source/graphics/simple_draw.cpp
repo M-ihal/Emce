@@ -7,17 +7,13 @@
 
 namespace {
     bool        g_initialized = false;
-    ShaderFile  g_triangle_shader;
-    VertexArray g_triangle_vao;
     ShaderFile  g_cube_outline_shader;
     VertexArray g_cube_outline_vao;
     ShaderFile  g_cube_line_outline_shader;
     VertexArray g_cube_line_outline_vao;
     ShaderFile  g_line_shader;
     VertexArray g_line_vao;
-    ShaderFile  g_tex_quad_shader;
-    VertexArray g_tex_quad_vao;
-    float       g_set_aspect = 1.0f;
+    double      g_set_aspect = 1.0;
     Camera      g_set_camera;
 }
 
@@ -25,31 +21,9 @@ void SimpleDraw::initialize(void) {
     ASSERT(!g_initialized);
     g_initialized = true;
 
-    g_triangle_shader.set_filepath_and_load("source//shaders//triangle.glsl");
     g_cube_outline_shader.set_filepath_and_load("source//shaders//cube_outline.glsl");
     g_cube_line_outline_shader.set_filepath_and_load("source//shaders//cube_line_outline.glsl");
     g_line_shader.set_filepath_and_load("source//shaders//line.glsl");
-    g_tex_quad_shader.set_filepath_and_load("source//shaders//textured_quad.glsl");
-
-    /* Triangle w/ placeholder data */ {
-        const float vertices[] = {
-            0.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 0.0f,
-            1.0f, 1.0f, 0.0f
-        };
-
-        const uint32_t indices[] = {
-            0, 1, 2
-        };
-
-        BufferLayout layout;
-        layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
-
-        g_triangle_vao.create_vao(layout, ArrayBufferUsage::DYNAMIC);
-        g_triangle_vao.set_vbo_data(vertices, sizeof(float) * ARRAY_COUNT(vertices));
-        g_triangle_vao.set_ibo_data(indices, ARRAY_COUNT(indices));
-        g_triangle_vao.apply_vao_attributes();
-    }
 
     const float cube_vertices[] = {
         0.0f, 0.0f, 1.0f,
@@ -154,59 +128,31 @@ void SimpleDraw::initialize(void) {
         g_line_vao.set_ibo_data(indices, ARRAY_COUNT(indices));
         g_line_vao.apply_vao_attributes();
     }
-
-    /* Textured quad 2D */ {
-        const float vertices[] = {
-            0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-            1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 0.0f, 0.0f, 1.0f
-        };
-
-        const uint32_t indices[] = {
-            0, 1, 2,
-            2, 3, 0
-        };
-
-        BufferLayout layout;
-        layout.push_attribute("a_position", 3, BufferDataType::FLOAT);
-        layout.push_attribute("a_tex_coords", 2, BufferDataType::FLOAT);
-
-        g_tex_quad_vao.create_vao(layout, ArrayBufferUsage::DYNAMIC);
-        g_tex_quad_vao.set_vbo_data(vertices, sizeof(float) * ARRAY_COUNT(vertices));
-        g_tex_quad_vao.set_ibo_data(indices, ARRAY_COUNT(indices));
-        g_tex_quad_vao.apply_vao_attributes();
-    }
 }
 
 void SimpleDraw::destroy(void) {
     ASSERT(g_initialized, "SimpleDraw was not initialized\n");
     g_initialized = false;
 
-    g_triangle_shader.delete_shader_file();
-    g_triangle_vao.delete_vao();
     g_cube_outline_shader.delete_shader_file();
     g_cube_outline_vao.delete_vao();
     g_line_shader.delete_shader_file();
     g_line_vao.delete_vao();
-    g_tex_quad_shader.delete_shader_file();
-    g_tex_quad_vao.delete_vao();
 }
 
 void SimpleDraw::hotload_shader(void) {
-    g_triangle_shader.hotload();
     g_cube_outline_shader.hotload();
+    g_cube_line_outline_shader.hotload();
     g_line_shader.hotload();
-    g_tex_quad_shader.hotload();
 }
 
-void SimpleDraw::set_camera(const Camera &camera, float aspect_ratio) {
+void SimpleDraw::set_camera(const Camera &camera, double aspect_ratio) {
     g_set_aspect = aspect_ratio;
     g_set_camera = camera;
 }
 
-void SimpleDraw::draw_cube_line_outline(const vec3 &position, const vec3 &size, const vec3 &color) {
-    const vec3 position_relative = vec3::make(g_set_camera.offset_to_relative(vec3d::make(position)));
+void SimpleDraw::draw_cube_line_outline(const vec3d &position, const vec3d &size, const vec3 &color) {
+    const vec3 position_relative = vec3::make(g_set_camera.offset_to_relative(position));
 
     mat4 view = g_set_camera.calc_view_at_origin();
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
@@ -222,19 +168,21 @@ void SimpleDraw::draw_cube_line_outline(const vec3 &position, const vec3 &size, 
     draw_elements_lines(g_cube_line_outline_vao.get_ibo_count());
 }
 
-void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float width, const vec3 &color, float border_perc, const vec3 &border_color) {
-    const vec3 position_relative = vec3::make(g_set_camera.offset_to_relative(vec3d::make(position)));
+void SimpleDraw::draw_cube_outline(const vec3d &position, const vec3d &size, float width, const vec3 &color, float border_perc, const vec3 &border_color) {
+    const vec3 position_relative = vec3::make(g_set_camera.offset_to_relative(position));
 
     mat4 view = g_set_camera.calc_view_at_origin();
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
     mat4 model = mat4::scale(size.x, size.y, size.z) * mat4::translate(position_relative);
+
+    const vec3 size_f = vec3::make(size);
 
     g_cube_outline_shader.use_program();
     g_cube_outline_shader.upload_mat4("u_view", view);
     g_cube_outline_shader.upload_mat4("u_proj", proj);
     g_cube_outline_shader.upload_mat4("u_model", model);
     g_cube_outline_shader.upload_vec3("u_color", (float *)color.e);
-    g_cube_outline_shader.upload_vec3("u_size", (float *)size.e);
+    g_cube_outline_shader.upload_vec3("u_size", (float *)size_f.e);
     g_cube_outline_shader.upload_float("u_width", width);
     g_cube_outline_shader.upload_float("u_border_perc", border_perc);
     g_cube_outline_shader.upload_vec3("u_border_color", (float *)border_color.e);
@@ -243,9 +191,9 @@ void SimpleDraw::draw_cube_outline(const vec3 &position, const vec3 &size, float
     draw_elements_triangles(g_cube_outline_vao.get_ibo_count());
 }
 
-void SimpleDraw::draw_line(const vec3 &point_a, const vec3 &point_b, float width, const vec3 &color) {
-    const vec3 point_a_relative = vec3::make(g_set_camera.offset_to_relative(vec3d::make(point_a)));
-    const vec3 point_b_relative = vec3::make(g_set_camera.offset_to_relative(vec3d::make(point_b)));
+void SimpleDraw::draw_line(const vec3d &point_a, const vec3d &point_b, float width, const vec3 &color) {
+    const vec3 point_a_relative = vec3::make(g_set_camera.offset_to_relative(point_a));
+    const vec3 point_b_relative = vec3::make(g_set_camera.offset_to_relative(point_b));
 
     mat4 view = g_set_camera.calc_view_at_origin();
     mat4 proj = g_set_camera.calc_proj(g_set_aspect);
@@ -269,19 +217,4 @@ void SimpleDraw::draw_line(const vec3 &point_a, const vec3 &point_b, float width
     set_line_width(width);
 
     draw_elements_lines(g_line_vao.get_ibo_count());
-}
-
-void SimpleDraw::draw_textured_quad_2d(const vec2 &position, const vec2 &size, const Texture &texture, mat4 &proj_m, float z_pos) {
-    mat4 model = mat4::scale(size.x, size.y, 1.0f);
-    model = model * mat4::translate(position.x, position.y, z_pos);
-
-    g_tex_quad_shader.use_program();
-    g_tex_quad_shader.upload_mat4("u_proj",  proj_m);
-    g_tex_quad_shader.upload_mat4("u_model", model);
-    g_tex_quad_shader.upload_int("u_texture", 0);
-    texture.bind_texture_unit(0);
-
-    g_tex_quad_vao.bind_vao();
-
-    draw_elements_triangles(g_tex_quad_vao.get_ibo_count());
 }

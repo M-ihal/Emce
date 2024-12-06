@@ -2,6 +2,9 @@
 #include "game.h"
 #include "chunk_gen.h"
 
+// @temp
+#include "window.h"
+
 #include <algorithm>
 #include <glew.h>
 
@@ -77,9 +80,13 @@ void World::delete_chunks(void) {
     m_chunk_table.clear_table();
 }
 
-void World::update_loaded_chunks(float delta_time) {
+void World::update_loaded_chunks(float delta_time, double aspect) {
     std::vector<vec2i> chunks_to_delete;
     std::vector<Chunk *> to_mesh;
+
+    Camera &camera = m_owner->get_camera();
+    double frustum[6][4];
+    camera.calc_frustum_at_origin(frustum, aspect);
 
     ChunkHashTable::Iterator chunk_iter;
     while(m_chunk_table.iterate_all(chunk_iter)) {
@@ -95,6 +102,7 @@ void World::update_loaded_chunks(float delta_time) {
             continue;
         }
 
+#if 0
         float init_timer_speed = 1.0f;
         if(is_chunk_in_range(chunk_iter.key, m_player.get_position_chunk(), 1)) {
             /* Make sure 3x3 area around the player doesn't do the appearing animation */
@@ -112,11 +120,17 @@ void World::update_loaded_chunks(float delta_time) {
                 }
             }
         }
+#else
+        chunk->m_appear_do_anim = false;
+#endif
 
         /* If waiting and neighbours got generated -> queue for meshing */
         if(chunk->m_mesh_state == ChunkMeshState::WAITING) {
-            if(this->chunk_neighbours_generated(chunk->m_chunk_xz)) {
-                to_mesh.push_back(chunk);
+            vec3d chunk_origin = camera.offset_to_relative(real_position_from_chunk(chunk->get_chunk_xz()));
+            if(is_chunk_in_frustum(frustum, chunk_origin)) {
+                if(this->chunk_neighbours_generated(chunk->m_chunk_xz)) {
+                    to_mesh.push_back(chunk);
+                }
             }
         }
     }

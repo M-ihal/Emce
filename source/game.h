@@ -70,10 +70,10 @@ private:
     /* Game state */
     double  m_time_elapsed;
     double  m_delta_time;
-    Camera  m_camera;
     World   m_world;
     Console m_console;
- 
+    Camera  m_camera;
+
     /* Threading stuff */
     int32_t m_gen_chunks_thread_num = 0;
     int32_t m_gen_meshes_thread_num = 0;
@@ -96,6 +96,7 @@ private:
 
     int32_t m_width;
     int32_t m_height;
+    double  m_aspect;
     Framebuffer m_fbo_ms;
     Framebuffer m_fbo;
 
@@ -127,6 +128,7 @@ private:
     /* For single block rendering */
     VertexArray m_block_vao; 
 
+    /* Common text batcher */
     TextBatcher m_batcher;
 };
 

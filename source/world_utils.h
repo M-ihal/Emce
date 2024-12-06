@@ -3,7 +3,10 @@
 #include "math_types.h"
 #include "chunk.h"
 
+class Camera;
+
 bool is_chunk_in_range(vec2i chunk_xz, vec2i origin, int32_t radius);
+bool is_chunk_in_frustum(double frustum[6][4], const vec3d &chunk_origin_rel);
 
 struct WorldPosition {
     static WorldPosition from_real(const vec3d &real);
@@ -16,6 +19,7 @@ struct WorldPosition {
 
 /* block's real position is it's origin (0,0,0 corner) */
 vec3d real_position_from_block(const vec3i &block);
+vec3d real_position_from_chunk(const vec2i &chunk);
 vec3i block_position_from_real(const vec3d &real);
 vec2i chunk_position_from_block(const vec3i &block);
 vec2i chunk_position_from_real(const vec3d &real);
@@ -35,4 +39,3 @@ struct RaycastBlockResult {
 RaycastBlockResult raycast_block(World &world, const vec3d &ray_origin, const vec3d &ray_end);
 bool ray_plane_intersection(const vec3d &ray_origin, const vec3d &ray_end, const vec3d &plane_p, const vec3d &plane_normal, double &out_k, vec3d &out_p);
 bool ray_triangle_intersection(const vec3d &ray_origin, const vec3d &ray_end, const vec3d &tri_a, const vec3d &tri_b, const vec3d &tri_c, double &out_k, vec3d &out_p);
-

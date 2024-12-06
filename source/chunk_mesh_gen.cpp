@@ -3,9 +3,9 @@
 
 /* @TODO , @TEMP : Temporary mesh gen code... !!! */
 
-#define MAX_MESH_GEN_DATA_COUNT 512
+#define MAX_MESH_GEN_DATA_COUNT 16
 static ChunkMeshGenData *g_mesh_data;
-static std::vector<int32_t> g_free_mesh_data_index;
+static std::vector<int32_t> g_free_mesh_data_index; // MAKE IT FILO
 
 void chunk_mesh_gen_data_init_global(void) {
     g_mesh_data = new ChunkMeshGenData[MAX_MESH_GEN_DATA_COUNT];
@@ -17,6 +17,10 @@ void chunk_mesh_gen_data_init_global(void) {
 
 void chunk_mesh_gen_data_free_global(void) {
     delete[] g_mesh_data;
+}
+
+bool chunk_mesh_gen_slots_available(void) {
+    return g_free_mesh_data_index.size() > 0;
 }
 
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {

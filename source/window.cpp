@@ -15,8 +15,7 @@
 std::unique_ptr<Window> Window::_window = NULL;
 
 Window::Window(void) {
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4); // 3
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5); // 3
 
@@ -40,7 +39,7 @@ Window::Window(void) {
     SDL_GetWindowSize(m_sdl_window, &m_width, &m_height);
 
     /* Set vsync */
-    SDL_GL_SetSwapInterval(1);
+    SDL_GL_SetSwapInterval(INIT_ENABLE_VSYNC ? 1 : 0);
 
     /* Do not query text input by default */
     this->set_text_input_active(false);
@@ -125,8 +124,8 @@ int32_t Window::get_height(void) const {
     return m_height;
 }
 
-float Window::get_aspect(void) const {
-    return float(m_width) / float(m_height);
+double Window::get_aspect(void) const {
+    return (double)m_width / (double)m_height;
 }
 
 bool Window::size_changed_this_frame(void) const {

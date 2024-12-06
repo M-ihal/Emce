@@ -7,55 +7,51 @@ Camera::Camera(void) {
 }
 
 void Camera::initialize(void) {
-    m_position = { 0.0f, 0.0f, 0.0f };
-    m_rotation = { 0.0f, 0.0f };
-    m_plane_near = 0.1f;
-    m_plane_far = 2000.0f;
-    m_field_of_view = DEG_TO_RAD(70.0f); 
-    m_up_vector = { 0.0f, 1.0f, 0.0f };
+    m_position = { 0.0, 0.0, 0.0 };
+    m_rotation = { 0.0, 0.0 };
+    m_plane_near = 0.1;
+    m_plane_far = 2000.0;
+    m_field_of_view = DEG_TO_RAD(70.0); 
+    m_up_vector = { 0.0, 1.0, 0.0 };
 }
 
 vec3d Camera::calc_direction(void) const {
     const double v_angle = m_rotation.y;
     const double h_angle = m_rotation.x;
     return vec3d{
-        cosf(v_angle) * cosf(h_angle),
-        sinf(v_angle),
-        cosf(v_angle) * sinf(h_angle)
+        cos(v_angle) * cos(h_angle),
+        sin(v_angle),
+        cos(v_angle) * sin(h_angle)
     };
 }
 
 vec3d Camera::calc_direction_side(void) const {
-    const double v_angle = 0.0f;
-    const double h_angle = m_rotation.x + M_PI * 0.5f;
+    const double v_angle = 0.0;
+    const double h_angle = m_rotation.x + M_PI * 0.5;
     return vec3d{
-        cosf(v_angle) * cosf(h_angle),
-        sinf(v_angle),
-        cosf(v_angle) * sinf(h_angle)
+        cos(v_angle) * cos(h_angle),
+        sin(v_angle),
+        cos(v_angle) * sin(h_angle)
     };
 }
 
 vec3d Camera::calc_direction_up(void) const {
-    const double v_angle = m_rotation.y + M_PI * 0.5f;
+    const double v_angle = m_rotation.y + M_PI * 0.5;
     const double h_angle = m_rotation.x;
     return vec3d{
-        cosf(v_angle) * cosf(h_angle),
-        sinf(v_angle),
-        cosf(v_angle) * sinf(h_angle)
+        cos(v_angle) * cos(h_angle),
+        sin(v_angle),
+        cos(v_angle) * sin(h_angle)
     };
 }
 
-vec3d Camera::get_up_vector(void) const {
-    return m_up_vector;
-}
-
 vec3d Camera::calc_direction_xz(void) const {
-    const double v_angle = 0.0f;
+    const double v_angle = 0.0;
     const double h_angle = m_rotation.x;
     return vec3d{
-        cosf(v_angle) * cosf(h_angle),
-        sinf(v_angle),
-        cosf(v_angle) * sinf(h_angle)
+        cos(v_angle) * cos(h_angle),
+        sin(v_angle),
+        cos(v_angle) * sin(h_angle)
     };
 }
 
@@ -75,6 +71,20 @@ mat4 Camera::calc_view_at_origin(void) const {
     return mat4::look_at(vec3d::zero(), forward, m_up_vector);
 }
 
+void Camera::calc_frustum_at_origin(double planes[6][4], double aspect_ratio) {
+    /* @TODO change math so no need to transpose? */
+    mat4 view_proj = mat4::transpose(this->calc_proj(aspect_ratio)) * mat4::transpose(this->calc_view_at_origin());
+
+    for(int i = 0; i < 4; ++i) {
+        planes[0][i] = (double)(view_proj.e[3][i] + view_proj.e[0][i]);
+        planes[1][i] = (double)(view_proj.e[3][i] - view_proj.e[0][i]);
+        planes[2][i] = (double)(view_proj.e[3][i] + view_proj.e[1][i]);
+        planes[3][i] = (double)(view_proj.e[3][i] - view_proj.e[1][i]);
+        planes[4][i] = (double)(view_proj.e[3][i] + view_proj.e[2][i]);
+        planes[5][i] = (double)(view_proj.e[3][i] - view_proj.e[2][i]);
+    }
+}
+
 void Camera::set_position(const vec3d &position) {
     m_position = position;
 }
@@ -92,12 +102,24 @@ vec2d Camera::get_rotation(void) const {
 }
 
 void Camera::set_fov(double fov) {
-    ASSERT(fov > 0.0f);
+    ASSERT(fov > 0.0);
     m_field_of_view = fov;
 }
 
 double Camera::get_fov(void) const {
     return m_field_of_view;
+}
+
+double Camera::get_plane_near(void) {
+    return m_plane_near;
+}
+
+double Camera::get_plane_far(void) {
+    return m_plane_far;
+}
+
+vec3d Camera::get_up_vector(void) const {
+    return m_up_vector;
 }
 
 vec3d Camera::offset_to_relative(const vec3d &position) {
@@ -107,8 +129,8 @@ vec3d Camera::offset_to_relative(const vec3d &position) {
 
 void Camera::update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, int32_t rotate_h, double delta_time, bool speed_up) {
     // Pass as arguments @todo
-    constexpr double SPEED_MOVE_FAST = 40.0f;
-    constexpr double SPEED_MOVE = 0.5f;
+    constexpr double SPEED_MOVE_FAST = 40.0;
+    constexpr double SPEED_MOVE = 0.5;
 
     this->rotate_by(rotate_v, rotate_h, delta_time);
 
@@ -128,12 +150,12 @@ void Camera::update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, i
 
 void Camera::rotate_by(int32_t rotate_v, int32_t rotate_h, double delta_time) {
     // Pass as argument @todo
-    constexpr double SPEED_ROTATE = 0.0035f;
+    constexpr double SPEED_ROTATE = 0.0035;
 
     m_rotation.x += rotate_h * SPEED_ROTATE;
     m_rotation.y += rotate_v * SPEED_ROTATE;
 
-    const double EPS = 5.0f;
-    m_rotation.y = clamp(m_rotation.y, (double)DEG_TO_RAD(-90.0f + EPS), (double)DEG_TO_RAD(90.0f - EPS));
-    m_rotation.x = wrap(m_rotation.x, 0.0f, M_PI * 2.0f);
+    const double EPS = 5.0;
+    m_rotation.y = clamp(m_rotation.y, DEG_TO_RAD(-90.0 + EPS), DEG_TO_RAD(90.0 - EPS));
+    m_rotation.x = wrap(m_rotation.x, 0.0, M_PI * 2.0);
 }

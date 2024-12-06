@@ -77,7 +77,6 @@ public:
     int32_t mouse_y(void) const;
     int32_t mouse_rel_x(void) const;
     int32_t mouse_rel_y(void) const;
-
     int32_t scroll_move(void) const;
 
     const char *const get_text_input(void) const;
@@ -92,6 +91,7 @@ private:
     void catch_input(const SDL_Event &event);
 
     uint32_t m_key_state[(int32_t)Key::_COUNT];
+    char m_text_input[32];
 
     uint32_t m_button_state[(int32_t)Button::_COUNT];
     int32_t  m_mouse_x;
@@ -99,8 +99,6 @@ private:
     int32_t  m_mouse_rel_x;
     int32_t  m_mouse_rel_y;
     int32_t  m_scroll_move;
-
-    char m_text_input[32];
 };
 
 /* Static array of key names */

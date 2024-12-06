@@ -1,12 +1,10 @@
-    source/input.cpp
-    source/input.h
-    source/math_types.cpp
-    source/math_types.h
-    source/camera.cpp
-    source/camera.h
-    source/utils.cpp
-    source/utils.h
-    source/chunk.cpp
+BIG CLEANUP
+
+    source/world_utils.cpp
+    source/world_utils.h
+
+
+source/chunk.cpp
     source/chunk.h
     source/world.cpp
     source/world.h
@@ -20,6 +18,6 @@
     source/chunk_mesh_gen.h
     source/chunk_gen.cpp
     source/chunk_gen.h
-    source/world_utils.cpp
-    source/world_utils.h
     source/main.cpp
+
+

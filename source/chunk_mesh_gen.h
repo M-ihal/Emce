@@ -31,6 +31,7 @@ struct ChunkMeshGenData {
 
 void chunk_mesh_gen_data_init_global(void);
 void chunk_mesh_gen_data_free_global(void);
+bool chunk_mesh_gen_slots_available(void);
 
 /* If supplied_memory = true, no need to free */
 void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec2i chunk_xz, bool supplied_memory = false);

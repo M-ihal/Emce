@@ -28,6 +28,7 @@ uniform mat4 u_proj;
 uniform mat4 u_view;
 uniform mat4 u_model;
 
+out vec3 v_position;
 out vec2 v_tex_coord;
 out vec3 v_normal;
 out float v_tex_slot;
@@ -48,6 +49,8 @@ void main() {
     v_tex_slot = tex_slot;
     v_ambient_occlusion = float(ambient_occlusion);
 
+    v_position = (u_model * vec4(pos_x, pos_y, pos_z, 1.0)).xyz;
+
     gl_Position = u_proj * u_view * u_model * vec4(pos_x, pos_y, pos_z, 1.0);
 }
 
@@ -56,11 +59,18 @@ void main() {
 #version 330 core
 
 uniform sampler2DArray u_texture_array;
+uniform samplerCube u_skybox;
 
+// For fog
+uniform int u_load_radius;
+
+
+in vec3  v_position;
 in vec2  v_tex_coord;
 in vec3  v_normal;
 in float v_tex_slot;
 in float v_ambient_occlusion;
+
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_normal;
@@ -70,7 +80,7 @@ layout (location = 3) out vec4 out_ambient_occlusion;
 void main() {
     float ambient_occlusion = mix(0.3, 1.0, v_ambient_occlusion / 3.0);
 
-    const vec3 sun_diffuse = vec3(0.78, 0.80, 0.85);
+    const vec3 sun_diffuse = vec3(0.85, 0.88, 0.87);
     const vec3 sun_dir = normalize(vec3(+0.5, -0.75, -0.12));
     vec3 normal        = normalize(v_normal);
     vec3 dir_to_sun    = -sun_dir; 
@@ -84,7 +94,20 @@ void main() {
         discard;
     }
 
-    out_color = vec4(diffuse, 1.0) * texture(u_texture_array, tex_arr_coord);
+    vec4 color = vec4(diffuse, 1.0) * texture(u_texture_array, tex_arr_coord);
+
+    float load_radius = float(u_load_radius);
+    float FOG_MIN = (load_radius - 4.5) * 32.0;
+    float FOG_MAX = (load_radius - 3.5) * 32.0;
+    const vec4 FOG_COLOR = vec4(19.0 / 255.0, 68.0 / 255.0, 100.0 / 255.0, 1.0);
+    float distance_to_frag = length(v_position.xz);
+
+    if(distance_to_frag > FOG_MIN) {
+        float perc = (FOG_MAX - distance_to_frag) / (FOG_MAX - FOG_MIN);
+        color = mix(texture(u_skybox, normalize(v_position)), color, clamp(perc, 0.0, 1.0));
+    }
+
+    out_color = color;
 
     out_normal = vec4(v_normal, 1.0);
 

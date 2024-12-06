@@ -86,8 +86,8 @@ bool Player::check_if_collides_with_any_block(World &world, vec3d position, vec3
 void Player::update(Game &game, const Input &input, double delta_time) {
     World &world = game.get_world();
 
-    m_debug_min_checked_block = vec3i{ 1000000, 1000000, 1000000 };
-    m_debug_max_checked_block = vec3i{ -1000000, -1000000, -1000000 };
+    m_debug_min_checked_block = vec3i{ INT32_MAX, INT32_MAX, INT32_MAX };
+    m_debug_max_checked_block = vec3i{ INT32_MIN, INT32_MIN, INT32_MIN };
 
     /* Can get input for update */
     const bool can_get_input = !game.get_console().is_open();
@@ -172,25 +172,25 @@ void Player::update(Game &game, const Input &input, double delta_time) {
         };
     } else {
         if(false) {
-        const float deceleration = PLAYER_DECELERATION * delta_time;
-        const float epsilon = 0.1f;
+            const float deceleration = PLAYER_DECELERATION * delta_time;
+            const float epsilon = 0.1f;
 
-        vec2  vel_xz = { (float)m_velocity.x, (float)m_velocity.z };
-        vec2  vel_xz_norm = vec2::normalize(vel_xz);
-        float vel_xz_len = vec2::length(vel_xz);
+            vec2  vel_xz = { (float)m_velocity.x, (float)m_velocity.z };
+            vec2  vel_xz_norm = vec2::normalize(vel_xz);
+            float vel_xz_len = vec2::length(vel_xz);
 
-        if(vel_xz_len > epsilon) {
-            m_velocity.x -= deceleration * vel_xz_norm.x;
-            m_velocity.z -= deceleration * vel_xz_norm.y;
-        } else {
-            m_velocity.x = 0.0f;
-            m_velocity.z = 0.0f;
-        }
+            if(vel_xz_len > epsilon) {
+                m_velocity.x -= deceleration * vel_xz_norm.x;
+                m_velocity.z -= deceleration * vel_xz_norm.y;
+            } else {
+                m_velocity.x = 0.0f;
+                m_velocity.z = 0.0f;
+            }
 
-        if(vec2::dot(vel_xz, { (float)m_velocity.x, (float)m_velocity.z }) < 0.0f) {
-            m_velocity.x = 0.0f;
-            m_velocity.z = 0.0f;
-        }
+            if(vec2::dot(vel_xz, { (float)m_velocity.x, (float)m_velocity.z }) < 0.0f) {
+                m_velocity.x = 0.0f;
+                m_velocity.z = 0.0f;
+            }
         }
     }
 
@@ -427,34 +427,30 @@ void Player::move_in_y(World &world, double delta_time) {
 void Player::debug_render(class Game &game) {
     /* Collider */
     const vec3 collider_color = { 0.9f, 0.9f, 0.6f };
-    const vec3 collider_position = vec3::make(this->get_position_origin());
-    const vec3 collider_size = vec3::make(this->get_collider_size());
+    const vec3d collider_position = this->get_position_origin();
+    const vec3d collider_size = this->get_collider_size();
     SimpleDraw::draw_cube_outline(collider_position, collider_size, 1.0f / 32.0f, collider_color);
 
     /* Ground check collider */ {
-        vec3d ground_collider_position_d;
-        vec3d ground_collider_size_d;
-        this->get_ground_collider_info(ground_collider_position_d, ground_collider_size_d);
-
-        const vec3 ground_collider_color = m_is_grounded ? vec3{ 0.0f, 1.0f, 0.0f } : vec3{ 1.0f, 0.0f, 0.0f };
-        const vec3 ground_collider_position = vec3::make(ground_collider_position_d);
-        const vec3 ground_collider_size = vec3::make(ground_collider_size_d);
+        vec3 ground_collider_color = m_is_grounded ? vec3{ 0.0f, 1.0f, 0.0f } : vec3{ 1.0f, 0.0f, 0.0f };
+        vec3d ground_collider_position;
+        vec3d ground_collider_size;
+        this->get_ground_collider_info(ground_collider_position, ground_collider_size);
         SimpleDraw::draw_cube_outline(ground_collider_position, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
     }
 
     /* Velocity lines */ {
-        const vec3 origin_position = vec3::make(this->get_position());
+        const vec3d origin_position = this->get_position();
+        const vec3d xz_velocity = { m_velocity.x, 0.0, m_velocity.z };
+        const vec3d y_velocity  = { 0.0, m_velocity.y, 0.0 };
 
-        const vec3 xz_velocity = vec3{ (float)m_velocity.x, 0.0f, (float)m_velocity.z };
         SimpleDraw::draw_line(origin_position, origin_position + xz_velocity, 2.0f, { 1.0f, 0.0f, 1.0f });
-
-        const vec3 y_velocity = vec3{ 0.0f, (float)m_velocity.y, 0.0f };
         SimpleDraw::draw_line(origin_position, origin_position + y_velocity, 2.0f, { 0.0f, 1.0f, 0.0f });
     }
 
     /* Blocks checked when checking collisions */
-    const vec3 min_pos = vec3::make(real_position_from_block(m_debug_min_checked_block));
-    const vec3 max_pos = vec3::make(real_position_from_block(m_debug_max_checked_block)) + vec3{ 1.0f, 1.0f, 1.0f };
+    const vec3d min_pos = real_position_from_block(m_debug_min_checked_block);
+    const vec3d max_pos = real_position_from_block(m_debug_max_checked_block) + vec3d::make(1.0);
     SimpleDraw::draw_cube_outline(min_pos, max_pos - min_pos, 0.05f, { 0.8f, 0.5f, 0.9f }); 
 }
 

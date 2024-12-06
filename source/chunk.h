@@ -135,10 +135,10 @@ public:
     /* Sets relative block */
     void set_block(const vec3i &rel, BlockType type);
 
-    /* Gets relative block */
+    /* Gets relative block, On fail returns BlockType::_INVALID */
     BlockType get_block(const vec3i &rel);
 
-    /* Gets neighbouring block to rel block */
+    /* Gets neighbouring block to rel block, On fail returns BlockType::_INVALID */
     BlockType get_block_neighbour(const vec3i &rel, BlockSide side, bool check_other_chunk = false);
 
     /* Get pointer to block data */

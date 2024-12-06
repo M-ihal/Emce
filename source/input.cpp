@@ -1,13 +1,7 @@
 #include "input.h"
-
 #include <SDL3/SDL.h>
 
-// temp
-#include <cstring>
-#include <stdio.h>
-
 Input::Input(void) {
-    //ZERO_ARRAY(m_key_state);
     ZERO_STRUCT(*this);
 }
 

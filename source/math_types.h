@@ -1,13 +1,14 @@
 #pragma once
-
 #include "common.h"
+
+// @TODO : Should inline stuff smh probably
 
 #if !defined(M_PI)
 #define M_PI 3.14159265
 #endif
 
-#define DEG_TO_RAD(deg) ((deg) * (M_PI / 180.0))
-#define RAD_TO_DEG(rad) ((rad) * (180.0 / M_PI))
+#define DEG_TO_RAD(deg) ((deg) * ((M_PI) / 180.0))
+#define RAD_TO_DEG(rad) ((rad) * (180.0 / (M_PI)))
 #define SQUARE(v) ((v) * (v))
 
 #define SIGN(v) (((v) < 0) ? -1 : ((v) > 0) ? 1 : 0)
@@ -15,7 +16,8 @@
 #define MAX(a, b) ((a) < (b) ? (b) : (a))
 #define ABS(v) ((v) < 0 ? -(v) : (v))
 
-float wrap(float value, float left, float right);
+float  wrap_f(float value, float left, float right);
+double wrap(double value, double left, double right);
 
 template <typename T> T    clamp_min(const T v, const T min);
 template <typename T> T    clamp_max(const T v, const T max);
@@ -77,6 +79,7 @@ struct vec2d {
 
 vec2d operator + (const vec2d &l, const vec2d &r);
 vec2d operator - (const vec2d &l, const vec2d &r);
+vec2d operator * (const vec2d &l, const vec2d &r);
 vec2d operator * (const vec2d &l, double r);
 vec2d &operator *= (vec2d &l, double r);
 

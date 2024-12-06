@@ -12,6 +12,7 @@ typedef SDL_GLContextState *SDL_GLContext;
 inline constexpr int32_t INIT_WINDOW_WIDTH  = 1280;
 inline constexpr int32_t INIT_WINDOW_HEIGHT = 720;
 inline const char       *INIT_WINDOW_TITLE  = "emce";
+inline constexpr bool    INIT_ENABLE_VSYNC  = true;
 
 class Window {
     CLASS_COPY_DISABLE(Window);
@@ -49,7 +50,7 @@ public:
     /* Return OS handle i.e. on windows HWND */
     void *get_os_native_handle(void);
 
-    float   get_aspect(void) const;
+    double  get_aspect(void) const;
     int32_t get_width(void) const;
     int32_t get_height(void) const;
 
