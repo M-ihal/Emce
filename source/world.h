@@ -17,6 +17,8 @@ inline uint64_t func_hash_chunk_key(const vec2i &key);
 inline bool     func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
 typedef meh::Table<vec2i, Chunk *, func_hash_chunk_key, func_compare_chunk_key, 85> ChunkHashTable;
 
+
+
 class World {
 public:
     CLASS_COPY_DISABLE(World);
@@ -73,6 +75,14 @@ public:
 
     /* Checks if chunk's neighbours are generated */
     bool chunk_neighbours_generated(vec2i chunk_xz);
+
+    int32_t get_queued_chunks_num(void) {
+        return m_chunks_to_generate.size();
+    }
+
+    int32_t get_queued_meshes_num(void) {
+        return m_meshes_to_build.size();
+    }
 
 private:
     Game *m_owner;

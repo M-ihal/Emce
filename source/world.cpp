@@ -43,7 +43,7 @@ void World::initialize_new_world(uint32_t seed) {
     m_player.setup_player(*this, spawn_chunk);
 
     /* Queue loading chunks */
-    m_owner->check_for_chunks_to_load();
+    /// m_owner->check_for_chunks_to_load();
 }
 
 void World::delete_chunks(void) {
@@ -97,7 +97,7 @@ void World::update_loaded_chunks(float delta_time, double aspect) {
             continue;
         }
 
-        if(!is_chunk_in_range(chunk_iter.key, m_player.get_position_chunk(), get_deload_radius())) {
+        if(!is_chunk_in_range(chunk_iter.key, m_player.get_position_chunk(), m_owner->get_load_radius())) {
             chunks_to_delete.push_back(chunk_iter.key);
             continue;
         }

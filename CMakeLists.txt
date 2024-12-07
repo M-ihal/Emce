@@ -61,6 +61,8 @@ set(source_files
     source/console.h
     source/game.cpp
     source/game.h
+    source/game_renderer.cpp
+    source/game_renderer.h
     source/player.cpp
     source/player.h
     source/chunk_mesh_gen.cpp

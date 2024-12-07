@@ -116,6 +116,7 @@ public:
     CLASS_COPY_DISABLE(Chunk);
 
     friend class World;
+    friend class Game;
 
     explicit Chunk(World *world, vec2i chunk_xz);
     ~Chunk(void);

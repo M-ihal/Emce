@@ -20,6 +20,7 @@
 #include "font.h"
 #include "text_batcher.h"
 #include "game.h"
+#include "game_renderer.h"
 #include "simple_draw.h"
 #include "framebuffer.h"
 #include "opengl_abs.h"
@@ -65,8 +66,10 @@ int SDL_main(int argc, char *argv[]) {
     TextBatcher::initialize();
     SimpleDraw::initialize();
 
-    Input input;
-    Game game;
+
+    Input        input;
+    Game         game;
+    GameRenderer renderer(window.get_width(), window.get_height());
 
     game.get_console().set_command("quit", { CONSOLE_COMMAND_LAMBDA {
             Window::get().set_should_close();
@@ -83,7 +86,6 @@ int SDL_main(int argc, char *argv[]) {
         window.process_events(input);
 
         if(window.size_changed_this_frame()) {
-            game.resize(window.get_width(), window.get_height());
         }
 
         /* Calculate time */ {
@@ -99,7 +101,7 @@ int SDL_main(int argc, char *argv[]) {
         /* Hotload stuff here */
         TextBatcher::hotload_shader();
         SimpleDraw::hotload_shader();
-        game.hotload_shaders();
+        // game.hotload_shaders();
 
         game.update(input, delta_time);
 
@@ -109,9 +111,9 @@ int SDL_main(int argc, char *argv[]) {
             set_viewport({ 0, 0, window.get_width(), window.get_height() });
             GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
-
-            game.render_frame();
         }
+
+        renderer.render_frame(game);
 
         window.swap_buffer();
     }

@@ -185,7 +185,7 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
 void chunk_gen_biome_map(ChunkGenData &gen, int32_t biome_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]) {
     siv::PerlinNoise perlin(gen.seed.seed + 2);
 
-    const int32_t octaves = 3;
+    const int32_t octaves = 7;
     const double freq_x = 0.00315;
     const double freq_z = 0.00315;
 

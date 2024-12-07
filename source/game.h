@@ -17,6 +17,25 @@
 int32_t get_load_radius(void);
 int32_t get_deload_radius(void);
 
+enum class WorldBlitMode {
+    COLOR   = 0,
+    NORMALS = 1,
+    DEPTH   = 2,
+    AMBIENT_OCCLUSION = 3
+};
+
+struct GameThreadInfo {
+    int32_t gen_chunks_threads_active;
+    int32_t gen_meshes_threads_active;
+    int32_t queued_chunks_num;
+    int32_t queued_meshes_num;
+};
+
+struct GameTime {
+    double delta_time;
+    double elapsed_time;
+};
+
 class Game {
 public:
     CLASS_COPY_DISABLE(Game);
@@ -28,44 +47,69 @@ public:
     /* Update the game state */
     void update(const Input &input, double delta_time);
 
-    /* Renders frame onto backbuffer */
-    void render_frame(void);
+    /**/
+    void resize(int32_t width, int32_t height);
 
     /* Hotload shaders if modified */
     void hotload_shaders(void);
-
-    /* Window size changed callback */
-    void resize(int32_t width, int32_t height);
-
-    void check_for_chunks_to_load(void);
-
-    void wake_up_gen_chunks_threads(void);
-    void wake_up_gen_meshes_threads(void);
 
     World   &get_world(void);
     Camera  &get_camera(void);
     Console &get_console(void);
 
-    /* Threads */
+    /* Threading */
     /* @TODO : Chunk meshes sometimes do not get updated correctly if there are more queued !!! */
+    void wake_up_gen_chunks_threads(void);
+    void wake_up_gen_meshes_threads(void);
     int32_t thread_gen_chunks_proc(void);
     int32_t thread_gen_meshes_proc(void);
     void start_threads(int32_t chunks_threads, int32_t meshes_threads);
     void start_threads(void); // Creates threads with specified last amount or 1, 1
     void stop_threads(void);
 
+    /* Debug settings */
+    bool debug_show_ui_info;
+    bool debug_show_chunk_borders;
+    bool debug_player_draw;
+    bool debug_chunk_wireframe_mode;
+    bool debug_raycast_draw;
+    vec3i debug_spawn_p1;
+    vec3i debug_spawn_p2;
+    WorldBlitMode debug_world_blit_mode;
+
+    // todo
+    void set_load_radius(int32_t load) {
+        m_load_radius = load;
+    }
+    
+    int32_t get_load_radius(void) {
+        return m_load_radius;
+    }
+
+
+    GameThreadInfo get_thread_info(void) {
+        return {
+            m_gen_chunks_thread_num,
+            m_gen_meshes_thread_num,
+            m_world.get_queued_chunks_num(),
+            m_world.get_queued_meshes_num()
+        };
+    }
+
+    GameTime get_time(void) {
+        return {
+            m_delta_time,
+                m_time_elapsed
+        };
+    }
+
+    double get_elapsed_time(void) {
+        return m_time_elapsed;
+    }
+
 private:
     void add_console_commands(void);
-
-    void render_world(const mat4 &proj_m);
-    void render_water(const mat4 &proj_m);
-    void render_skybox(const mat4 &proj_m);
-    void render_target_block(const mat4 &proj_m);
-    void render_held_block(const mat4 &proj_m, float aspect_ratio);
-    void render_crosshair(void);
-    void render_ui(void);
-    void render_ui_debug_info(void);
-    void render_single_block(BlockType type, const mat4 &model_m, const mat4 &proj_m, const mat4 &view_m);
+    void queue_new_chunks_to_load(void);
 
     /* Game state */
     double  m_time_elapsed;
@@ -73,6 +117,12 @@ private:
     World   m_world;
     Console m_console;
     Camera  m_camera;
+
+    /* Settings */
+    int32_t m_load_radius;
+    bool    m_3rd_person_mode;
+    double  m_3rd_person_distance;
+
 
     /* Threading stuff */
     int32_t m_gen_chunks_thread_num = 0;
@@ -83,58 +133,5 @@ private:
     bool m_threads_keep_looping;
     SDL_Condition *m_gen_chunks_condition;
     SDL_Condition *m_gen_meshes_condition;
-
-    /*
-     *  Render resources
-     */
-
-    /* Initializes Game's rendering resources */
-    void initialize_render_resources(void);
-
-    /* Initializes Game's rendering resources */
-    void delete_render_resources(void);
-
-    int32_t m_width;
-    int32_t m_height;
-    double  m_aspect;
-    Framebuffer m_fbo_ms;
-    Framebuffer m_fbo;
-
-    Font m_ui_font;
-    Font m_ui_font_big;
-    Font m_ui_font_smooth;
-
-    /* Chunk's blocks */
-    ShaderFile   m_chunk_shader;
-    TextureArray m_chunk_tex_array;
-
-    /* Chunk's water */
-    ShaderFile   m_water_shader;
-    TextureArray m_water_tex_array;
-
-    /* Skybox */
-    VertexArray m_skybox_vao;
-    ShaderFile  m_skybox_shader;
-    Cubemap     m_skybox_cubemap;
-
-    /* Resolving framebuffer */
-    ShaderFile  m_post_process_shader;
-    VertexArray m_post_process_vao;
-
-    /* Crosshair */
-    ShaderFile  m_crosshair_shader;
-    VertexArray m_crosshair_vao;
-
-    /* For single block rendering */
-    VertexArray m_block_vao; 
-
-    /* Common text batcher */
-    TextBatcher m_batcher;
 };
 
-enum class WorldBlitMode {
-    COLOR,
-    NORMALS,
-    DEPTH,
-    AMBIENT_OCCLUSION
-};
