@@ -1,6 +1,5 @@
 #include "game.h"
 #include "window.h"
-#include "simple_draw.h"
 #include "opengl_abs.h"
 
 #define STRING_VIU_CPP_HELPERS
@@ -20,7 +19,8 @@ Game::Game(void) : m_world(this) {
     debug_raycast_draw         = false;
     debug_spawn_p1             = { 0, 0, 0 };
     debug_spawn_p2             = { 200, 200, 200 };
-    debug_world_blit_mode      = WorldBlitMode::COLOR;
+
+    render_mode = GameRenderMode::NORMAL;
 
     /* Init default game state */
     m_load_radius         = 10;
@@ -146,7 +146,6 @@ void Game::update(const Input &input, double delta_time) {
 
         chunk->set_chunk_blocks(gen_data.blocks);
         chunk->set_chunk_state(ChunkState::GENERATED);
-        chunk->set_appear_animation();
 
 #if 0
         /* If chunk's neighbours are generated -> queue mesh generation, otherwise -> set waiting state */
@@ -180,7 +179,73 @@ void Game::update(const Input &input, double delta_time) {
         chunk_mesh_gen_data_free(&mesh_data);
     }
 
-    m_world.update_loaded_chunks(delta_time, 1.0);
+    this->update_loaded_chunks();
+}
+
+#define MAX_FRAME_CHUNK_DELETES 8
+#define CHUNK_DELETE_RADIUS     2
+
+void Game::update_loaded_chunks(void) {
+    std::vector<Chunk *> chunks_to_delete;
+    std::vector<Chunk *> chunks_to_mesh;
+    chunks_to_delete.reserve(MAX_FRAME_CHUNK_DELETES);
+    chunks_to_mesh.reserve(MAX_QUEUED_MESHES);
+
+    double frustum[6][4];
+    m_camera.calc_frustum_at_origin(frustum, Window::get().get_aspect());
+
+    Player &player = m_world.get_player();
+
+    ChunkHashTable::Iterator chunk_iter;
+    while(m_world.iterate_chunks(chunk_iter)) {
+        Chunk *chunk = chunk_iter.value;    
+
+        vec2i chunk_coords = chunk->get_chunk_xz();
+        vec3d chunk_absolute = real_position_from_chunk(chunk_coords);
+        vec3d chunk_relative = m_camera.offset_to_relative(chunk_absolute);
+
+        /* Maybe delete the chunk */
+        bool should_delete = !is_chunk_in_range(chunk_coords, player.get_position_chunk(), m_load_radius + CHUNK_DELETE_RADIUS);
+        if(should_delete) {
+            chunks_to_delete.push_back(chunk);
+            continue;
+        }
+
+        /* If waiting and neighbours got generated -> queue for meshing */
+        const bool in_frustum = is_chunk_in_frustum(frustum, chunk_relative);
+        if(chunk->should_build_mesh() && in_frustum && chunk_mesh_slots_available()) {
+            chunks_to_mesh.push_back(chunk);
+        }
+    }
+
+    /* Delete chunks @TODO : make proc that deletes chunk @TEMP */
+    for(Chunk *chunk : chunks_to_delete) {
+        vec2i chunk_coords = chunk->get_chunk_xz();
+        m_world.delete_chunk(chunk_coords);
+    }
+
+    /* Sort chunks by distance from player's chunk @TODO : make it betta */
+    std::sort(chunks_to_mesh.begin(), chunks_to_mesh.end(), [] (Chunk *a, Chunk *b) { 
+        vec2 chunk = vec2::make(a->get_world()->get_player().get_position_chunk()); // @TODO
+        float dist_a = vec2::length_sq(chunk - vec2::make(a->get_chunk_xz()));
+        float dist_b = vec2::length_sq(chunk - vec2::make(b->get_chunk_xz()));
+        return dist_a < dist_b; 
+    });
+
+    /* Queue the meshing */
+    for(Chunk *chunk_to_mesh : chunks_to_mesh) {
+        m_world.gen_chunk_mesh_offload(chunk_to_mesh->get_chunk_xz());       
+    }
+
+    /* Push for meshing chunks outside frustum if slots available */
+    ChunkHashTable::Iterator other_iter;
+    while(chunk_mesh_slots_available() && m_world.iterate_chunks(other_iter)) {
+        Chunk *chunk = other_iter.value;
+        if(chunk->should_build_mesh()) {
+            vec2i chunk_coords = chunk->get_chunk_xz();
+            m_world.gen_chunk_mesh_offload(chunk_coords);       
+        }
+    }
 }
 
 int32_t Game::thread_gen_chunks_proc(void) {
@@ -373,7 +438,7 @@ Console &Game::get_console(void) {
     return m_console;
 }
 
-CONSOLE_COMMAND_PROC(command_set_threads) {
+CONSOLE_COMMAND_PROC(command_threads) {
     if(args.size() != 2) {
         console.add_to_history("Invalid number of arguments, 2 required.");
         return;
@@ -392,23 +457,13 @@ CONSOLE_COMMAND_PROC(command_set_threads) {
     game.start_threads(chunks_threads, meshes_threads);
 }
 
-CONSOLE_COMMAND_PROC(command_reload_meshes) {
-    if(args.size() != 0) {
-        console.add_to_history("The command does not take arguments.");
-        return;
-    }
+CONSOLE_COMMAND_PROC(command_generate) {
+    World &world = game.get_world();
+    GameWorldInfo world_info = world.get_world_info();
 
-    ChunkHashTable &table = game.get_world().get_chunk_table();
-    ChunkHashTable::Iterator iter;
-    while(table.iterate_all(iter)) {
-        iter.value->set_wait_for_mesh_reload();
-    }
-}
-
-CONSOLE_COMMAND_PROC(command_reset_world) {
     int32_t seed;
     if(args.size() == 0) {
-        seed = game.get_world().get_gen_seed().seed;
+        seed = world_info.world_gen_seed;
     } else if(args.size() == 1) {
         seed = std::stoi(s_viu_to_std_string(args[0]));
     } else {
@@ -421,7 +476,7 @@ CONSOLE_COMMAND_PROC(command_reset_world) {
     game.start_threads();
 }
 
-CONSOLE_COMMAND_PROC(command_set_load_radius) {
+CONSOLE_COMMAND_PROC(command_load_radius) {
     if(args.size() != 1) {
         console.add_to_history("Invalid number of arguments, 1 required.");
         return;
@@ -437,22 +492,22 @@ CONSOLE_COMMAND_PROC(command_set_load_radius) {
     // game.check_for_chunks_to_load();
 }
 
-CONSOLE_COMMAND_PROC(command_set_blit_mode) {
+CONSOLE_COMMAND_PROC(command_render_mode) {
     if(args.size() != 1) {
         console.add_to_history("Invalid number of arguments, 1 required.");
         return;
     }
 
-    if(args[0] == "color") {
-        game.debug_world_blit_mode = WorldBlitMode::COLOR;
+    if(args[0] == "normal") {
+        game.render_mode = GameRenderMode::NORMAL;
     } else if(args[0] == "normals") {
-        game.debug_world_blit_mode = WorldBlitMode::NORMALS;
+        game.render_mode = GameRenderMode::DEBUG_NORMALS;
     } else if(args[0] == "depth") {
-        game.debug_world_blit_mode = WorldBlitMode::DEPTH;
+        game.render_mode = GameRenderMode::DEBUG_DEPTH;
     } else if(args[0] == "AO") {
-        game.debug_world_blit_mode = WorldBlitMode::AMBIENT_OCCLUSION;
+        game.render_mode = GameRenderMode::DEBUG_AO;
     } else {
-        console.add_to_history("Invalid blit mode argument.");
+        console.add_to_history("Invalid argument.");
     }
 }
 
@@ -475,7 +530,7 @@ CONSOLE_COMMAND_PROC(command_toggle) {
     }
 }
 
-CONSOLE_COMMAND_PROC(command_set_fov) {
+CONSOLE_COMMAND_PROC(command_fov) {
     if(args.size() != 1) {
         console.add_to_history("Invalid number of arguments, 1 required.");
         return;
@@ -497,8 +552,8 @@ CONSOLE_COMMAND_PROC(command_spawn_stuff) {
 
     World &world = game.get_world();
 
-    ChunkHashTable::Iterator iter = {};
-    while(world.get_chunk_table().iterate_all(iter)) {
+    ChunkHashTable::Iterator iter;
+    while(world.iterate_chunks(iter)) {
         for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
             for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
                 for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
@@ -577,7 +632,7 @@ CONSOLE_COMMAND_PROC(command_spawn) {
     }
 }
 
-CONSOLE_COMMAND_PROC(command_set_pos) {
+CONSOLE_COMMAND_PROC(command_goto) {
     if(args.size() != 3) {
         console.add_to_history("Invalid number of arguments, 3 required.");
         return;
@@ -626,18 +681,17 @@ SDL_EnumerationResult enumerate_load_chunk(void *userdata, const char *dir_name,
 }
 
 void Game::add_console_commands(void) {
-    m_console.set_command("set_threads",     command_set_threads);
-    m_console.set_command("reload_meshes",   command_reload_meshes);
-    m_console.set_command("reset_world",     command_reset_world);
-    m_console.set_command("set_load_radius", command_set_load_radius);
-    m_console.set_command("set_blit_mode",   command_set_blit_mode);
+    m_console.set_command("threads",         command_threads);
+    m_console.set_command("generate",        command_generate);
+    m_console.set_command("load_radius",     command_load_radius);
+    m_console.set_command("render_mode",     command_render_mode);
     m_console.set_command("toggle",          command_toggle);
-    m_console.set_command("set_fov",         command_set_fov);
+    m_console.set_command("fov",             command_fov);
     m_console.set_command("spawn_stuff",     command_spawn_stuff);
     m_console.set_command("spawn_set_p1",    command_spawn_set_point_1);
     m_console.set_command("spawn_set_p2",    command_spawn_set_point_2);
     m_console.set_command("spawn",           command_spawn);
-    m_console.set_command("set_pos",         command_set_pos);
+    m_console.set_command("goto",            command_goto);
     m_console.set_command("fly",             command_fly);
 }
 

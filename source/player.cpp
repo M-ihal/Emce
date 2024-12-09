@@ -5,8 +5,6 @@
 #include "input.h"
 #include "console.h"
 
-#include "simple_draw.h"
-
 namespace {
     constexpr double PLAYER_ACCELERATION           = 35.0;
     constexpr double PLAYER_DECELERATION           = 18.0;
@@ -277,6 +275,7 @@ void Player::update(Game &game, const Input &input, double delta_time) {
                 vec2i chunk_xz = m_targeted_block.block_p.chunk;
                 world.gen_chunk_mesh_imm(chunk_xz);
 
+#if 0
                 /* Update neighbouring chunk/s if block was bordering them */
                 if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_NEG)) {
                     world.gen_chunk_mesh_imm(chunk_xz + vec2i{ -1, 0 });
@@ -290,6 +289,7 @@ void Player::update(Game &game, const Input &input, double delta_time) {
                 if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_POS)) {
                     world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, +1 });
                 }
+#endif
             }
         }
     }
@@ -424,6 +424,7 @@ void Player::move_in_y(World &world, double delta_time) {
     _ADD_TO_DEBUG_RANGE(min, max);
 }
 
+#if 0
 void Player::debug_render(class Game &game) {
     /* Collider */
     const vec3 collider_color = { 0.9f, 0.9f, 0.6f };
@@ -453,6 +454,9 @@ void Player::debug_render(class Game &game) {
     const vec3d max_pos = real_position_from_block(m_debug_max_checked_block) + vec3d::make(1.0);
     SimpleDraw::draw_cube_outline(min_pos, max_pos - min_pos, 0.05f, { 0.8f, 0.5f, 0.9f }); 
 }
+#else
+void Player::debug_render(class Game &game) {}
+#endif
 
 vec3d Player::get_collider_size(void) const {
     return PLAYER_COLLIDER_SIZE;

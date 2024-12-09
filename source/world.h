@@ -17,7 +17,13 @@ inline uint64_t func_hash_chunk_key(const vec2i &key);
 inline bool     func_compare_chunk_key(const vec2i &key_a, const vec2i &key_b);
 typedef meh::Table<vec2i, Chunk *, func_hash_chunk_key, func_compare_chunk_key, 85> ChunkHashTable;
 
-
+struct GameWorldInfo {
+    uint32_t world_gen_seed;
+    int32_t chunks_loaded;
+    int32_t chunks_allocated;
+    int32_t chunks_queued;
+    int32_t meshes_queued;
+};
 
 class World {
 public:
@@ -40,14 +46,7 @@ public:
     /* Deletes chunks and gen queues, NEED STOP THREADS BEFORE CALLING */
     void delete_chunks(void);
 
-    /* Update chunks */
-    void update_loaded_chunks(float delta_time, double aspect);
-
-    /* Current gen seed */
-    WorldGenSeed get_gen_seed(void);
-
-    /* Access chunk hash table */
-    ChunkHashTable &get_chunk_table(void);
+    void delete_chunk(vec2i chunk_coords);
 
     /* Returns chunk if has been generated */
     Chunk *get_chunk(vec2i chunk_xz);
@@ -76,12 +75,33 @@ public:
     /* Checks if chunk's neighbours are generated */
     bool chunk_neighbours_generated(vec2i chunk_xz);
 
-    int32_t get_queued_chunks_num(void) {
-        return m_chunks_to_generate.size();
+    GameWorldInfo get_world_info(void) {
+        GameWorldInfo info;
+        info.world_gen_seed = m_gen_seed.seed;
+        info.chunks_loaded = m_chunk_table.get_count();
+        info.chunks_allocated = m_chunk_table.get_size();
+        info.chunks_queued = m_chunks_to_generate.size();
+        info.meshes_queued = m_meshes_to_build.size();
+        return info;
     }
 
-    int32_t get_queued_meshes_num(void) {
-        return m_meshes_to_build.size();
+
+    /* Iterates through only valid chunks */
+    bool iterate_chunks(ChunkHashTable::Iterator &iter) {
+        while(true) {
+            bool ret_val = m_chunk_table.iterate_all(iter);
+            if(ret_val) {
+                Chunk *chunk = iter.value;
+                if(chunk->get_chunk_state() != ChunkState::GENERATED) {
+                    /* If this chunk is still generating, skip it */
+                    continue;
+                } else {
+                    return true;
+                }
+            } else {
+                return false;
+            }
+        }
     }
 
 private:

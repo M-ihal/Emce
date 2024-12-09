@@ -78,7 +78,7 @@ layout (location = 2) out vec4 out_depth;
 layout (location = 3) out vec4 out_ambient_occlusion;
 
 void main() {
-    float ambient_occlusion = mix(0.3, 1.0, v_ambient_occlusion / 3.0);
+    float ambient_occlusion = mix(0.25, 1.0, v_ambient_occlusion / 3.0);
 
     const vec3 sun_diffuse = vec3(0.85, 0.88, 0.87);
     const vec3 sun_dir = normalize(vec3(+0.5, -0.75, -0.12));
@@ -105,6 +105,7 @@ void main() {
 
         if(distance_to_frag > FOG_MIN) {
             float perc = (FOG_MAX - distance_to_frag) / (FOG_MAX - FOG_MIN);
+	// if(perc <= 0.0) discard;
             color = mix(texture(u_skybox, normalize(v_position)), color, clamp(perc, 0.0, 1.0));
         }
     }

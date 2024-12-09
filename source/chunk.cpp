@@ -79,6 +79,11 @@ void init_water_texture_array(TextureArray &texture_array, const char *water_fil
     }
 }
 
+bool Chunk::should_build_mesh(void) {
+    return m_state == ChunkState::GENERATED && m_mesh_state == ChunkMeshState::WAITING && m_owner->chunk_neighbours_generated(m_chunk_xz);
+}
+
+
 World *Chunk::get_world(void) {
     ASSERT(m_owner != NULL && "Chunk without owner error!.");
     return m_owner;
@@ -195,19 +200,4 @@ ChunkMeshState Chunk::get_mesh_state(void) {
 
 void Chunk::set_mesh_state(ChunkMeshState state) {
     m_mesh_state = state;
-}
-
-void Chunk::set_appear_animation(void) {
-    m_appear_do_anim = true;
-    m_appear_timer = 0.0f;
-}
-
-float Chunk::get_chunk_render_offset_y(void) {
-    float offset;
-    if(m_appear_do_anim && m_mesh_state == ChunkMeshState::LOADED) {
-        offset = -(CHUNK_SIZE_Y * (1.0f - m_appear_timer));
-    } else {
-        offset = 0.0f;
-    }
-    return offset;
 }

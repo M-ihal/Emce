@@ -80,88 +80,19 @@ void World::delete_chunks(void) {
     m_chunk_table.clear_table();
 }
 
-void World::update_loaded_chunks(float delta_time, double aspect) {
-    std::vector<vec2i> chunks_to_delete;
-    std::vector<Chunk *> to_mesh;
-
-    Camera &camera = m_owner->get_camera();
-    double frustum[6][4];
-    camera.calc_frustum_at_origin(frustum, aspect);
-
-    ChunkHashTable::Iterator chunk_iter;
-    while(m_chunk_table.iterate_all(chunk_iter)) {
-        Chunk *chunk = chunk_iter.value;
-
-        /* If is being generated -> do not update it */
-        if(chunk->m_state == ChunkState::GENERATING) {
-            continue;
-        }
-
-        if(!is_chunk_in_range(chunk_iter.key, m_player.get_position_chunk(), m_owner->get_load_radius())) {
-            chunks_to_delete.push_back(chunk_iter.key);
-            continue;
-        }
-
-#if 0
-        float init_timer_speed = 1.0f;
-        if(is_chunk_in_range(chunk_iter.key, m_player.get_position_chunk(), 1)) {
-            /* Make sure 3x3 area around the player doesn't do the appearing animation */
-            chunk->m_appear_do_anim = false;
-        } else {
-            if(chunk->m_appear_do_anim && chunk->m_mesh_state == ChunkMeshState::LOADED) {
-                float distance = vec2::length(vec2::make(m_player.get_position_chunk() - chunk->m_chunk_xz));
-                distance = clamp_max(distance, 16.0f);
-                init_timer_speed = clamp_min((SQUARE(2.0f - 2 * distance / 16.0f)), 1.0f);
-
-                chunk->m_appear_timer += delta_time * init_timer_speed;
-                if(chunk->m_appear_timer >= 1.0f) {
-                    chunk->m_appear_timer = 1.0f;
-                    chunk->m_appear_do_anim = false;
-                }
-            }
-        }
-#else
-        chunk->m_appear_do_anim = false;
-#endif
-
-        /* If waiting and neighbours got generated -> queue for meshing */
-        if(chunk->m_mesh_state == ChunkMeshState::WAITING) {
-            vec3d chunk_origin = camera.offset_to_relative(real_position_from_chunk(chunk->get_chunk_xz()));
-            if(is_chunk_in_frustum(frustum, chunk_origin)) {
-                if(this->chunk_neighbours_generated(chunk->m_chunk_xz)) {
-                    to_mesh.push_back(chunk);
-                }
-            }
-        }
+void World::delete_chunk(vec2i chunk_coords) {
+    Chunk **chunk_hash = m_chunk_table.find(chunk_coords);
+    if(chunk_hash == NULL) {
+        /* Does not exist? */
+        return;
     }
 
-    /* Delete chunks */
-    for(vec2i &chunk_xz : chunks_to_delete) {
-        Chunk **chunk_hash = m_chunk_table.find(chunk_xz);
-        ASSERT(chunk_hash);
-        Chunk *chunk = *chunk_hash;
-        delete chunk;
-        m_chunk_table.remove(chunk_xz);
-    }
+    /* Free memory */
+    Chunk *chunk = *chunk_hash;
+    ASSERT(chunk);
+    delete chunk;
 
-    std::sort(to_mesh.begin(), to_mesh.end(), [] (Chunk *a, Chunk *b) { 
-        vec2 chunk = vec2::make(a->get_world()->get_player().get_position_chunk()); // @TODO
-        float dist_a = vec2::length_sq(chunk - vec2::make(a->get_chunk_xz()));
-        float dist_b = vec2::length_sq(chunk - vec2::make(b->get_chunk_xz()));
-        return dist_a < dist_b; 
-    });
-
-    for(auto chunk : to_mesh) {
-        this->gen_chunk_mesh_offload(chunk->m_chunk_xz);
-    }
-}
-
-WorldGenSeed World::get_gen_seed(void) {
-    return m_gen_seed;
-}
-
-ChunkHashTable &World::get_chunk_table(void) {
-    return m_chunk_table;
+    m_chunk_table.remove(chunk_coords);
 }
 
 Chunk *World::get_chunk(vec2i chunk_xz) {
@@ -196,7 +127,7 @@ Chunk *World::get_chunk_create(vec2i chunk_xz, BlockType blocks[CHUNK_SIZE_X * C
             to_generate->set_chunk_blocks(blocks);
         } else {
             ChunkGenData gen_data;
-            chunk_gen_data_init(gen_data, chunk_xz, get_gen_seed());
+            chunk_gen_data_init(gen_data, chunk_xz, m_gen_seed);
             chunk_gen(gen_data);
 
             to_generate->set_chunk_blocks(gen_data.blocks);
@@ -244,7 +175,7 @@ void World::create_chunk_offload(vec2i chunk_xz) {
     m_chunk_table.insert(chunk_xz, chunk);
 
     ChunkGenData gen_data;
-    chunk_gen_data_init(gen_data, chunk_xz, this->get_gen_seed());
+    chunk_gen_data_init(gen_data, chunk_xz, m_gen_seed);
 
     SDL_LockMutex(m_lock_chunk_gen);
     m_chunks_to_generate.push(gen_data);

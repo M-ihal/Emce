@@ -39,8 +39,6 @@ set(source_files
     source/graphics/cubemap.h
     source/graphics/font.cpp
     source/graphics/font.h
-    source/graphics/simple_draw.cpp
-    source/graphics/simple_draw.h
     source/graphics/text_batcher.cpp
     source/graphics/text_batcher.h
     source/graphics/framebuffer.cpp

@@ -10,6 +10,7 @@
 #include "cubemap.h"
 #include "console.h"
 #include "texture_array.h"
+#include "game_renderer.h"
 
 #define MAX_GEN_CHUNKS_THREADS 2
 #define MAX_GEN_MESHES_THREADS 8
@@ -17,18 +18,10 @@
 int32_t get_load_radius(void);
 int32_t get_deload_radius(void);
 
-enum class WorldBlitMode {
-    COLOR   = 0,
-    NORMALS = 1,
-    DEPTH   = 2,
-    AMBIENT_OCCLUSION = 3
-};
 
 struct GameThreadInfo {
     int32_t gen_chunks_threads_active;
     int32_t gen_meshes_threads_active;
-    int32_t queued_chunks_num;
-    int32_t queued_meshes_num;
 };
 
 struct GameTime {
@@ -75,7 +68,9 @@ public:
     bool debug_raycast_draw;
     vec3i debug_spawn_p1;
     vec3i debug_spawn_p2;
-    WorldBlitMode debug_world_blit_mode;
+
+    /* What mode to render game */
+    GameRenderMode render_mode;
 
     // todo
     void set_load_radius(int32_t load) {
@@ -86,13 +81,10 @@ public:
         return m_load_radius;
     }
 
-
     GameThreadInfo get_thread_info(void) {
         return {
             m_gen_chunks_thread_num,
             m_gen_meshes_thread_num,
-            m_world.get_queued_chunks_num(),
-            m_world.get_queued_meshes_num()
         };
     }
 
@@ -107,9 +99,16 @@ public:
         return m_time_elapsed;
     }
 
+    bool is_3rd_person_mode(void) {
+        return m_3rd_person_mode;
+    }
+
 private:
     void add_console_commands(void);
     void queue_new_chunks_to_load(void);
+
+    /* Update chunks and queue chunks for meshing */
+    void update_loaded_chunks(void);
 
     /* Game state */
     double  m_time_elapsed;
@@ -122,7 +121,6 @@ private:
     int32_t m_load_radius;
     bool    m_3rd_person_mode;
     double  m_3rd_person_distance;
-
 
     /* Threading stuff */
     int32_t m_gen_chunks_thread_num = 0;

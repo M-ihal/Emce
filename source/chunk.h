@@ -169,11 +169,7 @@ public:
     /* Set mesh state */
     void set_mesh_state(ChunkMeshState state);
 
-    /* Make chunk do appear animation when mesh gets created */
-    void set_appear_animation(void);
-
-    /* Calc chunk y position offset for rendering */
-    float get_chunk_render_offset_y(void);
+    bool should_build_mesh(void);
 
 private:
     class World *m_owner;
@@ -184,9 +180,6 @@ private:
 
     ChunkState m_state;
     ChunkMeshState m_mesh_state;
-
-    bool  m_appear_do_anim = false;
-    float m_appear_timer = 1.0f;
 
     bool  m_should_unload;
     float m_unload_timer;

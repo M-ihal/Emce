@@ -3,15 +3,30 @@
 
 /* @TODO , @TEMP : Temporary mesh gen code... !!! */
 
-#define MAX_MESH_GEN_DATA_COUNT 16
-static ChunkMeshGenData *g_mesh_data;
-static std::vector<int32_t> g_free_mesh_data_index; // MAKE IT FILO
+static ChunkMeshGenData *g_mesh_data; // Allocated MAX_QUEUED_MESHES
+static int32_t g_free_mesh_data_index[MAX_QUEUED_MESHES]; // @TODO: MAKE IT FILO
+static int32_t g_free_mesh_data_count = 0;
+
+static ChunkMeshGenData *get_free_mesh_data(void) {
+    if(chunk_mesh_slots_available()) {
+        const int32_t array_index = g_free_mesh_data_index[--g_free_mesh_data_count];
+        ChunkMeshGenData *mesh_data = &g_mesh_data[array_index];
+        mesh_data->array_index = array_index;
+        return mesh_data;
+    }
+    return NULL;
+}
+
+static void release_mesh_data(ChunkMeshGenData *mesh_data) {
+    ASSERT(mesh_data->array_index >= 0 && mesh_data->array_index <= MAX_QUEUED_MESHES && (g_free_mesh_data_count + 1) <= MAX_QUEUED_MESHES);
+    g_free_mesh_data_index[g_free_mesh_data_count++] = mesh_data->array_index;
+}
 
 void chunk_mesh_gen_data_init_global(void) {
-    g_mesh_data = new ChunkMeshGenData[MAX_MESH_GEN_DATA_COUNT];
-    for(int32_t index = 0; index < MAX_MESH_GEN_DATA_COUNT; ++index) {
+    g_mesh_data = new ChunkMeshGenData[MAX_QUEUED_MESHES];
+    for(int32_t index = 0; index < MAX_QUEUED_MESHES; ++index) {
         g_mesh_data[index].array_index = index;
-        g_free_mesh_data_index.push_back(index);
+        g_free_mesh_data_index[g_free_mesh_data_count++] = index;
     }
 }
 
@@ -19,8 +34,8 @@ void chunk_mesh_gen_data_free_global(void) {
     delete[] g_mesh_data;
 }
 
-bool chunk_mesh_gen_slots_available(void) {
-    return g_free_mesh_data_index.size() > 0;
+bool chunk_mesh_slots_available(void) {
+    return g_free_mesh_data_count > 0;
 }
 
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
@@ -389,12 +404,8 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec
     if(supplied_memory) {
         gen_data = *gen_data_ptr;
         gen_data->array_index = -1;
-    } else if(g_free_mesh_data_index.size()) {
-        int32_t index = g_free_mesh_data_index[g_free_mesh_data_index.size() - 1];
-        g_free_mesh_data_index.pop_back();
-
-        gen_data = &g_mesh_data[index];
-        gen_data->array_index = index;
+    } else if(chunk_mesh_slots_available()) {
+        gen_data = get_free_mesh_data();
         *gen_data_ptr = gen_data;
 
         ZERO_ARRAY(gen_data->chunk_blocks);
@@ -410,6 +421,7 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec
         *gen_data_ptr = NULL;
         return;
     }
+
 
     Chunk *chunk = world.get_chunk(chunk_xz);
     Chunk *chunk_z_neg = world.get_chunk(chunk_xz + vec2i{ 0, -1 });
@@ -464,10 +476,7 @@ void chunk_mesh_gen_data_free(ChunkMeshGenData **gen_data_ptr) {
     (*gen_data_ptr)->water.vertices.shrink_to_fit();
     (*gen_data_ptr)->water.indices.shrink_to_fit();
 
-
-    int32_t index = (*gen_data_ptr)->array_index;
-    *gen_data_ptr = NULL;
-    g_free_mesh_data_index.push_back(index);
+    release_mesh_data(*gen_data_ptr);
 }
 
 void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
