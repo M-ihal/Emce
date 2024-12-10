@@ -51,6 +51,9 @@ public:
     /* Get player's current chunk position */
     vec2i get_position_chunk(void);
 
+    /* Set field of view */
+    void set_head_camera_fov(float fov);
+
     /* Get player's head camera */
     Camera get_head_camera(void);
 
@@ -80,12 +83,16 @@ public:
 
     /* Currently targeted block */
     RaycastBlockResult get_targeted_block(void);
+    
+    double get_hand_anim_time(void) {
+        return m_block_action_t;
+    }
 
 private:
     bool check_if_collides_with_any_block(World &world, vec3d position, vec3d size);
     void move_in_xz(World &world, double delta_time);
     void move_in_y(World &world, double delta_time);
- 
+
     bool   m_is_grounded;
     vec3d  m_velocity;
     vec3d  m_position;
@@ -93,6 +100,7 @@ private:
     Camera m_head_camera;
 
     BlockType m_held_block;
+    double m_block_action_t;
 
     bool m_moved_chunk_last_frame;
 

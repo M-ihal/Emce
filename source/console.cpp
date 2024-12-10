@@ -10,7 +10,7 @@
 
 #include <meh_hash.h>
 
-void Console::initialize(void) {
+Console::Console(void) {
     ASSERT(!m_initialized);
     m_initialized = true;
 
@@ -49,7 +49,7 @@ void Console::initialize(void) {
     this->add_to_history("Type 'commands' to list commands.");
 }
 
-void Console::destroy(void) {
+Console::~Console(void) {
     m_font.delete_font();
     m_quad_shader.delete_shader_file();
     m_quad_vao.delete_vao();

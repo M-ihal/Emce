@@ -64,11 +64,11 @@ int SDL_main(int argc, char *argv[]) {
     /* Initialize global stuff */
     TextBatcher::initialize();
 
-    Input        input;
-    Game         game;
+    Input input;
     GameRenderer renderer(window.get_width(), window.get_height());
+    std::unique_ptr<Game> game = std::unique_ptr<Game>(new Game());
 
-    game.get_console().set_command("quit", { CONSOLE_COMMAND_LAMBDA {
+    game->get_console().set_command("quit", { CONSOLE_COMMAND_LAMBDA {
             Window::get().set_should_close();
         }
     });
@@ -100,15 +100,15 @@ int SDL_main(int argc, char *argv[]) {
         TextBatcher::hotload_shader();
         renderer.hotload_shaders();
 
-        game.update(input, delta_time);
+        game->update(input, delta_time);
 
-        /* Render */ {
-            set_viewport({ 0, 0, window.get_width(), window.get_height() });
-            GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
-            GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
-        }
+        /* Clear backbuffer */
+        bind_no_fbo();
+        set_viewport({ 0, 0, window.get_width(), window.get_height() });
+        GL_CHECK(glClearColor(0.2f, 0.2f, 0.4f, 1.0));
+        GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
 
-        renderer.render_frame(game);
+        renderer.render_frame(*game);
 
         window.swap_buffer();
     }

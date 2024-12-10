@@ -1,5 +1,6 @@
 #include "chunk_mesh_gen.h"
 #include "world.h"
+#include "world_utils.h"
 
 /* @TODO , @TEMP : Temporary mesh gen code... !!! */
 
@@ -188,7 +189,7 @@ inline constexpr bool block_casts_ao(BlockType type) {
 
 void fill_block_cube_vao_ao(ChunkMeshGenData *gen, ChunkVaoVertex v[4], BlockSide side, const vec3i &block_rel, bool connect_wall[6]) {
     const int32_t side_id = (int32_t)side;
-    vec3i normal = get_side_normal(side);
+    vec3i normal = get_block_side_normal(side);
 
     vec3i _block = block_rel + normal;
     BlockType _BLOCK;
@@ -394,13 +395,9 @@ static void push_block_vao_data(ChunkMeshGenData *gen_data, BlockType type, Chun
     }
 }
 
-void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec2i chunk_xz, bool supplied_memory) {
-    // *gen_data_ptr = new ChunkMeshGenData;
-    // ChunkMeshGenData *gen_data = *gen_data_ptr;
-    // ASSERT(gen_data);
+void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec2i chunk_coords, bool supplied_memory) {
 
     ChunkMeshGenData *gen_data = NULL;
-
     if(supplied_memory) {
         gen_data = *gen_data_ptr;
         gen_data->array_index = -1;
@@ -422,16 +419,15 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec
         return;
     }
 
-
-    Chunk *chunk = world.get_chunk(chunk_xz);
-    Chunk *chunk_z_neg = world.get_chunk(chunk_xz + vec2i{ 0, -1 });
-    Chunk *chunk_z_pos = world.get_chunk(chunk_xz + vec2i{ 0,  1 });
-    Chunk *chunk_x_neg = world.get_chunk(chunk_xz + vec2i{-1,  0 });
-    Chunk *chunk_x_pos = world.get_chunk(chunk_xz + vec2i{ 1,  0 });
-    Chunk *chunk_x_neg_z_neg = world.get_chunk(chunk_xz + vec2i{-1, -1 });
-    Chunk *chunk_x_pos_z_pos = world.get_chunk(chunk_xz + vec2i{ 1,  1 });
-    Chunk *chunk_x_neg_z_pos = world.get_chunk(chunk_xz + vec2i{-1,  1 });
-    Chunk *chunk_x_pos_z_neg = world.get_chunk(chunk_xz + vec2i{ 1, -1 });
+    Chunk *chunk = world.get_chunk(chunk_coords);
+    Chunk *chunk_z_neg = world.get_chunk(chunk_coords + vec2i{ 0, -1 });
+    Chunk *chunk_z_pos = world.get_chunk(chunk_coords + vec2i{ 0,  1 });
+    Chunk *chunk_x_neg = world.get_chunk(chunk_coords + vec2i{-1,  0 });
+    Chunk *chunk_x_pos = world.get_chunk(chunk_coords + vec2i{ 1,  0 });
+    Chunk *chunk_x_neg_z_neg = world.get_chunk(chunk_coords + vec2i{-1, -1 });
+    Chunk *chunk_x_pos_z_pos = world.get_chunk(chunk_coords + vec2i{ 1,  1 });
+    Chunk *chunk_x_neg_z_pos = world.get_chunk(chunk_coords + vec2i{-1,  1 });
+    Chunk *chunk_x_pos_z_neg = world.get_chunk(chunk_coords + vec2i{ 1, -1 });
 
     /* Meshing should only appear if neighbouring blocks exist */
     ASSERT(chunk && chunk_x_neg && chunk_x_pos && chunk_z_neg && chunk_z_pos && chunk_x_neg_z_neg && chunk_x_pos_z_pos && chunk_x_neg_z_pos && chunk_x_pos_z_neg);
@@ -439,18 +435,19 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec
     const size_t chunk_blocks_size = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(BlockType);
 
     /* Copy the main chunk's blocks */
-    gen_data->chunk_xz = chunk_xz;
-    memcpy(gen_data->chunk_blocks, chunk->get_block_data(), chunk_blocks_size);
+    gen_data->chunk_coords = chunk_coords;
+    chunk->copy_blocks_from(gen_data->chunk_blocks);
 
     /* Copy the neighbouring chunks' blocks */
-    memcpy(gen_data->chunk_x_neg, chunk_x_neg->get_block_data(), chunk_blocks_size);
-    memcpy(gen_data->chunk_x_pos, chunk_x_pos->get_block_data(), chunk_blocks_size);
-    memcpy(gen_data->chunk_z_neg, chunk_z_neg->get_block_data(), chunk_blocks_size);
-    memcpy(gen_data->chunk_z_pos, chunk_z_pos->get_block_data(), chunk_blocks_size);
-    memcpy(gen_data->chunk_x_neg_z_neg, chunk_x_neg_z_neg->get_block_data(), chunk_blocks_size);
-    memcpy(gen_data->chunk_x_pos_z_pos, chunk_x_pos_z_pos->get_block_data(), chunk_blocks_size);
-    memcpy(gen_data->chunk_x_neg_z_pos, chunk_x_neg_z_pos->get_block_data(), chunk_blocks_size);
-    memcpy(gen_data->chunk_x_pos_z_neg, chunk_x_pos_z_neg->get_block_data(), chunk_blocks_size);
+    chunk_x_neg->copy_blocks_from(gen_data->chunk_x_neg);
+    chunk_x_pos->copy_blocks_from(gen_data->chunk_x_pos);
+    chunk_z_neg->copy_blocks_from(gen_data->chunk_z_neg);
+    chunk_z_pos->copy_blocks_from(gen_data->chunk_z_pos);
+    chunk_x_neg_z_neg->copy_blocks_from(gen_data->chunk_x_neg_z_neg);
+    chunk_x_pos_z_pos->copy_blocks_from(gen_data->chunk_x_pos_z_pos);
+    chunk_x_neg_z_pos->copy_blocks_from(gen_data->chunk_x_neg_z_pos);
+    chunk_x_pos_z_neg->copy_blocks_from(gen_data->chunk_x_pos_z_neg);
+
 }
 
 void chunk_mesh_gen_data_free(ChunkMeshGenData **gen_data_ptr) {
@@ -480,7 +477,6 @@ void chunk_mesh_gen_data_free(ChunkMeshGenData **gen_data_ptr) {
 }
 
 void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
-
     for_every_block(x, y, z) {
         vec3i block_rel = { x, y, z };
         BlockType block = get_block(gen_data, block_rel);
@@ -489,7 +485,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
         if(block == BlockType::WATER) {
             bool connect_wall[8] = { };
             for(int32_t side = 0; side < 6; ++side) {
-                vec3i nb_block_rel = block_rel + get_block_side_dir((BlockSide)side);
+                vec3i nb_block_rel = block_rel + get_block_side_normal((BlockSide)side);
 
                 BlockType nb_block = BlockType::AIR;
                 if(!is_inside_chunk(nb_block_rel)) {
@@ -540,7 +536,7 @@ void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
         bool connect_wall[6] = { };
 
         for(int32_t side = 0; side < 6; ++side) {
-            vec3i nb_block_rel = block_rel + get_block_side_dir((BlockSide)side);
+            vec3i nb_block_rel = block_rel + get_block_side_normal((BlockSide)side);
 
             BlockType nb_block = BlockType::AIR;
             if(!is_inside_chunk(nb_block_rel)) {

@@ -2,6 +2,7 @@
 
 #include "game.h"
 #include "world.h"
+#include "world_utils.h"
 #include "input.h"
 #include "console.h"
 
@@ -169,26 +170,24 @@ void Player::update(Game &game, const Input &input, double delta_time) {
             .z = move_dir.z * PLAYER_ACCELERATION * delta_time,
         };
     } else {
-        if(false) {
-            const float deceleration = PLAYER_DECELERATION * delta_time;
-            const float epsilon = 0.1f;
+        const float deceleration = PLAYER_DECELERATION * delta_time;
+        const float epsilon = 0.1f;
 
-            vec2  vel_xz = { (float)m_velocity.x, (float)m_velocity.z };
-            vec2  vel_xz_norm = vec2::normalize(vel_xz);
-            float vel_xz_len = vec2::length(vel_xz);
+        vec2  vel_xz = { (float)m_velocity.x, (float)m_velocity.z };
+        vec2  vel_xz_norm = vec2::normalize(vel_xz);
+        float vel_xz_len = vec2::length(vel_xz);
 
-            if(vel_xz_len > epsilon) {
-                m_velocity.x -= deceleration * vel_xz_norm.x;
-                m_velocity.z -= deceleration * vel_xz_norm.y;
-            } else {
-                m_velocity.x = 0.0f;
-                m_velocity.z = 0.0f;
-            }
+        if(vel_xz_len > epsilon) {
+            m_velocity.x -= deceleration * vel_xz_norm.x;
+            m_velocity.z -= deceleration * vel_xz_norm.y;
+        } else {
+            m_velocity.x = 0.0f;
+            m_velocity.z = 0.0f;
+        }
 
-            if(vec2::dot(vel_xz, { (float)m_velocity.x, (float)m_velocity.z }) < 0.0f) {
-                m_velocity.x = 0.0f;
-                m_velocity.z = 0.0f;
-            }
+        if(vec2::dot(vel_xz, { (float)m_velocity.x, (float)m_velocity.z }) < 0.0f) {
+            m_velocity.x = 0.0f;
+            m_velocity.z = 0.0f;
         }
     }
 
@@ -232,37 +231,26 @@ void Player::update(Game &game, const Input &input, double delta_time) {
 
     m_targeted_block = raycast_block(world, ray_origin, ray_end);
 
+    bool rebuild_mesh = false;
+    vec2i chunk_coords;
+    vec3i block_rel_changed;
+
     if(m_targeted_block.found) {
         Chunk *target_chunk = NULL;
         BlockType target = world.get_block(m_targeted_block.block_p.block, &target_chunk);
         if(target != BlockType::_INVALID) {
 
             if(block_place) {
-                WorldPosition place_block_p = WorldPosition::from_block(m_targeted_block.block_p.block + get_block_side_dir(m_targeted_block.side));
+                WorldPosition place_block_p = WorldPosition::from_block(m_targeted_block.block_p.block + get_block_side_normal(m_targeted_block.side));
                 Chunk *place_block_chunk = world.get_chunk(place_block_p.chunk);
                 if(place_block_chunk != NULL) {
                     bool would_collide = check_aabb_3d(this->get_position_origin(), PLAYER_COLLIDER_SIZE, place_block_p.real, vec3d::make(1.0));
                     if(!would_collide) {
                         place_block_chunk->set_block(place_block_p.block_rel, m_held_block);
 
-                        // @TODO : If no bordering chunks will crash !!
-                        
-                        vec2i chunk_xz = m_targeted_block.block_p.chunk;
-                        world.gen_chunk_mesh_imm(chunk_xz);
-
-                        /* Update neighbouring chunk/s if block was bordering them */
-                        if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_NEG)) {
-                            world.gen_chunk_mesh_imm(chunk_xz + vec2i{ -1, 0 });
-                        }
-                        if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_POS)) {
-                            world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 1, 0 });
-                        }
-                        if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_NEG)) {
-                            world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, -1 });
-                        }
-                        if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_POS)) {
-                            world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, +1 });
-                        }
+                        rebuild_mesh = true;
+                        chunk_coords = place_block_p.chunk;
+                        block_rel_changed = place_block_p.block_rel;
                     }
                 }
             }
@@ -270,29 +258,40 @@ void Player::update(Game &game, const Input &input, double delta_time) {
             if(block_destroy) {
                 target_chunk->set_block(m_targeted_block.block_p.block_rel, BlockType::AIR);
 
-                // @TODO : If no bordering chunks will crash !!
-                
-                vec2i chunk_xz = m_targeted_block.block_p.chunk;
-                world.gen_chunk_mesh_imm(chunk_xz);
-
-#if 0
-                /* Update neighbouring chunk/s if block was bordering them */
-                if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_NEG)) {
-                    world.gen_chunk_mesh_imm(chunk_xz + vec2i{ -1, 0 });
-                }
-                if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::X_POS)) {
-                    world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 1, 0 });
-                }
-                if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_NEG)) {
-                    world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, -1 });
-                }
-                if(is_block_on_chunk_edge(m_targeted_block.block_p.block_rel, BlockSide::Z_POS)) {
-                    world.gen_chunk_mesh_imm(chunk_xz + vec2i{ 0, +1 });
-                }
-#endif
+                rebuild_mesh = true;
+                chunk_coords = m_targeted_block.block_p.chunk;
+                block_rel_changed = m_targeted_block.block_p.block_rel;
             }
         }
     }
+
+    if(block_place || block_destroy) {
+        m_block_action_t = 1.0;
+    }
+
+    m_block_action_t -= delta_time;
+    if(m_block_action_t <= 0.0) {
+        m_block_action_t = 0.0;
+    }
+
+    if(rebuild_mesh) {
+        world.rebuild_mesh_slow(chunk_coords);
+
+        /* Update neighbouring chunk/s if block was bordering them */
+        if(is_block_on_x_neg_edge(m_targeted_block.block_p.block_rel)) {
+            world.rebuild_mesh_slow(chunk_coords + vec2i{ -1, 0 });
+        }
+        if(is_block_on_x_pos_edge(m_targeted_block.block_p.block_rel)) {
+            world.rebuild_mesh_slow(chunk_coords + vec2i{ 1, 0 });
+        }
+        if(is_block_on_z_neg_edge(m_targeted_block.block_p.block_rel)) {
+            world.rebuild_mesh_slow(chunk_coords + vec2i{ 0, -1 });
+        }
+        if(is_block_on_z_pos_edge(m_targeted_block.block_p.block_rel)) {
+            world.rebuild_mesh_slow(chunk_coords + vec2i{ 0, +1 });
+        }
+    }
+
 }
 
 #define _ADD_TO_DEBUG_RANGE(min, max)\
@@ -488,6 +487,10 @@ void Player::set_position(const vec3d &real) {
 
 vec2i Player::get_position_chunk(void) {
     return chunk_position_from_real(this->get_position());
+}
+
+void Player::set_head_camera_fov(float fov) {
+    m_head_camera.set_fov(fov);
 }
 
 Camera Player::get_head_camera(void) {

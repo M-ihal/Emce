@@ -39,12 +39,8 @@ class Console {
 public:
     CLASS_COPY_DISABLE(Console);
 
-    Console(void)  = default;
-    ~Console(void) = default;
-
-    void initialize(void);
-
-    void destroy(void);
+    Console(void);
+    ~Console(void);
 
     void update(Game &game, const Input &input, double delta_time);
 
@@ -75,8 +71,8 @@ private:
 
     Font        m_font;
     TextBatcher m_batcher;
-    ShaderFile  m_quad_shader; // @temp
-    VertexArray m_quad_vao;    // @temp
+    ShaderFile  m_quad_shader;
+    VertexArray m_quad_vao;
 };
 
 inline uint64_t console_command_hash_func(const CommandTableKey &a) {

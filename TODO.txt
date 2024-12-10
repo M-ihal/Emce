@@ -1,15 +1,8 @@
 BIG CLEANUP
-
-    source/world_utils.cpp
-    source/world_utils.h
-
-
-source/chunk.cpp
-    source/chunk.h
-    source/world.cpp
-    source/world.h
     source/console.cpp
     source/console.h
+    source/world.cpp
+    source/world.h
     source/game.cpp
     source/game.h
     source/player.cpp

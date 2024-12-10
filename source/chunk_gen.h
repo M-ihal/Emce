@@ -24,10 +24,6 @@ void chunk_gen(ChunkGenData &gen);
 void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]);
 void chunk_gen_biome_map(ChunkGenData &gen, int32_t biome_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]);
 
-/*
- *  Structures
- */
-
 struct BlockOffset {
     BlockType type;
     vec3i offset;

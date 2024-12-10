@@ -32,6 +32,28 @@ bool is_chunk_in_frustum(double frustum[6][4], const vec3d &chunk_origin_rel) {
     return in_frustum;
 }
 
+bool is_inside_chunk(const vec3i &block_rel) {
+    return block_rel.x >= 0 && block_rel.x < CHUNK_SIZE_X
+        && block_rel.y >= 0 && block_rel.y < CHUNK_SIZE_Y
+        && block_rel.z >= 0 && block_rel.z < CHUNK_SIZE_Z;
+}
+
+bool is_block_on_x_neg_edge(const vec3i &block_rel) {
+    return block_rel.x == 0;
+}
+
+bool is_block_on_x_pos_edge(const vec3i &block_rel) {
+    return block_rel.x == CHUNK_SIZE_X - 1;
+}
+
+bool is_block_on_z_neg_edge(const vec3i &block_rel) {
+    return block_rel.z == 0;
+}
+
+bool is_block_on_z_pos_edge(const vec3i &block_rel) {
+    return block_rel.z == CHUNK_SIZE_Z - 1;
+}
+
 vec3d real_position_from_block(const vec3i &block) {
     return {
         (double)block.x,
@@ -89,6 +111,38 @@ void calc_overlapping_blocks(vec3d pos, vec3d size, WorldPosition &min, WorldPos
     vec3i block_max_p = block_position_from_real(pos + size);
     min = WorldPosition::from_block(block_min_p);
     max = WorldPosition::from_block(block_max_p);
+}
+
+vec3i get_block_side_normal(BlockSide side) {
+    switch(side) {
+        case BlockSide::X_NEG: return vec3i{ -1,  0,  0 };
+        case BlockSide::X_POS: return vec3i{ +1,  0,  0 };
+        case BlockSide::Z_NEG: return vec3i{  0,  0, -1 };
+        case BlockSide::Z_POS: return vec3i{  0,  0,  1 };
+        case BlockSide::Y_NEG: return vec3i{  0, -1,  0 };
+        case BlockSide::Y_POS: return vec3i{  0, +1,  0 };
+    }
+    INVALID_CODE_PATH;
+    return { };
+}
+
+BlockSide get_block_side_from_normal(const vec3i &normal) {
+    if(normal == vec3i{ -1, 0, 0 }) {
+        return BlockSide::X_NEG;
+    } else if(normal == vec3i{ 1, 0, 0 }) {
+        return BlockSide::X_POS;
+    } if(normal == vec3i{ 0, 0, -1 }) {
+        return BlockSide::Z_NEG;
+    } else if(normal == vec3i{ 0, 0, 1 }) {
+        return BlockSide::Z_POS;
+    } else if(normal == vec3i{ 0, -1, 0 }) {
+        return BlockSide::Y_NEG;
+    } else if(normal == vec3i{ 0, 1, 0 }) {
+        return BlockSide::Y_POS;
+    }
+
+    INVALID_CODE_PATH;
+    return (BlockSide)0;
 }
 
 WorldPosition WorldPosition::from_real(const vec3d &real) {

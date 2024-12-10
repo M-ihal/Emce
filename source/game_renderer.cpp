@@ -2,11 +2,19 @@
 #include "game.h"
 #include "opengl_abs.h"
 
+#include <stb_image.h>
+
 static int32_t calc_fps(double delta_time);
 
 namespace {
     static int32_t g_triangles_rendered_this_frame = 0;
 };
+
+/* Upload block pixels from atlas to _created_ TextureArray */
+void init_block_texture_array(TextureArray &texture_array, const char *atlas_filepath);
+
+/* Upload water pixels from image to TextureArray */
+void init_water_texture_array(TextureArray &texture_array, const char *water_filepath);
 
 GameRenderer::GameRenderer(int32_t width, int32_t height) {
     m_width = width;
@@ -349,7 +357,6 @@ void GameRenderer::render_frame(Game &game) {
     // Render world to multisampled framebuffer
     this->render_world(game);
 
-
     this->render_held_block(game);
 
     this->render_target_block(game);
@@ -425,15 +432,15 @@ void GameRenderer::render_frame(Game &game) {
     console.render(m_width, m_height);
 }
 
-
 void GameRenderer::render_world(Game &game) {
     World  &world = game.get_world();
     Player &player = world.get_player();
+    GameFrameInfo info = game.get_frame_info();
 
     m_chunk_shader.use_program();
     m_chunk_shader.upload_mat4("u_proj", m_proj_m);
     m_chunk_shader.upload_mat4("u_view", m_view_m);
-    m_chunk_shader.upload_int("u_load_radius", game.get_load_radius());
+    m_chunk_shader.upload_int("u_load_radius", info.load_radius);
     m_chunk_shader.upload_int("u_texture_array", 0);
     m_chunk_shader.upload_int("u_skybox", 1);
     m_chunk_tex_array.bind_texture_unit(0);
@@ -453,18 +460,12 @@ void GameRenderer::render_world(Game &game) {
 
     std::vector<Chunk *> water_chunks;
 
-
     /* Render chunks and get chunks with water to render */
     ChunkHashTable::Iterator chunk_iter;
     while(world.iterate_chunks(chunk_iter)) {
         Chunk *chunk = chunk_iter.value;
 
-        const bool chunk_valid = chunk->get_mesh_state() == ChunkMeshState::LOADED;
-        if(!chunk_valid) {
-            continue;
-        }
-    
-        vec2i chunk_coords = chunk->get_chunk_xz();
+        vec2i chunk_coords = chunk->get_chunk_coords();
         vec3d chunk_absolute = real_position_from_chunk(chunk_coords);
         vec3d chunk_relative = m_camera.offset_to_relative(chunk_absolute);
 
@@ -505,11 +506,25 @@ void GameRenderer::render_world(Game &game) {
 
     this->render_skybox(game);
 
+    /* DEBUG render chunk borders */
+    if(game.debug_show_chunk_borders) {
+        ChunkHashTable::Iterator iter;
+        while(world.iterate_chunks(iter)) {
+            Chunk *chunk = iter.value;
+            vec3d chunk_pos = { 
+                (double)(chunk->get_chunk_coords().x * CHUNK_SIZE_X),
+                0.0f,
+                (double)(chunk->get_chunk_coords().y * CHUNK_SIZE_Z)
+            };
+            this->render_cube_outline(chunk_pos, { CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }, 8.0f / 16.0f, { 1.0f, 1.0f, 1.0f }, 0.2f, { 0.0f, 0.0f, 0.0f });
+        }
+    }
+
     /* Sort water chunks, @TODO : TODO */
     std::sort(water_chunks.begin(), water_chunks.end(), [] (Chunk *a, Chunk *b) { 
         vec2 chunk = vec2::make(a->get_world()->get_player().get_position_chunk());
-        float dist_a = vec2::length_sq(chunk - vec2::make(a->get_chunk_xz()));
-        float dist_b = vec2::length_sq(chunk - vec2::make(b->get_chunk_xz()));
+        float dist_a = vec2::length_sq(chunk - vec2::make(a->get_chunk_coords()));
+        float dist_b = vec2::length_sq(chunk - vec2::make(b->get_chunk_coords()));
         return dist_a > dist_b; 
     });
 
@@ -524,8 +539,8 @@ void GameRenderer::render_world(Game &game) {
     m_water_shader.use_program();
     m_water_shader.upload_mat4("u_proj", m_proj_m);
     m_water_shader.upload_mat4("u_view", m_view_m);
-    m_water_shader.upload_float("u_time_elapsed", game.get_elapsed_time());
-    m_water_shader.upload_int("u_load_radius", game.get_load_radius());
+    m_water_shader.upload_float("u_time_elapsed", info.elapsed_time);
+    m_water_shader.upload_int("u_load_radius", info.load_radius);
     m_water_shader.upload_int("u_water_texture_array", 0);
     m_water_shader.upload_int("u_skybox", 1);
     m_water_tex_array.bind_texture_unit(0);
@@ -533,7 +548,7 @@ void GameRenderer::render_world(Game &game) {
 
     /* Render water */
     for(auto &chunk : water_chunks) {
-        vec2i chunk_coords = chunk->get_chunk_xz();
+        vec2i chunk_coords = chunk->get_chunk_coords();
         vec3d chunk_absolute = real_position_from_chunk(chunk_coords);
         vec3d chunk_relative = m_camera.offset_to_relative(chunk_absolute);
 
@@ -563,7 +578,7 @@ void GameRenderer::render_player(Game &game) {
     Player &player = world.get_player();
 
     /* Render shape in third person mode */
-    if(game.is_3rd_person_mode()) {
+    if(game.get_frame_info().is_3rd_person) {
         const vec3 color = { 0.7f, 0.9f, 0.6f };
         const vec3d position = player.get_position_origin();
         const vec3d size = player.get_collider_size();
@@ -596,7 +611,7 @@ void GameRenderer::render_held_block(Game &game) {
     World  &world = game.get_world();
     Player &player = world.get_player();
 
-    double elapsed_time = game.get_elapsed_time();
+    double elapsed_time = game.get_frame_info().elapsed_time;
 
     const Camera &head_cam = m_camera; // player.get_head_camera();
     const double exp_rot = cosf(elapsed_time * 0.8f) * 0.1f;
@@ -606,8 +621,16 @@ void GameRenderer::render_held_block(Game &game) {
     const vec3d vec_fw = head_cam.calc_direction();
     const vec3d vec_rt = head_cam.calc_direction_side();
 
-    const double rotate_y = head_cam.get_rotation().x;
-    const double rotate_z = head_cam.get_rotation().y;
+    double rotate_y = head_cam.get_rotation().x;
+    double rotate_z = head_cam.get_rotation().y;
+
+
+    auto ease_out_quint = [] (double x) -> double {
+        return 1 - pow(1.0 - x, 5);
+    };
+
+    const double anim_perc = ease_out_quint(1.0 - player.get_hand_anim_time());
+    rotate_z -= sin(anim_perc * M_PI) * 0.12;
 
     const vec3d scale = { 0.16f, 0.16f, 0.16f };
     const vec3d position = vec_fw * 0.4 + vec_rt * 0.155 * m_aspect - vec_up * (0.28 + exp_pos);
@@ -680,7 +703,7 @@ void GameRenderer::render_target_block(Game &game) {
         /* DEBUG: Block's normal */
         const vec3d next_position = WorldPosition::from_block(target.block_p.block + target.normal).real;
         const vec3d block_position = target.block_p.real;
-        const vec3  line_color = vec3::absolute(vec3::make(get_block_side_dir(target.side)));
+        const vec3  line_color = vec3::absolute(vec3::make(get_block_side_normal(target.side)));
         this->render_line(block_position + vec3d::make(0.5), next_position + vec3d::make(0.5), 2.0f, line_color);
     }
 }
@@ -738,16 +761,17 @@ void GameRenderer::render_debug_ui(Game &game) {
 
     World  &world  = game.get_world();
     Player &player = world.get_player();
+    GameFrameInfo info = game.get_frame_info();
 
     debug_line("Build: %s", BUILD_TYPE);
     debug_line(NULL);
 
     debug_line("--- Frame ---"); {
-        GameTime time = game.get_time();
+        
 
-        debug_line("fps: %d", calc_fps(time.delta_time));
-        debug_line("delta time:   %f", time.delta_time);
-        debug_line("elapsed time: %f", time.elapsed_time);
+        debug_line("fps: %d", calc_fps(info.delta_time));
+        debug_line("delta time:   %f", info.delta_time);
+        debug_line("elapsed time: %f", info.elapsed_time);
     } debug_line(NULL);
 
     debug_line("--- Render ---"); {
@@ -774,16 +798,15 @@ void GameRenderer::render_debug_ui(Game &game) {
     } debug_line(NULL);
 
     debug_line("--- World ---"); {
-        GameThreadInfo thread_info = game.get_thread_info();
         GameWorldInfo world_info = world.get_world_info();
 
         debug_line("chunk size: %d, %d, %d", CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z);
         debug_line("world seed: %u", world_info.world_gen_seed);
-        debug_line("load radius: %d", game.get_load_radius());
+        debug_line("load radius: %d", info.load_radius);
         debug_line("loaded chunks: %u", world_info.chunks_loaded);
         debug_line("chunk buckets: %u", world_info.chunks_allocated);
-        debug_line("gen chunks threads: %d", thread_info.gen_chunks_threads_active);
-        debug_line("gen meshes threads: %d", thread_info.gen_chunks_threads_active);
+        debug_line("gen chunks threads: %d", info.chunks_threads_active);
+        debug_line("gen meshes threads: %d", info.meshes_threads_active);
         debug_line("chunks to generate: %d", world_info.chunks_queued);
         debug_line("meshes to build:    %d", world_info.meshes_queued);
     } debug_line(NULL);
@@ -895,4 +918,70 @@ static int32_t calc_fps(double delta_time) {
     }
 
     return draw_fps;
+}
+
+void init_block_texture_array(TextureArray &texture_array, const char *atlas_filepath) {
+    stbi_set_flip_vertically_on_load(true);
+
+    int32_t width;
+    int32_t height;
+    int32_t channels;
+    uint8_t *pixels = (uint8_t *)stbi_load(atlas_filepath, &width, &height, &channels, 4);
+
+    if(pixels) {
+        // @todo
+        ASSERT(channels == 4); 
+
+        uint8_t *rect = (uint8_t *)malloc(16 * 16 * 4);
+        ASSERT(rect);
+
+        for(uint8_t texture = 0; texture < (uint8_t)BlockTexture::_COUNT; ++texture) {
+            if(texture >= texture_array.get_count()) {
+                fprintf(stderr, "[Error] Not enough texture array slots to fill block textures.\n");
+                break;
+            }
+
+            const vec2i texture_tile = get_block_texture_tile((BlockTexture)texture);
+            const uint32_t rect_x = texture_tile.x * 16;
+            const uint32_t rect_y = texture_tile.y * 16;
+
+            rect = copy_image_memory_rect(pixels, width, height, channels, rect_x, rect_y, 16, 16, rect);
+            texture_array.set_pixels(texture, rect, 16, 16, TextureDataFormat::RGBA, TextureDataType::UNSIGNED_BYTE);
+        }
+
+        free(rect);
+        free(pixels);
+    }
+}
+
+void init_water_texture_array(TextureArray &texture_array, const char *water_filepath) {
+    stbi_set_flip_vertically_on_load(true);
+
+    int32_t width;
+    int32_t height;
+    int32_t channels;
+    uint8_t *pixels = (uint8_t *)stbi_load(water_filepath, &width, &height, &channels, 4);
+
+    if(pixels) {
+        /* Assert that there are 8 water frames in the image */
+        uint32_t water_frames = 32;
+        ASSERT(water_frames == (height / 16));
+
+        // @todo
+        ASSERT(channels == 4); 
+
+        uint8_t *rect = (uint8_t *)malloc(16 * 16 * 4);
+        ASSERT(rect);
+
+        for(int32_t water_frame = 0; water_frame < water_frames; ++water_frame) {
+            const uint32_t rect_x = 0;
+            const uint32_t rect_y = water_frame * 16;
+
+            rect = copy_image_memory_rect(pixels, width, height, channels, rect_x, rect_y, 16, 16, rect);
+            texture_array.set_pixels(water_frame, rect, 16, 16, TextureDataFormat::RGBA, TextureDataType::UNSIGNED_BYTE);
+        }
+
+        free(rect);
+        free(pixels);
+    }
 }
