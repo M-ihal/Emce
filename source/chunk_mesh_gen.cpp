@@ -2,43 +2,6 @@
 #include "world.h"
 #include "world_utils.h"
 
-/* @TODO , @TEMP : Temporary mesh gen code... !!! */
-
-static ChunkMeshGenData *g_mesh_data; // Allocated MAX_QUEUED_MESHES
-static int32_t g_free_mesh_data_index[MAX_QUEUED_MESHES]; // @TODO: MAKE IT FILO
-static int32_t g_free_mesh_data_count = 0;
-
-static ChunkMeshGenData *get_free_mesh_data(void) {
-    if(chunk_mesh_slots_available()) {
-        const int32_t array_index = g_free_mesh_data_index[--g_free_mesh_data_count];
-        ChunkMeshGenData *mesh_data = &g_mesh_data[array_index];
-        mesh_data->array_index = array_index;
-        return mesh_data;
-    }
-    return NULL;
-}
-
-static void release_mesh_data(ChunkMeshGenData *mesh_data) {
-    ASSERT(mesh_data->array_index >= 0 && mesh_data->array_index <= MAX_QUEUED_MESHES && (g_free_mesh_data_count + 1) <= MAX_QUEUED_MESHES);
-    g_free_mesh_data_index[g_free_mesh_data_count++] = mesh_data->array_index;
-}
-
-void chunk_mesh_gen_data_init_global(void) {
-    g_mesh_data = new ChunkMeshGenData[MAX_QUEUED_MESHES];
-    for(int32_t index = 0; index < MAX_QUEUED_MESHES; ++index) {
-        g_mesh_data[index].array_index = index;
-        g_free_mesh_data_index[g_free_mesh_data_count++] = index;
-    }
-}
-
-void chunk_mesh_gen_data_free_global(void) {
-    delete[] g_mesh_data;
-}
-
-bool chunk_mesh_slots_available(void) {
-    return g_free_mesh_data_count > 0;
-}
-
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
     return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
 }
@@ -395,29 +358,11 @@ static void push_block_vao_data(ChunkMeshGenData *gen_data, BlockType type, Chun
     }
 }
 
-void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec2i chunk_coords, bool supplied_memory) {
-
-    ChunkMeshGenData *gen_data = NULL;
-    if(supplied_memory) {
-        gen_data = *gen_data_ptr;
-        gen_data->array_index = -1;
-    } else if(chunk_mesh_slots_available()) {
-        gen_data = get_free_mesh_data();
-        *gen_data_ptr = gen_data;
-
-        ZERO_ARRAY(gen_data->chunk_blocks);
-        ZERO_ARRAY(gen_data->chunk_x_neg);
-        ZERO_ARRAY(gen_data->chunk_x_pos);
-        ZERO_ARRAY(gen_data->chunk_z_neg);
-        ZERO_ARRAY(gen_data->chunk_z_pos);
-        ZERO_ARRAY(gen_data->chunk_x_neg_z_neg);
-        ZERO_ARRAY(gen_data->chunk_x_pos_z_pos);
-        ZERO_ARRAY(gen_data->chunk_x_neg_z_pos);
-        ZERO_ARRAY(gen_data->chunk_x_pos_z_neg);
-    } else {
-        *gen_data_ptr = NULL;
-        return;
-    }
+void chunk_mesh_gen_data_init(ChunkMeshGenData *gen_data, World &world, vec2i chunk_coords) {
+    gen_data->chunk.indices.clear();
+    gen_data->chunk.vertices.clear();
+    gen_data->water.indices.clear();
+    gen_data->water.vertices.clear();
 
     Chunk *chunk = world.get_chunk(chunk_coords);
     Chunk *chunk_z_neg = world.get_chunk(chunk_coords + vec2i{ 0, -1 });
@@ -450,30 +395,15 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData **gen_data_ptr, World &world, vec
 
 }
 
-void chunk_mesh_gen_data_free(ChunkMeshGenData **gen_data_ptr) {
-    // delete *gen_data_ptr;
-    // *gen_data_ptr = NULL;
-    //
-    
-    
-    ASSERT(gen_data_ptr != NULL);
-
-    /* supplied memory */
-    if((*gen_data_ptr)->array_index == -1) {
-        return;
-    }
-    
-    (*gen_data_ptr)->chunk.vertices.clear();
-    (*gen_data_ptr)->chunk.indices.clear();
-    (*gen_data_ptr)->water.vertices.clear();
-    (*gen_data_ptr)->water.indices.clear();
-
-    (*gen_data_ptr)->chunk.vertices.shrink_to_fit();
-    (*gen_data_ptr)->chunk.indices.shrink_to_fit();
-    (*gen_data_ptr)->water.vertices.shrink_to_fit();
-    (*gen_data_ptr)->water.indices.shrink_to_fit();
-
-    release_mesh_data(*gen_data_ptr);
+void chunk_mesh_gen_data_free(ChunkMeshGenData *gen_data) {
+    gen_data->chunk.vertices.clear();
+    gen_data->chunk.indices.clear();
+    gen_data->water.vertices.clear();
+    gen_data->water.indices.clear();
+    gen_data->chunk.vertices.shrink_to_fit();
+    gen_data->chunk.indices.shrink_to_fit();
+    gen_data->water.vertices.shrink_to_fit();
+    gen_data->water.indices.shrink_to_fit();
 }
 
 void chunk_mesh_gen(ChunkMeshGenData *gen_data) {

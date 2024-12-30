@@ -10,6 +10,7 @@ enum {
     BIOME_PLAINS = 0,
     BIOME_DESERT = 1,
     BIOME_FOREST = 2,
+    BIOME_STONE  = 3,
     BIOME__COUNT
 };
 

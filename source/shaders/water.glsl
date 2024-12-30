@@ -121,8 +121,8 @@ void main() {
     color.xyz += wave_delta * 0.07;
 
     float load_radius = float(u_load_radius);
-    float FOG_MIN = (load_radius - 4.5) * 32.0;
-    float FOG_MAX = (load_radius - 3.5) * 32.0;
+        float FOG_MIN = (load_radius - 3.5) * 32.0;
+        float FOG_MAX = (load_radius - 1.0) * 32.0;
     const vec4 FOG_COLOR = vec4(19.0 / 255.0, 68.0 / 255.0, 100.0 / 255.0, 1.0);
     float distance_to_frag = length(v_position.xz);
 

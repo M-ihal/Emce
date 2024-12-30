@@ -80,11 +80,11 @@ layout (location = 3) out vec4 out_ambient_occlusion;
 void main() {
     float ambient_occlusion = mix(0.25, 1.0, v_ambient_occlusion / 3.0);
 
-    const vec3 sun_diffuse = vec3(0.85, 0.88, 0.87);
+    const vec3 sun_diffuse = vec3(0.86, 0.88, 0.82);
     const vec3 sun_dir = normalize(vec3(+0.5, -0.75, -0.12));
     vec3 normal        = normalize(v_normal);
     vec3 dir_to_sun    = -sun_dir; 
-    float diff = max(dot(normal, dir_to_sun), 0.4);
+    float diff = max(dot(normal, dir_to_sun), 0.5);
     vec3  diffuse = sun_diffuse * diff * ambient_occlusion;
 
     // vertex sh
@@ -98,8 +98,8 @@ void main() {
 
     float load_radius = float(u_load_radius);
     if(load_radius != -1) {
-        float FOG_MIN = (load_radius - 4.5) * 32.0;
-        float FOG_MAX = (load_radius - 3.5) * 32.0;
+        float FOG_MIN = (load_radius - 3.5) * 32.0;
+        float FOG_MAX = (load_radius - 1.0) * 32.0;
         const vec4 FOG_COLOR = vec4(19.0 / 255.0, 68.0 / 255.0, 100.0 / 255.0, 1.0);
         float distance_to_frag = length(v_position.xz);
 

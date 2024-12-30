@@ -18,6 +18,8 @@ void chunk_gen_data_init(ChunkGenData &gen, vec2i chunk_xz, WorldGenSeed seed) {
     gen.seed = seed;
 }
 
+/* @TODO : Change rand() ... */
+
 void chunk_gen(ChunkGenData &gen) {
     /* Clear chunk to 0 (AIR) */
     memset(gen.blocks, (uint8_t)BlockType::AIR, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(BlockType));
@@ -56,6 +58,12 @@ void chunk_gen(ChunkGenData &gen) {
                         case BIOME_DESERT: {
                             set_block(gen, vec3i{ x, y, z }, BlockType::SAND);
                         } break;
+
+                        case BIOME_STONE: {
+                            int32_t rand_block = rand() % 2;
+                            BlockType block_to_place = rand_block == 0 ? BlockType::STONE : BlockType::DIRT;
+                            set_block(gen, vec3i{ x, y, z }, block_to_place);
+                        } break;
                     }
                 }
             }
@@ -67,7 +75,6 @@ void chunk_gen(ChunkGenData &gen) {
                     case BIOME_FOREST: {
                         /* Plant foliage */
                         if(rand() % 50 == 0) {
-
                             BlockType to_plant;
                             int plant_rand = rand() % 200;
                             if(plant_rand < 120) {
@@ -84,7 +91,7 @@ void chunk_gen(ChunkGenData &gen) {
                         }
 
                         /* Plant trees */
-                        int32_t plant_tree_chance = biome_map[x][z] == BIOME_FOREST ? 40 : 585;
+                        int32_t plant_tree_chance = biome_map[x][z] == BIOME_FOREST ? 140 : 750;
                         bool plant_tree = rand() % plant_tree_chance == 0;
                         if(plant_tree) {
                             if(x >= 2 && x < CHUNK_SIZE_X - 2 && z >= 2 && z < CHUNK_SIZE_Z - 2 && (height_map[x][z] + 6) < CHUNK_SIZE_Y) {
@@ -128,6 +135,16 @@ void chunk_gen(ChunkGenData &gen) {
                                 }
                             }
                         }
+
+                        /* Plant deadbush */
+                        if(rand() % 200 == 0) {
+                            if(height_map[x][z] + 1 < CHUNK_SIZE_Y) {
+                                vec3i block_rel = { x, height_map[x][z], z };
+                                if(get_block(gen, block_rel) == BlockType::AIR) {
+                                    set_block(gen, block_rel, BlockType::DEADBUSH);
+                                }
+                            }
+                        }
                     } break;
                 }
             } else {
@@ -165,7 +182,7 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
                 { 0.55, 0.75, 90, 120 },
                 { 0.75, 0.85, 120, 142 },
                 { 0.85, 0.90, 142, 160 },
-                { 0.90, 1.00, 160, 200 },
+                { 0.90, 1.00, 160, 220 },
             };
 
             int32_t height = 0;
@@ -198,10 +215,12 @@ void chunk_gen_biome_map(ChunkGenData &gen, int32_t biome_map[CHUNK_SIZE_X][CHUN
             int32_t biome;
             if(noise < 0.2) {
                 biome = BIOME_DESERT;
-            } else if(noise < 0.7) {
+            } else if(noise < 0.6) {
                 biome = BIOME_PLAINS;
-            } else {
+            } else if(noise < 0.9) {
                 biome = BIOME_FOREST;
+            } else {
+                biome = BIOME_STONE;
             }
             biome_map[x][z] = biome;
         }

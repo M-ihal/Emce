@@ -7,6 +7,9 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_thread.h>
 
+#include <vector>
+#include <queue>
+
 static void add_console_commands(Console &console);
 
 Game::Game(void) : m_world(this) {
@@ -22,13 +25,10 @@ Game::Game(void) : m_world(this) {
     /* Init default game state */
     m_delta_time          = 0.0;
     m_elapsed_time        = 0.0;
-    m_load_radius         = 10;
+    m_load_radius         = 24;
     m_3rd_person_mode     = false;
     m_3rd_person_distance = 10.0f;
     render_mode = GameRenderMode::NORMAL;
-
-    /* Init global mesh gen state */
-    chunk_mesh_gen_data_init_global();
 
     /* Initialize threading resources */
     m_gen_chunks_condition = SDL_CreateCondition();
@@ -45,8 +45,6 @@ Game::~Game(void) {
     this->stop_threads();
     SDL_DestroyCondition(m_gen_chunks_condition);
     SDL_DestroyCondition(m_gen_meshes_condition);
-
-    chunk_mesh_gen_data_free_global();
 }
 
 void Game::set_load_radius(int32_t radius) {
@@ -62,55 +60,6 @@ GameFrameInfo Game::get_frame_info(void) {
     info.meshes_threads_active = m_gen_meshes_thread_num;
     info.is_3rd_person = m_3rd_person_mode;
     return info;
-}
-
-void Game::insert_generated_chunks(void) {
-    while(m_world.m_chunks_generated.size()) {
-        SDL_LockMutex(m_world.m_lock_chunk_gen);
-        ChunkGenData gen_data = m_world.m_chunks_generated.back();
-        m_world.m_chunks_generated.pop_back();
-        SDL_UnlockMutex(m_world.m_lock_chunk_gen);
-
-        Chunk **chunk_hash = m_world.m_chunk_table.find(gen_data.chunk_xz);
-        if(!chunk_hash) {
-            continue;
-        }
-
-        Chunk *chunk = *chunk_hash;
-        if(chunk->get_chunk_state() == ChunkState::GENERATED) {
-            /* For some reason, queued chunk already has been generated... ignore it */
-            continue;
-        }
-
-        chunk->copy_blocks_into(gen_data.blocks);
-        chunk->set_chunk_state(ChunkState::GENERATED);
-        chunk->set_mesh_state(ChunkMeshState::WAITING);
-    }
-}
-
-void Game::insert_generated_meshes(void) {
-    ChunkMeshGenData *built_data = NULL;
-    while(true) {
-        SDL_LockMutex(m_world.m_lock_mesh_gen);
-        built_data = m_world.get_next_built_mesh();
-        SDL_UnlockMutex(m_world.m_lock_mesh_gen);
-
-        /* No more built meshes */
-        if(built_data == NULL) {
-            break;
-        }
-
-        Chunk *chunk = m_world.get_chunk(built_data->chunk_coords);
-
-        /* if !chunk -> Chunk has been deleted during the mesh generation so ignore it */
-        /* Set generated mesh if the state isn't LOADED (could happen if immediatelly loading later) */
-        if(chunk && !built_data->has_been_dropped && chunk->get_mesh_state() != ChunkMeshState::LOADED) {
-            chunk->set_mesh(built_data);
-            chunk->set_mesh_state(ChunkMeshState::LOADED);
-        }
-
-        chunk_mesh_gen_data_free(&built_data);
-    }
 }
 
 void Game::update(const Input &input, double delta_time) {
@@ -177,8 +126,8 @@ void Game::update(const Input &input, double delta_time) {
         m_camera = player.get_head_camera();
     }
 
-    this->insert_generated_chunks();
-    this->insert_generated_meshes();
+    m_world.insert_generated_chunks();
+    m_world.insert_generated_meshes();
 
     this->queue_new_chunks_to_load();
     this->update_loaded_chunks();
@@ -215,7 +164,7 @@ void Game::update_loaded_chunks(void) {
 
         /* If waiting and neighbours got generated -> queue for meshing */
         const bool in_frustum = is_chunk_in_frustum(frustum, chunk_relative);
-        if(chunk->should_build_mesh() && in_frustum && chunk_mesh_slots_available()) {
+        if(chunk->should_build_mesh() && in_frustum && m_world.can_queue_mesh()) {
             chunks_to_mesh.push_back(chunk);
         }
     }
@@ -241,7 +190,7 @@ void Game::update_loaded_chunks(void) {
 
     /* Push for meshing chunks outside frustum if slots available */
     ChunkHashTable::Iterator other_iter;
-    while(chunk_mesh_slots_available() && m_world.iterate_chunks(other_iter)) {
+    while(m_world.can_queue_mesh() && m_world.iterate_chunks(other_iter)) {
         Chunk *chunk = other_iter.value;
         if(chunk->should_build_mesh()) {
             vec2i chunk_coords = chunk->get_chunk_coords();
@@ -254,34 +203,14 @@ int32_t Game::thread_gen_chunks_proc(void) {
     int32_t ret_val = 0;
 
     for(; m_threads_keep_looping ;) {
-        ChunkGenData gen_data;
-        bool gen_data_found = false;
-
-        SDL_LockMutex(m_world.m_lock_chunk_gen);
-        if(!m_world.m_chunks_to_generate.empty()) {
-            gen_data = m_world.m_chunks_to_generate.front();
-            m_world.m_chunks_to_generate.pop();
-            gen_data_found = true;
-        }
-        SDL_UnlockMutex(m_world.m_lock_chunk_gen);
-
-        if(gen_data_found) {
-            /* Do the chunk generation */
-            chunk_gen(gen_data);
-
+        bool more_pending = m_world.generate_next_chunk();
+        if(!more_pending) {
+            /* If nothing to generate -> sleep thread */
             SDL_LockMutex(m_world.m_lock_chunk_gen);
-            m_world.m_chunks_generated.push_back(gen_data);
+            SDL_WaitCondition(m_gen_chunks_condition, m_world.m_lock_chunk_gen);
             SDL_UnlockMutex(m_world.m_lock_chunk_gen);
         }
-
-        /* If nothing to generate -> sleep thread */
-        SDL_LockMutex(m_world.m_lock_chunk_gen);
-        if(m_world.m_chunks_to_generate.empty()) {
-            SDL_WaitCondition(m_gen_chunks_condition, m_world.m_lock_chunk_gen);
-        }
-        SDL_UnlockMutex(m_world.m_lock_chunk_gen);
     }
-
     return ret_val;
 }
 
@@ -289,32 +218,14 @@ int32_t Game::thread_gen_meshes_proc(void) {
     int32_t ret_val = 0;
 
     for(; m_threads_keep_looping ;) {
-
-        SDL_LockMutex(m_world.m_lock_mesh_gen);
-        ChunkMeshGenData *mesh_data = m_world.get_next_queue_mesh();
-        SDL_UnlockMutex(m_world.m_lock_mesh_gen);
-
-        if(mesh_data) {
-            if(!is_chunk_in_range(m_world.get_player().get_position_chunk(), mesh_data->chunk_coords, m_load_radius)) {
-                /* Too far, do not generate */
-                mesh_data->has_been_dropped = true;
-            } else {
-                /* Do the mesh generation */
-                chunk_mesh_gen(mesh_data);
-                mesh_data->has_been_dropped = false;
-            }
-
-            SDL_LockMutex(m_world.m_lock_mesh_gen);
-            m_world.push_mesh_built(mesh_data);
-            SDL_UnlockMutex(m_world.m_lock_mesh_gen);
-        } else {
+        bool more_pending = m_world.generate_next_mesh();
+        if(!more_pending) {
             /* If nothing to generate -> sleep thread */
             SDL_LockMutex(m_world.m_lock_mesh_gen);
             SDL_WaitCondition(m_gen_meshes_condition, m_world.m_lock_mesh_gen);
             SDL_UnlockMutex(m_world.m_lock_mesh_gen);
         }
     }
-
     return ret_val;
 }
 
@@ -387,6 +298,10 @@ void Game::queue_new_chunks_to_load(void) {
     for(int i = 0; i < 2; ++i) {
         for(int32_t j = -i; j <= i; ++j) {
             for(int32_t k = -i; k <= i; ++k) {
+                if(!m_world.can_queue_chunk()) {
+                    return;
+                }
+
                 vec2i chunk_coords = m_world.get_player().get_position_chunk() + vec2i{ j, k };
                 m_world.queue_create_chunk(chunk_coords);
             }
@@ -396,6 +311,10 @@ void Game::queue_new_chunks_to_load(void) {
     for(int32_t i = 0; i < m_load_radius + 1; ++i) {
         for(int32_t j = -i; j <= i; ++j) {
             for(int32_t k = -i; k <= i; ++k) {
+                if(!m_world.can_queue_chunk()) {
+                    return;
+                }
+
                 vec2i chunk_coords = m_world.get_player().get_position_chunk() + vec2i{ j, k };
                 m_world.queue_create_chunk(chunk_coords);
             }
@@ -472,7 +391,7 @@ CONSOLE_COMMAND_PROC(command_load_radius) {
     }
 
     int32_t radius = std::stoi(s_viu_to_std_string(args[0]));
-    if(radius <= 0 || radius > 48) {
+    if(radius <= 0) {
         console.add_to_history("Invalid load radius number.");
         return;
     }
@@ -525,8 +444,9 @@ CONSOLE_COMMAND_PROC(command_fov) {
     }
 
     float fov = std::stof(s_viu_to_std_string(args[0]));
-    if(fov >= 1.0f) {
+    if(fov <= 1.0) {
         console.add_to_history("Invalid FOV value.");
+        return;
     }
     
     Player &player = game.get_world().get_player();

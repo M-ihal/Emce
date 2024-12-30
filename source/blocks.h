@@ -69,7 +69,9 @@ enum class BlockShape : uint8_t { NONE, CUBE, CROSS };
 \
     BLOCK(DANDELION, "Dandelion", CROSS, IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::DANDELION })\
 \
-    BLOCK(ROSE, "Rose", CROSS, IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::ROSE })
+    BLOCK(ROSE, "Rose", CROSS, IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::ROSE })\
+\
+    BLOCK(DEADBUSH, "Deadbush", CROSS, IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::DEADBUSH })
 #undef BLOCK
 
 #define BLOCK(type_, ...) type_,
@@ -119,7 +121,8 @@ inline const char *get_block_type_string(BlockType type) { ASSERT(is_block_type_
     DEFINE_TEXTURE(CACTUS_SIDE, 3, 0)\
     DEFINE_TEXTURE(CACTUS_TOP, 3, 1)\
     DEFINE_TEXTURE(DANDELION, 18, 1)\
-    DEFINE_TEXTURE(ROSE, 18, 2)
+    DEFINE_TEXTURE(ROSE, 18, 2)\
+    DEFINE_TEXTURE(DEADBUSH, 18, 0)
 #undef DEFINE_TEXTURE
 
 #define DEFINE_TEXTURE(tex_, ...) tex_,

@@ -3,6 +3,8 @@
 #include "opengl_abs.h"
 
 #include <stb_image.h>
+#include <vector>
+#include <queue>
 
 static int32_t calc_fps(double delta_time);
 
