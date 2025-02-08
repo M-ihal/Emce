@@ -5,6 +5,7 @@
 #include <stb_image.h>
 #include <vector>
 #include <queue>
+#include <algorithm>
 
 static int32_t calc_fps(double delta_time);
 
@@ -445,6 +446,7 @@ void GameRenderer::render_world(Game &game) {
     m_chunk_shader.upload_int("u_load_radius", info.load_radius);
     m_chunk_shader.upload_int("u_texture_array", 0);
     m_chunk_shader.upload_int("u_skybox", 1);
+    m_chunk_shader.upload_int("u_fog_enable", game.fog_enable == true ? 1 : 0);
     m_chunk_tex_array.bind_texture_unit(0);
     m_skybox_cubemap.bind_cubemap_unit(1);
 

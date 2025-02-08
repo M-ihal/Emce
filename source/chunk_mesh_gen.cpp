@@ -2,6 +2,341 @@
 #include "world.h"
 #include "world_utils.h"
 
+static vec3i g_ao_offsets[6][4][2] = {
+    { { vec3i{ 0, -1, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ 0, -1, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ 0, +1, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ 0, +1, 0 }, vec3i{ 0, 0, -1 } } },
+    { { vec3i{ 0, -1, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ 0, -1, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ 0, +1, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ 0, +1, 0 }, vec3i{ 0, 0, +1 } } },
+    { { vec3i{ +1, 0, 0 }, vec3i{ 0, -1, 0 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, -1, 0 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, +1, 0 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, +1, 0 } } },
+    { { vec3i{ -1, 0, 0 }, vec3i{ 0, -1, 0 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, -1, 0 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, +1, 0 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, +1, 0 } } },
+    { { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, +1 } } },
+    { { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, +1 } }, { vec3i{ +1, 0, 0 }, vec3i{ 0, 0, -1 } }, { vec3i{ -1, 0, 0 }, vec3i{ 0, 0, -1 } } },
+};
+
+inline static void clear_mesh_gen_vertex_data(ChunkMeshGenData *gen_data) {
+    gen_data->chunk.vertices.clear();
+    gen_data->water.vertices.clear();
+    gen_data->chunk.indices.clear();
+    gen_data->water.indices.clear();
+}
+
+void chunk_mesh_gen_data_init(ChunkMeshGenData *gen_data, World &world, vec2i chunk_coords) {
+    clear_mesh_gen_vertex_data(gen_data);
+    gen_data->has_been_dropped = false;
+    
+    Chunk *chunk = world.get_chunk(chunk_coords);
+    Chunk *chunk_x_pos = world.get_chunk(chunk_coords + vec2i{ 1, 0 });
+    Chunk *chunk_x_neg = world.get_chunk(chunk_coords + vec2i{-1, 0 });
+    Chunk *chunk_z_pos = world.get_chunk(chunk_coords + vec2i{ 0, 1 });
+    Chunk *chunk_z_neg = world.get_chunk(chunk_coords + vec2i{ 0,-1 });
+    Chunk *chunk_x_pos_z_pos = world.get_chunk(chunk_coords + vec2i{ 1, 1 });
+    Chunk *chunk_x_neg_z_pos = world.get_chunk(chunk_coords + vec2i{-1, 1 });
+    Chunk *chunk_x_neg_z_neg = world.get_chunk(chunk_coords + vec2i{-1,-1 });
+    Chunk *chunk_x_pos_z_neg = world.get_chunk(chunk_coords + vec2i{ 1,-1 });
+
+    ASSERT(chunk && chunk_x_pos && chunk_x_neg && chunk_z_pos && chunk_z_neg && chunk_x_pos_z_pos && chunk_x_neg_z_pos && chunk_x_neg_z_neg && chunk_x_pos_z_neg);
+
+    gen_data->chunk_coords = chunk_coords;
+    chunk->copy_blocks_from(gen_data->chunk_blocks);
+
+    /* Copy neighbour slices */ {
+        for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
+            for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
+                gen_data->chunk_z_pos[y * CHUNK_SIZE_X + x] = chunk_z_pos->get_block({ x, y, 0 });
+            }
+        }
+
+        for(int32_t x = 0; x < CHUNK_SIZE_X; ++x) {
+            for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
+                gen_data->chunk_z_neg[y * CHUNK_SIZE_X + x] = chunk_z_neg->get_block({ x, y, CHUNK_SIZE_Z - 1 });
+            }
+        }
+
+        for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
+            for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
+                gen_data->chunk_x_pos[y * CHUNK_SIZE_Z + z] = chunk_x_pos->get_block({ 0, y, z });
+            }
+        }
+
+        for(int32_t z = 0; z < CHUNK_SIZE_Z; ++z) {
+            for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
+                gen_data->chunk_x_neg[y * CHUNK_SIZE_Z + z] = chunk_x_neg->get_block({ CHUNK_SIZE_X - 1, y, z });
+            }
+        }
+    }
+
+    /* Copy diagonal collumns */ {
+        auto copy_collumn = [] (BlockType dest[CHUNK_SIZE_Y], Chunk *src, int32_t x, int32_t z) -> void {
+            for(int32_t y = 0; y < CHUNK_SIZE_Y; ++y) {
+                dest[y] = src->get_block({ x, y, z });
+            }
+        };
+
+        copy_collumn(gen_data->chunk_x_pos_z_pos, chunk_x_pos_z_pos, 0, 0);
+        copy_collumn(gen_data->chunk_x_neg_z_pos, chunk_x_neg_z_pos, CHUNK_SIZE_X - 1, 0);
+        copy_collumn(gen_data->chunk_x_neg_z_neg, chunk_x_neg_z_neg, CHUNK_SIZE_X - 1, CHUNK_SIZE_Z - 1);
+        copy_collumn(gen_data->chunk_x_pos_z_neg, chunk_x_pos_z_neg, 0, CHUNK_SIZE_Z - 1);
+    }
+}
+
+void chunk_mesh_gen_data_free(ChunkMeshGenData *gen_data) {
+
+}
+
+/* Adjacent block by dir from middle block */
+static inline const BlockType get_adjacent_block(ChunkMeshGenData *gen_data, const vec3i block_rel, const vec3i offset) {
+    // offset must be -1 to 1
+    ASSERT(offset.x >= -1 && offset.y <= 1 && offset.y >= -1 && offset.y <= 1 && offset.z >= -1 && offset.z <= 1);
+    // block_rel mut be inside chunk
+    ASSERT(is_inside_chunk(block_rel));
+
+    const vec3i adj_rel = block_rel + offset;
+    const bool in_chunk = is_inside_chunk(adj_rel);
+    if(in_chunk) {
+        return gen_data->chunk_blocks[get_block_array_index(adj_rel)];
+    } else {
+        if(adj_rel.y < 0 || adj_rel.y >= CHUNK_SIZE_Y) {
+            /* Is above or below chunk -> Act like it's AIR */
+            return BlockType::AIR;
+        } else if(adj_rel.x == -1 && adj_rel.z == -1) {
+            /* Is on the -x -z corner */
+            return gen_data->chunk_x_neg_z_neg[adj_rel.y];
+        } else if(adj_rel.x == CHUNK_SIZE_X && adj_rel.z == -1) {
+            /* Is on the +x -z corner */
+            return gen_data->chunk_x_pos_z_neg[adj_rel.y];
+        } else if(adj_rel.x == CHUNK_SIZE_X && adj_rel.z == CHUNK_SIZE_Z) {
+            /* Is on the +x +z corner */
+            return gen_data->chunk_x_pos_z_pos[adj_rel.y];
+        } else if(adj_rel.x == -1 && adj_rel.z == CHUNK_SIZE_Z) { 
+            /* Is on the -x +z corner */
+            return gen_data->chunk_x_neg_z_pos[adj_rel.y];
+        } else {
+            /* Is on the side */
+            if(adj_rel.x == -1) {
+                return gen_data->chunk_x_neg[adj_rel.y * CHUNK_SIZE_Z + adj_rel.z];
+            } else if(adj_rel.x == CHUNK_SIZE_X) {
+                return gen_data->chunk_x_pos[adj_rel.y * CHUNK_SIZE_Z + adj_rel.z];
+            } else if(adj_rel.z == -1) {
+                return gen_data->chunk_z_neg[adj_rel.y * CHUNK_SIZE_X + adj_rel.x];
+            } else {
+                return gen_data->chunk_z_pos[adj_rel.y * CHUNK_SIZE_X + adj_rel.x];
+            }
+        }
+    }
+
+    INVALID_CODE_PATH;
+    return BlockType::AIR;
+}
+
+static inline constexpr bool should_generate_side_mesh(BlockType block, BlockType other) {
+    const uint32_t block_flags = get_block_type_flags(block);
+    const uint32_t other_flags = get_block_type_flags(other);
+
+    bool do_not_generate_side = block_flags & IS_SOLID && other_flags & IS_SOLID;
+    return !do_not_generate_side;
+}
+
+static inline void offset_vertex_positions(ChunkVaoVertex v[4], vec3i offset) {
+    v[0].x += offset.x; v[0].y += offset.y; v[0].z += offset.z;
+    v[1].x += offset.x; v[1].y += offset.y; v[1].z += offset.z;
+    v[2].x += offset.x; v[2].y += offset.y; v[2].z += offset.z;
+    v[3].x += offset.x; v[3].y += offset.y; v[3].z += offset.z;
+}
+
+static inline constexpr void set_cube_vertex_positions(ChunkVaoVertex v[4], vec3i block_rel, BlockSide side) {
+    switch(side) {
+        default: INVALID_CODE_PATH; return;
+
+        case BlockSide::X_NEG: {
+            v[0].x = 0; v[0].y = 0; v[0].z = 0; v[0].n = 0;
+            v[1].x = 0; v[1].y = 0; v[1].z = 1; v[1].n = 0;
+            v[2].x = 0; v[2].y = 1; v[2].z = 1; v[2].n = 0;
+            v[3].x = 0; v[3].y = 1; v[3].z = 0; v[3].n = 0;
+        } break;
+
+        case BlockSide::X_POS: {
+            v[0].x = 1; v[0].y = 0; v[0].z = 1; v[0].n = 1;
+            v[1].x = 1; v[1].y = 0; v[1].z = 0; v[1].n = 1;
+            v[2].x = 1; v[2].y = 1; v[2].z = 0; v[2].n = 1;
+            v[3].x = 1; v[3].y = 1; v[3].z = 1; v[3].n = 1;
+        } break;
+
+        case BlockSide::Z_NEG: {
+            v[0].x = 1; v[0].y = 0; v[0].z = 0; v[0].n = 2;
+            v[1].x = 0; v[1].y = 0; v[1].z = 0; v[1].n = 2;
+            v[2].x = 0; v[2].y = 1; v[2].z = 0; v[2].n = 2;
+            v[3].x = 1; v[3].y = 1; v[3].z = 0; v[3].n = 2;
+        } break;
+
+        case BlockSide::Z_POS: {
+            v[0].x = 0; v[0].y = 0; v[0].z = 1; v[0].n = 3;
+            v[1].x = 1; v[1].y = 0; v[1].z = 1; v[1].n = 3;
+            v[2].x = 1; v[2].y = 1; v[2].z = 1; v[2].n = 3;
+            v[3].x = 0; v[3].y = 1; v[3].z = 1; v[3].n = 3;
+        } break;
+
+        case BlockSide::Y_NEG: {
+            v[0].x = 0; v[0].y = 0; v[0].z = 0; v[0].n = 4;
+            v[1].x = 1; v[1].y = 0; v[1].z = 0; v[1].n = 4;
+            v[2].x = 1; v[2].y = 0; v[2].z = 1; v[2].n = 4;
+            v[3].x = 0; v[3].y = 0; v[3].z = 1; v[3].n = 4;
+        } break;
+
+        case BlockSide::Y_POS: {
+            v[0].x = 0; v[0].y = 1; v[0].z = 1; v[0].n = 5;
+            v[1].x = 1; v[1].y = 1; v[1].z = 1; v[1].n = 5;
+            v[2].x = 1; v[2].y = 1; v[2].z = 0; v[2].n = 5;
+            v[3].x = 0; v[3].y = 1; v[3].z = 0; v[3].n = 5;
+        } break;
+    }
+
+    offset_vertex_positions(v, block_rel);
+}
+
+static inline constexpr void set_cube_vertex_tex_coords(ChunkVaoVertex v[4]) {
+    v[0].tc = 0;
+    v[1].tc = 1;
+    v[2].tc = 2;
+    v[3].tc = 3;
+}
+
+static inline constexpr void set_cube_vertex_tex_slots(ChunkVaoVertex v[4], const BlockTexture tex_slot) {
+    const uint8_t tex_slot_ = (const uint8_t)tex_slot;
+    v[0].ts = tex_slot_;
+    v[1].ts = tex_slot_;
+    v[2].ts = tex_slot_;
+    v[3].ts = tex_slot_;
+}
+
+static inline constexpr bool block_casts_ambient_occlusion(const BlockType block) {
+    return get_block_type_shape(block) != BlockShape::CROSS && !(get_block_type_flags(block) & NO_AO_CAST);
+}
+
+static inline constexpr void set_cube_vertex_ao_value(ChunkVaoVertex v[4], ChunkMeshGenData *gen_data, vec3i block_rel, const BlockSide side, const vec3i side_dir) {
+    /* Check if neighbouring to side block is solid */ {
+        BlockType con_block = get_adjacent_block(gen_data, block_rel, side_dir);
+        if(block_casts_ambient_occlusion(con_block)) {
+            v[0].ao = 0; // 1?
+            v[1].ao = 0;
+            v[2].ao = 0;
+            v[3].ao = 0;
+        }
+    }
+
+    const uint8_t side_index = (uint8_t)side;
+
+    /* For every vertice, calculate AO value */
+    for(int32_t index = 0; index < 4; ++index) {
+        const BlockType block_0 = get_adjacent_block(gen_data, block_rel, g_ao_offsets[side_index][index][0] + side_dir);
+        const BlockType block_1 = get_adjacent_block(gen_data, block_rel, g_ao_offsets[side_index][index][1] + side_dir);
+
+        const bool block_0_casts = block_casts_ambient_occlusion(block_0);
+        const bool block_1_casts = block_casts_ambient_occlusion(block_1);
+
+        if(block_0_casts && block_1_casts) {
+            v[index].ao = 0;
+        } else {
+            const BlockType block_corner = get_adjacent_block(gen_data, block_rel, g_ao_offsets[side_index][index][0] + g_ao_offsets[side_index][index][1] + side_dir);
+            const bool block_corner_casts = block_casts_ambient_occlusion(block_corner);
+
+            v[index].ao = 3 - ((int32_t)block_0_casts + (int32_t)block_1_casts + (int32_t)block_corner_casts);
+        }
+    }
+}
+
+static void gen_chunk_block_mesh(ChunkMeshGenData *gen_data, const vec3i block_rel, BlockType block) {
+    const uint32_t block_flags = get_block_type_flags(block);
+
+    const bool generates_mesh = !(block_flags & IS_NOT_VISIBLE);
+    if(!generates_mesh) {
+        return;
+    }
+
+    const BlockShape shape = get_block_type_shape(block);
+    switch(shape) {
+        default: ASSERT(false); return;
+
+        case BlockShape::NONE: return;
+
+        case BlockShape::CUBE: {
+            for(int32_t side_index = 0; side_index < 6; ++side_index) {
+                const BlockSide side = (BlockSide)side_index;
+                const vec3i side_dir = get_block_side_normal(side);
+
+                ChunkVaoVertex v[4] = { };
+
+                const bool generate_side = should_generate_side_mesh(block, get_adjacent_block(gen_data, block_rel, side_dir));
+                if(!generate_side) {
+                    continue;
+                }
+
+                const BlockTexture tex_slot = get_block_cube_texture(block, side);
+
+                set_cube_vertex_positions(v, block_rel, side);
+                set_cube_vertex_tex_coords(v);
+                set_cube_vertex_tex_slots(v, tex_slot);
+                set_cube_vertex_ao_value(v, gen_data, block_rel, side, side_dir);
+
+                ChunkMeshData &data = gen_data->chunk;
+
+                const int32_t start = data.vertices.size();
+
+                data.vertices.push_back(pack_chunk_vertex(v[0]));
+                data.vertices.push_back(pack_chunk_vertex(v[1]));
+                data.vertices.push_back(pack_chunk_vertex(v[2]));
+                data.vertices.push_back(pack_chunk_vertex(v[3]));
+
+                if(v[0].ao + v[2].ao < v[1].ao + v[3].ao) {
+                    data.indices.push_back(start + 1);
+                    data.indices.push_back(start + 2);
+                    data.indices.push_back(start + 3);
+                    data.indices.push_back(start + 3);
+                    data.indices.push_back(start + 0);
+                    data.indices.push_back(start + 1);
+                } else {
+                    data.indices.push_back(start + 0);
+                    data.indices.push_back(start + 1);
+                    data.indices.push_back(start + 2);
+                    data.indices.push_back(start + 2);
+                    data.indices.push_back(start + 3);
+                    data.indices.push_back(start + 0);
+                }
+            }
+        } break;
+
+        case BlockShape::CROSS: {
+
+        } break;
+    }
+}
+
+static void gen_water_block_mesh(ChunkMeshGenData *gen_data, const vec3i block_rel, BlockType adjacent[3][3][3]) {
+
+}
+
+void chunk_mesh_gen(ChunkMeshGenData *gen_data) {
+    for_every_block(x, y, z) {
+        const vec3i block_rel = { x, y, z };
+        const BlockType block = gen_data->chunk_blocks[get_block_array_index(block_rel)];
+        const uint32_t block_flags = get_block_type_flags(block);
+        if(block == BlockType::AIR && block_flags & IS_NOT_VISIBLE) {
+            continue;
+        }
+
+        if(block == BlockType::WATER) {
+            // gen_water_block_mesh(gen_data, block_rel, adjacent);
+        } else {
+            gen_chunk_block_mesh(gen_data, block_rel, block);
+        }
+    }
+
+   // PRINT_INT(gen_data->chunk.vertices.size());
+}
+
+void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType type) {
+
+}
+
+#if 0
+
 static inline uint32_t get_block_array_index(const vec3i &block_rel) {
     return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
 }
@@ -122,7 +457,7 @@ static void fill_block_cube_vao_vertex(ChunkVaoVertex v[4], BlockSide side, cons
             v[1].x = 1; v[1].y = 0; v[1].z = 0; v[1].n = 4;
             v[2].x = 1; v[2].y = 0; v[2].z = 1; v[2].n = 4;
             v[3].x = 0; v[3].y = 0; v[3].z = 1; v[3].n = 4;
-        } break;
+} break;
 
         case BlockSide::Y_POS: {
             v[0].x = 0; v[0].y = 1; v[0].z = 1; v[0].n = 5;
@@ -522,3 +857,5 @@ void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType type) {
 
     push_block_vao_data(NULL, type, mesh_data, { 0, 0, 0 }, connect_wall);
 }
+
+#endif

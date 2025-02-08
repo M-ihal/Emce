@@ -172,7 +172,6 @@ public:
     }
 
 private:
-
     Game          *m_owner;
     Player         m_player;
     ChunkHashTable m_chunk_table;
@@ -180,7 +179,6 @@ private:
 
     SDL_Mutex *m_lock_chunk_gen;
     SDL_Mutex *m_lock_mesh_gen;
-
 
     StaticGenQueue<ChunkGenData, MAX_QUEUED_CHUNKS> m_chunk_gen_queue;
     StaticGenQueue<ChunkMeshGenData, MAX_QUEUED_MESHES> m_mesh_gen_queue;

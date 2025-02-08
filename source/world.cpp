@@ -5,6 +5,18 @@
 #include <algorithm>
 #include <glew.h>
 
+/*
+ * TODO
+ * 3 TYPES OF GENERATING MESH
+ * INITIAL GENERATION
+ * CHANGE GENERATION
+ *
+ * IF NOT INITIAL AND THEN CHANGE - SKIP INITIAL, DO CHANGE
+ * IF INITIAL THEN CHANGE - DO CHANGE
+ * 
+ *
+ * */
+
 Game *World::get_game(void) {
     ASSERT(m_owner != NULL && "World without owner error!.");
     return m_owner;

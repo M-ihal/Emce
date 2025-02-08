@@ -7,7 +7,6 @@ class Camera;
 
 bool is_chunk_in_range(vec2i chunk_xz, vec2i origin, int32_t radius);
 bool is_chunk_in_frustum(double frustum[6][4], const vec3d &chunk_origin_rel);
-bool is_inside_chunk(const vec3i &block_rel);
 bool is_block_on_x_neg_edge(const vec3i &block_rel);
 bool is_block_on_x_pos_edge(const vec3i &block_rel);
 bool is_block_on_z_neg_edge(const vec3i &block_rel);

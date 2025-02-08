@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <queue>
+#include <algorithm>
 
 static void add_console_commands(Console &console);
 
@@ -33,7 +34,7 @@ Game::Game(void) : m_world(this) {
     /* Initialize threading resources */
     m_gen_chunks_condition = SDL_CreateCondition();
     m_gen_meshes_condition = SDL_CreateCondition();
-    this->start_threads(1, 1);
+    this->start_threads(INIT_GEN_CHUNKS_THREADS, INIT_GEN_MESHES_THREADS);
 
     /* Initialize world state */
     m_world.initialize_new_world(5554);
@@ -195,6 +196,22 @@ void Game::update_loaded_chunks(void) {
         if(chunk->should_build_mesh()) {
             vec2i chunk_coords = chunk->get_chunk_coords();
             m_world.queue_build_mesh(chunk_coords);       
+        }
+    }
+
+    if(gen_on_main_thread) {
+        if(m_gen_chunks_thread_num == 0) {
+            const int32_t CHUNKS_PER_FRAME = 4;
+            for(int32_t index = 0; index < CHUNKS_PER_FRAME; ++index) {
+                m_world.generate_next_chunk();
+            }
+        }
+
+        if(m_gen_meshes_thread_num == 0) {
+            const int32_t MESHES_PER_FRAME = 1;
+            for(int32_t index = 0; index < MESHES_PER_FRAME; ++index) {
+                m_world.generate_next_mesh();
+            }
         }
     }
 }
@@ -384,6 +401,14 @@ CONSOLE_COMMAND_PROC(command_generate) {
     game.start_threads();
 }
 
+CONSOLE_COMMAND_PROC(command_regenerate) {
+    World &world = game.get_world();
+    
+    game.stop_threads();
+    world.delete_chunks();
+    game.start_threads();
+}
+
 CONSOLE_COMMAND_PROC(command_load_radius) {
     if(args.size() != 1) {
         console.add_to_history("Invalid number of arguments, 1 required.");
@@ -432,6 +457,10 @@ CONSOLE_COMMAND_PROC(command_toggle) {
         BOOL_TOGGLE(game.debug_chunk_wireframe_mode);
     } else if(args[0] == "raycast") {
         BOOL_TOGGLE(game.debug_raycast_draw);
+    } else if(args[0] == "fog") {
+        BOOL_TOGGLE(game.fog_enable);
+    } else if(args[0] == "main_thread_gen") {
+        BOOL_TOGGLE(game.gen_on_main_thread);
     } else {
         console.add_to_history("Invalid toggle argument.");
     }
@@ -483,6 +512,7 @@ CONSOLE_COMMAND_PROC(command_fly) {
 static void add_console_commands(Console &console) {
     console.set_command("threads",         command_threads);
     console.set_command("generate",        command_generate);
+    console.set_command("regenerate",      command_regenerate);
     console.set_command("load_radius",     command_load_radius);
     console.set_command("render_mode",     command_render_mode);
     console.set_command("toggle",          command_toggle);

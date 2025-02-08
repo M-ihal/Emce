@@ -11,10 +11,23 @@ constexpr int32_t CHUNK_SIZE_X = 32;
 constexpr int32_t CHUNK_SIZE_Y = 255;
 constexpr int32_t CHUNK_SIZE_Z = 32;
 
+static_assert(CHUNK_SIZE_X == CHUNK_SIZE_Z);
+
+inline bool is_inside_chunk(const vec3i &block_rel) {
+    return block_rel.x >= 0 && block_rel.x < CHUNK_SIZE_X
+        && block_rel.y >= 0 && block_rel.y < CHUNK_SIZE_Y
+        && block_rel.z >= 0 && block_rel.z < CHUNK_SIZE_Z;
+}
+
+inline uint32_t get_block_array_index(const vec3i &rel) {
+    ASSERT(is_inside_chunk(rel) && "Block out of bounds!");
+    return rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + rel.y * CHUNK_SIZE_Z + rel.z;
+}
+
 #define for_every_block(var_x, var_y, var_z)\
     for(int32_t var_y = 0; var_y < CHUNK_SIZE_Y; ++var_y)\
-        for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)\
-            for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)
+        for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)\
+            for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)
 
 enum class ChunkState {
     GENERATING = 0,

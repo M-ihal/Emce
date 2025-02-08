@@ -15,6 +15,9 @@
 #define MAX_GEN_CHUNKS_THREADS 2
 #define MAX_GEN_MESHES_THREADS 8
 
+#define INIT_GEN_CHUNKS_THREADS 1
+#define INIT_GEN_MESHES_THREADS 4
+
 struct GameFrameInfo {
     double  delta_time;
     double  elapsed_time;
@@ -64,8 +67,13 @@ public:
     vec3i debug_spawn_p1;
     vec3i debug_spawn_p2;
 
+    /* If should generate stuff on main thread if no other threads exist for the task */
+    bool gen_on_main_thread = true; 
+
     /* What mode to render game */
     GameRenderMode render_mode;
+
+    bool fog_enable = true;
 
 private:
     /*  */
@@ -73,7 +81,6 @@ private:
 
     /* Update chunks and queue chunks for meshing */
     void update_loaded_chunks(void);
-
 
     /* Game state */
     double  m_elapsed_time;

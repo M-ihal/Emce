@@ -1,9 +1,7 @@
 #include "chunk_gen.h"
-#include <PerlinNoise.hpp>
 
-static inline uint32_t get_block_array_index(const vec3i &block_rel) {
-    return block_rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + block_rel.y * CHUNK_SIZE_Z + block_rel.z;
-}
+// https://github.com/Reputeless/PerlinNoise
+#include <PerlinNoise.hpp>
 
 static inline BlockType get_block(ChunkGenData &gen, const vec3i &block_rel) {
     return gen.blocks[get_block_array_index(block_rel)];

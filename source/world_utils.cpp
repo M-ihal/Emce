@@ -32,11 +32,6 @@ bool is_chunk_in_frustum(double frustum[6][4], const vec3d &chunk_origin_rel) {
     return in_frustum;
 }
 
-bool is_inside_chunk(const vec3i &block_rel) {
-    return block_rel.x >= 0 && block_rel.x < CHUNK_SIZE_X
-        && block_rel.y >= 0 && block_rel.y < CHUNK_SIZE_Y
-        && block_rel.z >= 0 && block_rel.z < CHUNK_SIZE_Z;
-}
 
 bool is_block_on_x_neg_edge(const vec3i &block_rel) {
     return block_rel.x == 0;

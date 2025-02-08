@@ -128,10 +128,11 @@ void Input::catch_input(const SDL_Event &event) {
 
         case SDL_EVENT_MOUSE_MOTION: {
             const SDL_MouseMotionEvent &motion = event.motion;
+
             m_mouse_x = motion.x;
             m_mouse_y = motion.y;
-            m_mouse_rel_x = motion.xrel;
-            m_mouse_rel_y = motion.yrel;
+            m_mouse_rel_x += motion.xrel;
+            m_mouse_rel_y += motion.yrel;
         } break;
 
         case SDL_EVENT_MOUSE_BUTTON_DOWN:

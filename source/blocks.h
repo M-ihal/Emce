@@ -3,6 +3,9 @@
 #include "common.h"
 #include "math_types.h"
 
+enum class BlockSide  : uint8_t { X_NEG, X_POS, Z_NEG, Z_POS, Y_NEG, Y_POS };
+enum class BlockShape : uint8_t { NONE, CUBE, CROSS };
+
 enum BlockTypeFlags : uint32_t {
     IS_PLACABLE       = 1 << 0,
     IS_SOLID          = 1 << 1,
@@ -16,12 +19,9 @@ enum BlockTypeFlags : uint32_t {
     CONNECTS_WITH_SAME_TYPE = 1 << 22,
 };
 
-enum class BlockSide  : uint8_t { X_NEG, X_POS, Z_NEG, Z_POS, Y_NEG, Y_POS };
-enum class BlockShape : uint8_t { NONE, CUBE, CROSS };
-
 /* __VA_ARGS__ specify block textures
  *  for shape_ = NONE -> 0 textures,
- *  for shape_ = CUBE -> 6 textures; in BlockSide order
+ *  for shape_ = CUBE -> 1 texture or 6 in BlockSide order
  *  for shape_ = CROSS -> 1 texture
  * */
 
@@ -84,6 +84,8 @@ constexpr inline bool is_block_type_valid(BlockType type) {
     return is_valid;
 }
 
+// @TODO: maybe arrays aren't good here
+
 #define BLOCK(type_, name_, shape_, ...) BlockShape::shape_,
 inline constexpr BlockShape block_type_shape[(uint8_t)BlockType::_COUNT] = { BLOCKS };
 inline constexpr BlockShape get_block_type_shape(BlockType type) { ASSERT(is_block_type_valid(type)); return block_type_shape[(uint8_t)type]; }
@@ -124,6 +126,8 @@ inline const char *get_block_type_string(BlockType type) { ASSERT(is_block_type_
     DEFINE_TEXTURE(ROSE, 18, 2)\
     DEFINE_TEXTURE(DEADBUSH, 18, 0)
 #undef DEFINE_TEXTURE
+
+/* BlockTexture is also an index into texture array containing the textures... */
 
 #define DEFINE_TEXTURE(tex_, ...) tex_,
 enum class BlockTexture : uint8_t { DEFINE_TEXTURES  _COUNT, _INVALID };

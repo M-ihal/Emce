@@ -1,11 +1,5 @@
 #include "chunk.h"
 #include "world.h"
-#include "world_utils.h"
-
-static inline uint32_t get_block_array_index(const vec3i &rel) {
-    ASSERT(is_inside_chunk(rel) && "Block out of bounds!");
-    return rel.x * (CHUNK_SIZE_Y * CHUNK_SIZE_Z) + rel.y * CHUNK_SIZE_Z + rel.z;
-}
 
 World *Chunk::get_world(void) {
     ASSERT(m_owner != NULL && "Chunk without owner error!.");

@@ -149,8 +149,8 @@ void Camera::update_free(int32_t move_fw, int32_t move_side, int32_t rotate_v, i
 }
 
 void Camera::rotate_by(int32_t rotate_v, int32_t rotate_h, double delta_time) {
-    // Pass as argument @todo
-    constexpr double SPEED_ROTATE = 0.0035;
+    // @todo
+    constexpr double SPEED_ROTATE = 0.0025;
 
     m_rotation.x += rotate_h * SPEED_ROTATE;
     m_rotation.y += rotate_v * SPEED_ROTATE;

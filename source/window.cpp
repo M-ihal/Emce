@@ -154,7 +154,6 @@ void Window::set_rel_mouse_active(bool enable) {
         return;
     }
 
-    SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
     SDL_SetWindowRelativeMouseMode(m_sdl_window, enable);
 }
 

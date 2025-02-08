@@ -57,8 +57,8 @@ Console::~Console(void) {
     m_initialized = false;
 }
 
-static void parse_command(const char *buffer, StringViu &out_command, std::vector<StringViu> &out_args) {
-    StringViu command_view = s_viu(buffer);
+static void parse_command(StringViu buffer_view, StringViu &out_command, std::vector<StringViu> &out_args) {
+    StringViu command_view = buffer_view;
     command_view = s_viu_trim(command_view);
 
     out_command = { };
@@ -142,27 +142,42 @@ void Console::update(Game &game, const Input &input, double delta_time) {
         }
     }
 
-    if(input.key_pressed(Key::ENTER) && m_input.length()) {
-        /* Parse the input buffer */
-        StringViu command;
-        std::vector<StringViu> args;
-        parse_command(m_input.c_str(), command, args);
+    if(input.key_pressed(Key::ENTER)) {
+        if(m_input.length() >= 2 && m_input[0] == '/') { /* Starts with command sign */
+            /* Skip past the slash */
+            StringViu input_view = s_viu_advance(s_viu(m_input.c_str()), 1);
 
-        CommandTableKey command_key;
-        sprintf_s(command_key.string, ARRAY_COUNT(command_key.string), "%.*s", command.length, command.data);
+            /* Parse the input buffer */
+            StringViu command;
+            std::vector<StringViu> args;
+            parse_command(input_view, command, args);
 
-        console_command_proc **command_proc = m_commands.find(command_key);
-        if(command_proc != NULL) {
-            this->add_to_history("> %s", m_input.c_str());
-            (*command_proc)(*this, args, game);
-        } else {
-            /* Custom command */
-            if(command == "commands") {
-                this->add_to_history("> Commands:");
-                ConsoleCommandTable::Iterator iter;
-                while(m_commands.iterate_all(iter)) {
-                    this->add_to_history(iter.key.string);
+            CommandTableKey command_key;
+            sprintf_s(command_key.string, ARRAY_COUNT(command_key.string), "%.*s", command.length, command.data);
+
+            console_command_proc **command_proc = m_commands.find(command_key);
+            if(command_proc != NULL) {
+                this->add_to_history("> %.*s", input_view.length, input_view.data);
+                (*command_proc)(*this, args, game);
+            } else {
+                /* Custom command */
+                if(command == "commands") {
+                    this->add_to_history("> Commands:");
+                    ConsoleCommandTable::Iterator iter;
+                    while(m_commands.iterate_all(iter)) {
+                        this->add_to_history(iter.key.string);
+                    }
+                } else {
+                    this->add_to_history("> Unknown command");
                 }
+            }
+        } else if(m_input.length() == 1 && m_input[0] == '/') {
+            this->add_to_history("> No command specified");
+        } else {
+            if(m_input.length() == 0) {
+                this->add_to_history("");
+            } else {
+                this->add_to_history(m_input.c_str());
             }
         }
 
