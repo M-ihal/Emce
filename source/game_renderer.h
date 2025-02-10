@@ -37,6 +37,7 @@ public:
 
 private:
     void render_player(Game &game);
+    void render_player_debug(Game &game);
     void render_world(Game &game);
     void render_skybox(Game &game);
     void render_held_block(Game &game);

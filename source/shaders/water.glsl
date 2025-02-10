@@ -54,7 +54,7 @@ void main() {
 
     /* Wave animation */ {
         float wave_speed = 0.4;
-        float wave_height = 0.42;
+        float wave_height = 0.15;
         float wave_frequency_x = 1.0 * 3.14159265 / 32.0 * 2;
         float wave_frequency_z = 2.0 * 3.14159265 / 32.0 * 2;
 

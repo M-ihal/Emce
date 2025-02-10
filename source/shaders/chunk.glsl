@@ -47,7 +47,7 @@ void main() {
     v_tex_coord = tex_coords[tex_coord_id];
     v_normal = mat3(transpose(inverse(u_model))) * normals[normal_id];
     v_tex_slot = tex_slot;
-    v_ambient_occlusion = float(ambient_occlusion);
+    v_ambient_occlusion = float(ambient_occlusion / 3.0);
 
     v_position = (u_model * vec4(pos_x, pos_y, pos_z, 1.0)).xyz;
 
@@ -77,7 +77,7 @@ layout (location = 2) out vec4 out_depth;
 layout (location = 3) out vec4 out_ambient_occlusion;
 
 void main() {
-    float ambient_occlusion =  mix(0.15, 1.0, v_ambient_occlusion / 3.0);
+    float ambient_occlusion = max(0.1, v_ambient_occlusion);
 
     // const vec3 sun_diffuse = vec3(0.86, 0.88, 0.82);
     const vec3 sun_diffuse = vec3(0.92, 0.95, 0.94);

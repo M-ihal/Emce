@@ -431,6 +431,13 @@ void GameRenderer::render_frame(Game &game) {
         this->render_debug_ui(game);
     }
 
+    /* Render held block text */ {
+        m_batcher.begin();
+        const vec2 text_pos = vec2{ 6.0f, -m_ui_font_big.get_descent() * m_ui_font_big.get_scale_for_pixel_height() };
+        m_batcher.push_text_formatted(text_pos, m_ui_font_big, "Held block: %s", block_type_string[(int32_t)world.get_player().get_held_block()]);
+        m_batcher.render(m_width, m_height, m_ui_font_big, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
+    }
+
     Console &console = game.get_console();
     console.render(m_width, m_height);
 }
@@ -592,8 +599,42 @@ void GameRenderer::render_player(Game &game) {
 
     /* Render player's debug stuff */
     if(game.debug_player_draw) {
-        player.debug_render(game);
+        this->render_player_debug(game);
     }
+}
+
+void GameRenderer::render_player_debug(Game &game) {
+    World  &world = game.get_world();
+    Player &player = world.get_player();
+
+    /* Collider */
+    const vec3 collider_color = { 0.9f, 0.9f, 0.6f };
+    const vec3d collider_position = player.get_position_origin();
+    const vec3d collider_size = player.get_collider_size();
+    this->render_cube_outline(collider_position, collider_size, 1.0f / 32.0f, collider_color);
+
+    /* Ground check collider */ {
+        vec3 ground_collider_color = player.is_grounded() ? vec3{ 0.0f, 1.0f, 0.0f } : vec3{ 1.0f, 0.0f, 0.0f };
+        vec3d ground_collider_position;
+        vec3d ground_collider_size;
+        player.get_ground_collider_info(ground_collider_position, ground_collider_size);
+        this->render_cube_outline(ground_collider_position, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
+    }
+
+    /* Velocity lines */ {
+        const vec3d velocity = player.get_velocity();
+        const vec3d origin_position = player.get_position() + vec3d{ 0, player.get_collider_size().y * 0.5, 0 };
+        const vec3d xz_velocity = { velocity.x, 0.0, velocity.z };
+        const vec3d y_velocity  = { 0.0, velocity.y, 0.0 };
+
+        this->render_line(origin_position, origin_position + xz_velocity, 2.0f, { 1.0f, 0.0f, 1.0f });
+        this->render_line(origin_position, origin_position + y_velocity, 2.0f, { 0.0f, 1.0f, 0.0f });
+    }
+
+    /* Blocks checked when checking collisions */
+    const vec3d min_pos = real_position_from_block(player.debug_min_checked_block);
+    const vec3d max_pos = real_position_from_block(player.debug_max_checked_block) + vec3d::make(1.0);
+    this->render_cube_outline(min_pos, max_pos - min_pos, 0.05f, { 0.8f, 0.5f, 0.9f }); 
 }
 
 void GameRenderer::render_skybox(Game &game) {
@@ -627,7 +668,6 @@ void GameRenderer::render_held_block(Game &game) {
 
     double rotate_y = head_cam.get_rotation().x;
     double rotate_z = head_cam.get_rotation().y;
-
 
     auto ease_out_quint = [] (double x) -> double {
         return 1 - pow(1.0 - x, 5);
@@ -667,6 +707,7 @@ void GameRenderer::render_held_block(Game &game) {
     m_chunk_shader.upload_mat4("u_view", m_view_m);
     m_chunk_shader.upload_mat4("u_model", transform);
     m_chunk_shader.upload_int("u_load_radius", -1);
+    m_chunk_shader.upload_int("u_enable_fog", 0);
     m_chunk_shader.upload_int("u_texture_array", 0);
     m_chunk_shader.upload_int("u_skybox", 1);
     m_chunk_tex_array.bind_texture_unit(0);
@@ -697,6 +738,12 @@ void GameRenderer::render_target_block(Game &game) {
         this->render_cube_line_outline(block_position, vec3d::make(1), { 0.0f, 0.0f, 0.0f });
     }
 
+    /* Raycasted side's normal */
+    const vec3d next_position = WorldPosition::from_block(target.block_p.block + target.normal).real;
+    const vec3d block_position = target.block_p.real;
+    const vec3  line_color = vec3::absolute(vec3::make(get_block_side_normal(target.side)));
+    this->render_line(block_position + vec3d::make(0.5) + vec3d::make(target.normal) * vec3d::make(0.5), next_position + vec3d::make(0.5), 2.0f, line_color);
+
     if(game.debug_raycast_draw) {
         /* DEBUG: Itersection point */
         const vec3d point_size_half = vec3d::make(0.05);
@@ -704,11 +751,6 @@ void GameRenderer::render_target_block(Game &game) {
         set_line_width(2.0f);
         this->render_cube_line_outline(intersect_position - point_size_half, point_size_half * 2.0, { 0.6f, 0.75f, 0.4f });
 
-        /* DEBUG: Block's normal */
-        const vec3d next_position = WorldPosition::from_block(target.block_p.block + target.normal).real;
-        const vec3d block_position = target.block_p.real;
-        const vec3  line_color = vec3::absolute(vec3::make(get_block_side_normal(target.side)));
-        this->render_line(block_position + vec3d::make(0.5), next_position + vec3d::make(0.5), 2.0f, line_color);
     }
 }
 
@@ -829,13 +871,6 @@ void GameRenderer::render_debug_ui(Game &game) {
 
     /* Render debug list */
     m_batcher.render(m_width, m_height, font, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
-
-    /* Render held block text */ {
-        m_batcher.begin();
-        const vec2 text_pos = vec2{ 6.0f, -m_ui_font_big.get_descent() * m_ui_font_big.get_scale_for_pixel_height() };
-        m_batcher.push_text_formatted(text_pos, m_ui_font_big, "Held block: %s", block_type_string[(int32_t)world.get_player().get_held_block()]);
-        m_batcher.render(m_width, m_height, m_ui_font_big, { 1.0f, 1.0f, 1.0f }, { 4, -4 });
-    }
 }
 
 void GameRenderer::render_cube_outline(const vec3d &position, const vec3d &size, float width, const vec3 &color, float border_perc, const vec3 &border_color) {

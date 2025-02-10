@@ -85,8 +85,8 @@ bool Player::check_if_collides_with_any_block(World &world, vec3d position, vec3
 void Player::update(Game &game, const Input &input, double delta_time) {
     World &world = game.get_world();
 
-    m_debug_min_checked_block = vec3i{ INT32_MAX, INT32_MAX, INT32_MAX };
-    m_debug_max_checked_block = vec3i{ INT32_MIN, INT32_MIN, INT32_MIN };
+    debug_min_checked_block = vec3i{ INT32_MAX, INT32_MAX, INT32_MAX };
+    debug_max_checked_block = vec3i{ INT32_MIN, INT32_MIN, INT32_MIN };
 
     /* Can get input for update */
     const bool can_get_input = !game.get_console().is_open();
@@ -295,12 +295,12 @@ void Player::update(Game &game, const Input &input, double delta_time) {
 }
 
 #define _ADD_TO_DEBUG_RANGE(min, max)\
-    m_debug_min_checked_block.x = MIN(m_debug_min_checked_block.x, min.block.x);\
-    m_debug_min_checked_block.y = MIN(m_debug_min_checked_block.y, min.block.y);\
-    m_debug_min_checked_block.z = MIN(m_debug_min_checked_block.z, min.block.z);\
-    m_debug_max_checked_block.x = MAX(m_debug_max_checked_block.x, max.block.x);\
-    m_debug_max_checked_block.y = MAX(m_debug_max_checked_block.y, max.block.y);\
-    m_debug_max_checked_block.z = MAX(m_debug_max_checked_block.z, max.block.z);
+    debug_min_checked_block.x = MIN(debug_min_checked_block.x, min.block.x);\
+    debug_min_checked_block.y = MIN(debug_min_checked_block.y, min.block.y);\
+    debug_min_checked_block.z = MIN(debug_min_checked_block.z, min.block.z);\
+    debug_max_checked_block.x = MAX(debug_max_checked_block.x, max.block.x);\
+    debug_max_checked_block.y = MAX(debug_max_checked_block.y, max.block.y);\
+    debug_max_checked_block.z = MAX(debug_max_checked_block.z, max.block.z);
 
 static void calc_range_to_check_move(vec3d pos, vec3d size, vec3d move_delta, WorldPosition &min, WorldPosition &max) {
     vec3i block_min_p = block_position_from_real(pos + move_delta);
@@ -422,40 +422,6 @@ void Player::move_in_y(World &world, double delta_time) {
 
     _ADD_TO_DEBUG_RANGE(min, max);
 }
-
-#if 0
-void Player::debug_render(class Game &game) {
-    /* Collider */
-    const vec3 collider_color = { 0.9f, 0.9f, 0.6f };
-    const vec3d collider_position = this->get_position_origin();
-    const vec3d collider_size = this->get_collider_size();
-    SimpleDraw::draw_cube_outline(collider_position, collider_size, 1.0f / 32.0f, collider_color);
-
-    /* Ground check collider */ {
-        vec3 ground_collider_color = m_is_grounded ? vec3{ 0.0f, 1.0f, 0.0f } : vec3{ 1.0f, 0.0f, 0.0f };
-        vec3d ground_collider_position;
-        vec3d ground_collider_size;
-        this->get_ground_collider_info(ground_collider_position, ground_collider_size);
-        SimpleDraw::draw_cube_outline(ground_collider_position, ground_collider_size, 1.0f / 32.0f, ground_collider_color);
-    }
-
-    /* Velocity lines */ {
-        const vec3d origin_position = this->get_position();
-        const vec3d xz_velocity = { m_velocity.x, 0.0, m_velocity.z };
-        const vec3d y_velocity  = { 0.0, m_velocity.y, 0.0 };
-
-        SimpleDraw::draw_line(origin_position, origin_position + xz_velocity, 2.0f, { 1.0f, 0.0f, 1.0f });
-        SimpleDraw::draw_line(origin_position, origin_position + y_velocity, 2.0f, { 0.0f, 1.0f, 0.0f });
-    }
-
-    /* Blocks checked when checking collisions */
-    const vec3d min_pos = real_position_from_block(m_debug_min_checked_block);
-    const vec3d max_pos = real_position_from_block(m_debug_max_checked_block) + vec3d::make(1.0);
-    SimpleDraw::draw_cube_outline(min_pos, max_pos - min_pos, 0.05f, { 0.8f, 0.5f, 0.9f }); 
-}
-#else
-void Player::debug_render(class Game &game) {}
-#endif
 
 vec3d Player::get_collider_size(void) const {
     return PLAYER_COLLIDER_SIZE;

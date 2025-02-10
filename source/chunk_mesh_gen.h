@@ -59,4 +59,4 @@ struct ChunkMeshGenData {
 void chunk_mesh_gen_data_init(ChunkMeshGenData *gen_data, World &world, vec2i chunk_coords);
 void chunk_mesh_gen_data_free(ChunkMeshGenData *gen_data);
 void chunk_mesh_gen(ChunkMeshGenData *gen_data);
-void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType type);
+void chunk_mesh_gen_single_block(ChunkMeshData &mesh_data, BlockType block);

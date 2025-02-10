@@ -27,9 +27,6 @@ public:
     /* Player's update proc */
     void update(Game &game, const Input &input, double delta_time);
 
-    /* Render debug stuff */
-    void debug_render(Game &game);
-
     /* Size of the collider */
     vec3d get_collider_size(void) const;
 
@@ -88,6 +85,10 @@ public:
         return m_block_action_t;
     }
 
+    /* Range of blocks that were checked for collision and stuff this frame, for debug display */
+    vec3i debug_min_checked_block;
+    vec3i debug_max_checked_block;
+
 private:
     bool check_if_collides_with_any_block(World &world, vec3d position, vec3d size);
     void move_in_xz(World &world, double delta_time);
@@ -108,8 +109,4 @@ private:
 
     /* Targeted block by player */
     RaycastBlockResult m_targeted_block;
-
-    /* Range of blocks that were checked for collision and stuff this frame, for debug display */
-    vec3i m_debug_min_checked_block;
-    vec3i m_debug_max_checked_block;
 };

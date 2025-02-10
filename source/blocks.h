@@ -49,12 +49,16 @@ enum BlockTypeFlags : uint32_t {
 \
     BLOCK(TREE_OAK_LEAVES, "Oak leaves", CUBE, IS_SOLID | IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::TREE_OAK_LEAVES })\
 \
+    BLOCK(TREE_OAK_PLANKS, "Oak planks", CUBE, IS_SOLID | IS_PLACABLE, { BlockTexture::TREE_OAK_PLANKS })\
+\
     BLOCK(TREE_BIRCH_LOG, "Birch tree", CUBE, IS_SOLID | IS_PLACABLE,\
             { BlockTexture::TREE_BIRCH_SIDE, BlockTexture::TREE_BIRCH_SIDE,\
               BlockTexture::TREE_BIRCH_SIDE, BlockTexture::TREE_BIRCH_SIDE,\
               BlockTexture::TREE_BIRCH_TOP, BlockTexture::TREE_BIRCH_TOP })\
 \
     BLOCK(TREE_BIRCH_LEAVES, "Birch leaves", CUBE, IS_SOLID | IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::TREE_BIRCH_LEAVES })\
+\
+    BLOCK(TREE_BIRCH_PLANKS, "Birch planks", CUBE, IS_SOLID | IS_PLACABLE, { BlockTexture::TREE_BIRCH_PLANKS })\
 \
     BLOCK(GLASS, "Glass", CUBE, IS_SOLID | IS_PLACABLE | HAS_TRANSPARENCY | NO_AO | NO_AO_CAST | CONNECTS_WITH_SAME_TYPE, { BlockTexture::GLASS })\
 \
@@ -71,7 +75,8 @@ enum BlockTypeFlags : uint32_t {
 \
     BLOCK(ROSE, "Rose", CROSS, IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::ROSE })\
 \
-    BLOCK(DEADBUSH, "Deadbush", CROSS, IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::DEADBUSH })
+    BLOCK(DEADBUSH, "Deadbush", CROSS, IS_PLACABLE | HAS_TRANSPARENCY, { BlockTexture::DEADBUSH })\
+
 #undef BLOCK
 
 #define BLOCK(type_, ...) type_,
@@ -114,9 +119,11 @@ inline const char *get_block_type_string(BlockType type) { ASSERT(is_block_type_
     DEFINE_TEXTURE(TREE_OAK_SIDE, 7, 1)\
     DEFINE_TEXTURE(TREE_OAK_TOP, 7, 0)\
     DEFINE_TEXTURE(TREE_OAK_LEAVES, 7, 2)\
+    DEFINE_TEXTURE(TREE_OAK_PLANKS, 7, 3)\
     DEFINE_TEXTURE(TREE_BIRCH_SIDE, 8, 1)\
     DEFINE_TEXTURE(TREE_BIRCH_TOP, 8, 0)\
     DEFINE_TEXTURE(TREE_BIRCH_LEAVES, 8, 2)\
+    DEFINE_TEXTURE(TREE_BIRCH_PLANKS, 8, 3)\
     DEFINE_TEXTURE(GLASS, 0, 1)\
     DEFINE_TEXTURE(GRASS, 1, 3)\
     DEFINE_TEXTURE(WATER, 31, 3)\
