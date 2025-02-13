@@ -6,7 +6,7 @@ struct WorldGenSeed {
     uint32_t seed;
 };
 
-enum {
+enum : uint8_t {
     BIOME_PLAINS = 0,
     BIOME_DESERT = 1,
     BIOME_FOREST = 2,

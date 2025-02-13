@@ -36,6 +36,7 @@ Game::Game(void) : m_world(this) {
     m_gen_meshes_condition = SDL_CreateCondition();
     this->start_threads(INIT_GEN_CHUNKS_THREADS, INIT_GEN_MESHES_THREADS);
 
+
     /* Initialize world state */
     m_world.initialize_new_world(5554);
 
@@ -140,8 +141,10 @@ void Game::update(const Input &input, double delta_time) {
 void Game::update_loaded_chunks(void) {
     std::vector<Chunk *> chunks_to_delete;
     std::vector<Chunk *> chunks_to_mesh;
+    std::vector<Chunk *> chunks_to_mesh_high_prio;
     chunks_to_delete.reserve(MAX_FRAME_CHUNK_DELETES);
     chunks_to_mesh.reserve(MAX_QUEUED_MESHES);
+    chunks_to_mesh_high_prio.reserve(MAX_QUEUED_MESHES);
 
     double frustum[6][4];
     m_camera.calc_frustum_at_origin(frustum, Window::get().get_aspect());
@@ -165,8 +168,14 @@ void Game::update_loaded_chunks(void) {
 
         /* If waiting and neighbours got generated -> queue for meshing */
         const bool in_frustum = is_chunk_in_frustum(frustum, chunk_relative);
-        if(chunk->should_build_mesh() && in_frustum && m_world.can_queue_mesh()) {
-            chunks_to_mesh.push_back(chunk);
+        if(chunk->should_build_mesh() && in_frustum) {
+            if(chunk->get_mesh_state() == ChunkMeshState::WAIT_FOR_MESHING_HIGH_PRIORITY && m_world.can_queue_mesh_high_prio()) {
+                chunks_to_mesh_high_prio.push_back(chunk);
+            } else {
+                if(m_world.can_queue_mesh()) {
+                    chunks_to_mesh.push_back(chunk);
+                }
+            }
         }
     }
 
@@ -184,6 +193,11 @@ void Game::update_loaded_chunks(void) {
         return dist_a < dist_b; 
     });
 
+    /* Queue high priority */
+    for(Chunk *chunk_to_mesh : chunks_to_mesh_high_prio) {
+        m_world.queue_build_mesh(chunk_to_mesh->get_chunk_coords(), true);
+    }
+
     /* Queue the meshing */
     for(Chunk *chunk_to_mesh : chunks_to_mesh) {
         m_world.queue_build_mesh(chunk_to_mesh->get_chunk_coords());       
@@ -200,14 +214,14 @@ void Game::update_loaded_chunks(void) {
     }
 
     if(gen_on_main_thread) {
-        if(m_gen_chunks_thread_num == 0) {
+        if(m_gen_chunks_thread_num == 0 || !m_threads_started) {
             const int32_t CHUNKS_PER_FRAME = 4;
             for(int32_t index = 0; index < CHUNKS_PER_FRAME; ++index) {
                 m_world.generate_next_chunk();
             }
         }
 
-        if(m_gen_meshes_thread_num == 0) {
+        if(m_gen_meshes_thread_num == 0 || !m_threads_started) {
             const int32_t MESHES_PER_FRAME = 1;
             for(int32_t index = 0; index < MESHES_PER_FRAME; ++index) {
                 m_world.generate_next_mesh();
@@ -509,6 +523,59 @@ CONSOLE_COMMAND_PROC(command_fly) {
     }
 }
 
+/* Dumb command for generating single origin chunk with side meshes */
+CONSOLE_COMMAND_PROC(command_one_chunk) {
+    /* Disable generating chunks */
+    game.gen_on_main_thread = false;
+
+    World &world = game.get_world();
+
+    /* Initialize world state */
+    game.stop_threads();
+    world.initialize_new_world(5554);
+
+    BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z] = { };
+
+    /* Create neighbouring chunks and zero their blocks */
+    world.get_chunk_create({-1, 0 })->copy_blocks_into(blocks);
+    world.get_chunk_create({+1, 0 })->copy_blocks_into(blocks);
+    world.get_chunk_create({ 0,-1 })->copy_blocks_into(blocks);
+    world.get_chunk_create({ 0,+1 })->copy_blocks_into(blocks);
+    world.get_chunk_create({-1,-1 })->copy_blocks_into(blocks);
+    world.get_chunk_create({+1,+1 })->copy_blocks_into(blocks);
+    world.get_chunk_create({-1,+1 })->copy_blocks_into(blocks);
+    world.get_chunk_create({+1,-1 })->copy_blocks_into(blocks);
+
+    world.rebuild_mesh_slow({ 0, 0 });
+
+    game.start_threads();
+}
+
+CONSOLE_COMMAND_PROC(command_isolate) {
+    World &world = game.get_world();
+
+    game.stop_threads();
+    world.delete_chunks();
+
+    const vec2i chunk_coords = world.get_player().get_position_chunk();
+
+    BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z] = { };
+
+    world.get_chunk_create(chunk_coords + vec2i{-1, 0 })->copy_blocks_into(blocks);
+    world.get_chunk_create(chunk_coords + vec2i{+1, 0 })->copy_blocks_into(blocks);
+    world.get_chunk_create(chunk_coords + vec2i{ 0,-1 })->copy_blocks_into(blocks);
+    world.get_chunk_create(chunk_coords + vec2i{ 0,+1 })->copy_blocks_into(blocks);
+    world.get_chunk_create(chunk_coords + vec2i{-1,-1 })->copy_blocks_into(blocks);
+    world.get_chunk_create(chunk_coords + vec2i{+1,+1 })->copy_blocks_into(blocks);
+    world.get_chunk_create(chunk_coords + vec2i{-1,+1 })->copy_blocks_into(blocks);
+    world.get_chunk_create(chunk_coords + vec2i{+1,-1 })->copy_blocks_into(blocks);
+
+    world.get_chunk_create(chunk_coords);
+    world.rebuild_mesh_slow(chunk_coords);
+
+    game.start_threads();
+}
+
 static void add_console_commands(Console &console) {
     console.set_command("threads",         command_threads);
     console.set_command("generate",        command_generate);
@@ -519,5 +586,7 @@ static void add_console_commands(Console &console) {
     console.set_command("fov",             command_fov);
     console.set_command("goto",            command_goto);
     console.set_command("fly",             command_fly);
+    console.set_command("one_chunk",       command_one_chunk);
+    console.set_command("isolate",         command_isolate);
 }
 

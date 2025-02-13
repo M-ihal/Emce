@@ -13,7 +13,7 @@ Chunk::Chunk(class World *world, vec2i chunk_xz) {
     memset(m_blocks, 0, CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * sizeof(BlockType));
 
     m_state = ChunkState::GENERATING;
-    m_mesh_state = ChunkMeshState::NOT_LOADED;
+    m_mesh_state = ChunkMeshState::WAIT_FOR_MESHING;
 }
 
 Chunk::~Chunk(void) {
@@ -94,6 +94,15 @@ void Chunk::set_mesh_state(ChunkMeshState state) {
 
 bool Chunk::should_build_mesh(void) {
     return m_state == ChunkState::GENERATED
-        && m_mesh_state == ChunkMeshState::WAITING
-        && m_owner->chunk_neighbours_generated(m_chunk_coords);
+        && m_owner->chunk_neighbours_generated(m_chunk_coords)
+        && (m_mesh_state == ChunkMeshState::WAIT_FOR_MESHING || m_mesh_state == ChunkMeshState::WAIT_FOR_MESHING_HIGH_PRIORITY);
 }
+
+uint32_t Chunk::get_mesh_build_counter(void) {
+    return m_mesh_build_counter;
+}
+
+uint32_t Chunk::get_mesh_build_counter_next(void) {
+    return ++m_mesh_build_counter;
+}
+

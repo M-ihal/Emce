@@ -29,16 +29,16 @@ inline uint32_t get_block_array_index(const vec3i &rel) {
         for(int32_t var_z = 0; var_z < CHUNK_SIZE_Z; ++var_z)\
             for(int32_t var_x = 0; var_x < CHUNK_SIZE_X; ++var_x)
 
-enum class ChunkState {
+enum class ChunkState : uint8_t {
     GENERATING = 0,
     GENERATED  = 1
 };
 
-enum class ChunkMeshState {
-    NOT_LOADED = 0,
-    WAITING    = 1,
-    QUEUED     = 2,
-    LOADED     = 3,
+enum class ChunkMeshState : uint8_t {
+    WAIT_FOR_MESHING,
+    WAIT_FOR_MESHING_HIGH_PRIORITY,
+    QUEUED,
+    COMPLETE,
 };
 
 class World;
@@ -91,6 +91,10 @@ public:
     /* If should _and_ can build the mesh */
     bool should_build_mesh(void);
 
+    /* Get current build counter / get next build counter (increments build counter) */
+    uint32_t get_mesh_build_counter(void);
+    uint32_t get_mesh_build_counter_next(void);
+
 private:
     class World *m_owner;
     VertexArray  m_chunk_vao;
@@ -100,5 +104,6 @@ private:
 
     ChunkState     m_state;
     ChunkMeshState m_mesh_state;
+    uint32_t       m_mesh_build_counter; // Used to determine which mesh has priority (i.e. if multiple were build at once)
 };
 

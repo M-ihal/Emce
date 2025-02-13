@@ -113,8 +113,8 @@ void main() {
     vec3 camera_to_frag = normalize(vec3(v_position - v_camera_pos));
     vec3 frag_to_sky = reflect(camera_to_frag, normal);
 
-    vec4 color = texture(u_skybox, frag_to_sky) + vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord) * 0.22;
-    color *= vec4(1, 1, 1, 0.7);
+    vec4 color = texture(u_skybox, frag_to_sky) * vec4(vec3(0.75), 1.0) + vec4(diffuse, 1.0) * texture(u_water_texture_array, tex_arr_coord) * vec4(vec3(0.52), 1.0);
+    color *= vec4(1, 1, 1, 0.475);
 
     float wave_delta = v_wave_delta * v_wave_delta * v_wave_delta;
     color.a += wave_delta * wave_delta * 0.16;

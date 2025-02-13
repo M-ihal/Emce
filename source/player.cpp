@@ -275,20 +275,20 @@ void Player::update(Game &game, const Input &input, double delta_time) {
     }
 
     if(rebuild_mesh) {
-        world.rebuild_mesh_slow(chunk_coords);
+        world.set_chunk_should_rebuild_mesh(chunk_coords, true);
 
         /* Update neighbouring chunk/s if block was bordering them */
         if(is_block_on_x_neg_edge(m_targeted_block.block_p.block_rel)) {
-            world.rebuild_mesh_slow(chunk_coords + vec2i{ -1, 0 });
+            world.set_chunk_should_rebuild_mesh(chunk_coords + vec2i{ -1, 0 }, true);
         }
         if(is_block_on_x_pos_edge(m_targeted_block.block_p.block_rel)) {
-            world.rebuild_mesh_slow(chunk_coords + vec2i{ 1, 0 });
+            world.set_chunk_should_rebuild_mesh(chunk_coords + vec2i{ 1, 0 }, true);
         }
         if(is_block_on_z_neg_edge(m_targeted_block.block_p.block_rel)) {
-            world.rebuild_mesh_slow(chunk_coords + vec2i{ 0, -1 });
+            world.set_chunk_should_rebuild_mesh(chunk_coords + vec2i{ 0, -1 }, true);
         }
         if(is_block_on_z_pos_edge(m_targeted_block.block_p.block_rel)) {
-            world.rebuild_mesh_slow(chunk_coords + vec2i{ 0, +1 });
+            world.set_chunk_should_rebuild_mesh(chunk_coords + vec2i{ 0, +1 }, true);
         }
     }
 

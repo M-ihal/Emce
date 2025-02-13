@@ -47,6 +47,7 @@ struct ChunkMeshGenData {
     /* Target chunk */
     BlockType chunk_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
     vec2i     chunk_coords;
+    uint32_t  chunk_mesh_build_id;
  
     /* Generated vertex data */
     ChunkMeshData chunk;

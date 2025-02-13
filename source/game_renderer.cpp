@@ -855,6 +855,7 @@ void GameRenderer::render_debug_ui(Game &game) {
         debug_line("gen meshes threads: %d", info.meshes_threads_active);
         debug_line("chunks to generate: %d", world_info.chunks_queued);
         debug_line("meshes to build:    %d", world_info.meshes_queued);
+        debug_line("meshes high prio:   %d", world_info.meshes_queued_high_prio);
     } debug_line(NULL);
 
     debug_line("--- Target Block ---"); {

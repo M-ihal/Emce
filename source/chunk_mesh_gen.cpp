@@ -36,6 +36,8 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData *gen_data, World &world, vec2i ch
 
     ASSERT(chunk && chunk_x_pos && chunk_x_neg && chunk_z_pos && chunk_z_neg && chunk_x_pos_z_pos && chunk_x_neg_z_pos && chunk_x_neg_z_neg && chunk_x_pos_z_neg);
 
+    gen_data->chunk_mesh_build_id = chunk->get_mesh_build_counter_next();
+
     gen_data->chunk_coords = chunk_coords;
     chunk->copy_blocks_from(gen_data->chunk_blocks);
 

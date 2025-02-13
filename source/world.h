@@ -24,6 +24,7 @@ struct GameWorldInfo {
     int32_t chunks_allocated;
     int32_t chunks_queued;
     int32_t meshes_queued;
+    int32_t meshes_queued_high_prio;
 };
 
 /* Struct of static size for queueing ChunkMeshGenData & ChunkGenData */
@@ -141,10 +142,13 @@ public:
     void queue_create_chunk(vec2i chunk_xz);
 
     /* Queue chunk meshes to be build */
-    void queue_build_mesh(vec2i chunk_coords);
+    void queue_build_mesh(vec2i chunk_coords, bool high_prio = false);
 
     /* Build mesh for chunk on main thread */
     void rebuild_mesh_slow(vec2i chunk_coords);
+
+    /* Will be considered for mesh rebuild */
+    void set_chunk_should_rebuild_mesh(vec2i chunk_coords, bool important = false);
 
     /* Check if chunk's neighbours are generated */
     bool chunk_neighbours_generated(vec2i chunk_xz);
@@ -171,6 +175,11 @@ public:
         return !m_mesh_gen_queue.is_full();
     }
 
+    bool can_queue_mesh_high_prio(void) {
+        return !m_mesh_gen_queue_high_prio.is_full();
+    }
+
+
 private:
     Game          *m_owner;
     Player         m_player;
@@ -182,6 +191,7 @@ private:
 
     StaticGenQueue<ChunkGenData, MAX_QUEUED_CHUNKS> m_chunk_gen_queue;
     StaticGenQueue<ChunkMeshGenData, MAX_QUEUED_MESHES> m_mesh_gen_queue;
+    StaticGenQueue<ChunkMeshGenData, MAX_QUEUED_MESHES> m_mesh_gen_queue_high_prio;
 };
 
 inline uint64_t func_hash_chunk_key(const vec2i &key) {

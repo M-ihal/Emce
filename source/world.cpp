@@ -53,9 +53,9 @@ void World::initialize_new_world(uint32_t seed) {
 }
 
 void World::delete_chunks(void) {
-
     m_chunk_gen_queue.clear();
     m_mesh_gen_queue.clear();
+    m_mesh_gen_queue_high_prio.clear();
 
     ChunkHashTable::Iterator iter;
     while(m_chunk_table.iterate_all(iter)) {
@@ -121,7 +121,7 @@ Chunk *World::get_chunk_create(vec2i chunk_xz, BlockType blocks[CHUNK_SIZE_X * C
         }
 
         to_generate->set_chunk_state(ChunkState::GENERATED);
-        to_generate->set_mesh_state(ChunkMeshState::WAITING);
+        to_generate->set_mesh_state(ChunkMeshState::WAIT_FOR_MESHING);
     }
     return to_generate;
 }
@@ -164,14 +164,16 @@ void World::queue_create_chunk(vec2i chunk_xz) {
     m_owner->wake_up_gen_chunks_threads();
 }
 
-void World::queue_build_mesh(vec2i chunk_coords) {
+void World::queue_build_mesh(vec2i chunk_coords, bool high_prio) {
     Chunk *chunk = this->get_chunk(chunk_coords);
     if(chunk == NULL) {
         /* The chunk isn't loaded ... */
         return;
     }
 
-    ChunkMeshGenData *mesh_data = m_mesh_gen_queue.get_free_element();
+    StaticGenQueue<ChunkMeshGenData, MAX_QUEUED_MESHES> &queue = high_prio ? m_mesh_gen_queue_high_prio : m_mesh_gen_queue;
+
+    ChunkMeshGenData *mesh_data = queue.get_free_element();
     if(mesh_data == NULL) {
         return;
     }
@@ -179,10 +181,11 @@ void World::queue_build_mesh(vec2i chunk_coords) {
     chunk_mesh_gen_data_init(mesh_data, *this, chunk_coords);
 
     SDL_LockMutex(m_lock_mesh_gen);
-    m_mesh_gen_queue.in_queue.push(mesh_data);
+    queue.in_queue.push(mesh_data);
     SDL_UnlockMutex(m_lock_mesh_gen);
 
     chunk->set_mesh_state(ChunkMeshState::QUEUED);
+
     m_owner->wake_up_gen_meshes_threads();
 }
 
@@ -203,9 +206,22 @@ void World::rebuild_mesh_slow(vec2i chunk_coords) {
 
     chunk_mesh_gen(mesh_data);
     chunk->set_mesh(mesh_data);
-    chunk->set_mesh_state(ChunkMeshState::LOADED);
+    chunk->set_mesh_state(ChunkMeshState::COMPLETE);
 
     delete mesh_data;
+}
+
+void World::set_chunk_should_rebuild_mesh(vec2i chunk_coords, bool important) {
+    Chunk *chunk = this->get_chunk(chunk_coords);
+    if(chunk == NULL) {
+        return;
+    }
+
+    if(important) {
+        chunk->set_mesh_state(ChunkMeshState::WAIT_FOR_MESHING_HIGH_PRIORITY);
+    } else {
+        chunk->set_mesh_state(ChunkMeshState::WAIT_FOR_MESHING);
+    }
 }
 
 bool World::chunk_neighbours_generated(vec2i chunk_xz) {
@@ -231,6 +247,7 @@ GameWorldInfo World::get_world_info(void) {
     info.chunks_allocated = m_chunk_table.get_size();
     info.chunks_queued = m_chunk_gen_queue.in_queue.size;
     info.meshes_queued = m_mesh_gen_queue.in_queue.size;
+    info.meshes_queued_high_prio = m_mesh_gen_queue_high_prio.in_queue.size;
     return info;
 }
 
@@ -279,7 +296,7 @@ void World::insert_generated_chunks(void) {
 
         chunk->copy_blocks_into(gen_data->blocks);
         chunk->set_chunk_state(ChunkState::GENERATED);
-        chunk->set_mesh_state(ChunkMeshState::WAITING);
+        chunk->set_mesh_state(ChunkMeshState::WAIT_FOR_MESHING);
 
         m_chunk_gen_queue.release_element(gen_data);
     }
@@ -290,7 +307,8 @@ void World::insert_generated_meshes(void) {
         ChunkMeshGenData *mesh_data = NULL;
 
         SDL_LockMutex(m_lock_mesh_gen);
-        bool exists = m_mesh_gen_queue.finished.pop(&mesh_data);
+        StaticGenQueue<ChunkMeshGenData, MAX_QUEUED_MESHES> &queue = m_mesh_gen_queue_high_prio.finished.is_empty() ? m_mesh_gen_queue : m_mesh_gen_queue_high_prio;
+        bool exists = queue.finished.pop(&mesh_data);
         SDL_UnlockMutex(m_lock_mesh_gen);
 
         /* No more built meshes */
@@ -302,12 +320,12 @@ void World::insert_generated_meshes(void) {
 
         /* if !chunk -> Chunk has been deleted during the mesh generation so ignore it */
         /* Set generated mesh if the state isn't LOADED (could happen if immediatelly loading later) */
-        if(chunk && !mesh_data->has_been_dropped && chunk->get_mesh_state() != ChunkMeshState::LOADED) {
+        if(chunk && !mesh_data->has_been_dropped && mesh_data->chunk_mesh_build_id == chunk->get_mesh_build_counter()) {
             chunk->set_mesh(mesh_data);
-            chunk->set_mesh_state(ChunkMeshState::LOADED);
+            chunk->set_mesh_state(ChunkMeshState::COMPLETE);
         }
 
-        m_mesh_gen_queue.release_element(mesh_data);
+        queue.release_element(mesh_data);
     }
 }
 
@@ -340,7 +358,8 @@ bool World::generate_next_mesh(void) {
 
     /* Get next queued mesh to build */
     SDL_LockMutex(m_lock_mesh_gen);
-    bool exists = m_mesh_gen_queue.in_queue.pop(&mesh_data);
+    StaticGenQueue<ChunkMeshGenData, MAX_QUEUED_MESHES> &queue = m_mesh_gen_queue_high_prio.in_queue.is_empty() ? m_mesh_gen_queue : m_mesh_gen_queue_high_prio;
+    bool exists = queue.in_queue.pop(&mesh_data);
     SDL_UnlockMutex(m_lock_mesh_gen);
 
     /* No mesh to build */
@@ -348,7 +367,7 @@ bool World::generate_next_mesh(void) {
         return false;
     }
 
-    /* Do not generate if already too far */
+    /* Do not generate if already too far TODO: */
     mesh_data->has_been_dropped = !is_chunk_in_range(m_player.get_position_chunk(), mesh_data->chunk_coords, m_owner->get_frame_info().load_radius);
 
     if(!mesh_data->has_been_dropped) {
@@ -357,8 +376,8 @@ bool World::generate_next_mesh(void) {
     }
 
     SDL_LockMutex(m_lock_mesh_gen);
-    m_mesh_gen_queue.finished.push(mesh_data);
+    queue.finished.push(mesh_data);
     SDL_UnlockMutex(m_lock_mesh_gen);
 
-    return !m_mesh_gen_queue.in_queue.is_empty();
+    return !m_mesh_gen_queue_high_prio.in_queue.is_empty() || !m_mesh_gen_queue.in_queue.is_empty();
 }
