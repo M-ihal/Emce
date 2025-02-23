@@ -13,7 +13,21 @@
 
 static void add_console_commands(Console &console);
 
-Game::Game(void) : m_world(this) {
+Game::Game(GameInitConfig init_config) : m_world(this) {
+    /* Validate config */ {
+        if(init_config.init_chunks_threads < 0 || init_config.init_chunks_threads > MAX_GEN_CHUNKS_THREADS) {
+            init_config.init_chunks_threads = INIT_GEN_CHUNKS_THREADS;
+        }
+
+        if(init_config.init_meshes_threads < 0 || init_config.init_meshes_threads > MAX_GEN_MESHES_THREADS) {
+            init_config.init_meshes_threads = INIT_GEN_MESHES_THREADS;
+        }
+
+        if(init_config.load_radius < 0 || init_config.load_radius > 64) {
+            init_config.load_radius = 16;
+        }
+    }
+
     /* Init debug state */
     debug_show_ui_info         = false;
     debug_show_chunk_borders   = false;
@@ -26,7 +40,7 @@ Game::Game(void) : m_world(this) {
     /* Init default game state */
     m_delta_time          = 0.0;
     m_elapsed_time        = 0.0;
-    m_load_radius         = 24;
+    m_load_radius         = init_config.load_radius;
     m_3rd_person_mode     = false;
     m_3rd_person_distance = 10.0f;
     render_mode = GameRenderMode::NORMAL;
@@ -34,11 +48,11 @@ Game::Game(void) : m_world(this) {
     /* Initialize threading resources */
     m_gen_chunks_condition = SDL_CreateCondition();
     m_gen_meshes_condition = SDL_CreateCondition();
-    this->start_threads(INIT_GEN_CHUNKS_THREADS, INIT_GEN_MESHES_THREADS);
-
+    this->start_threads(init_config.init_chunks_threads, init_config.init_meshes_threads);
 
     /* Initialize world state */
     m_world.initialize_new_world(5554);
+    m_world.initialize_new_world(777665);
 
     add_console_commands(m_console);
 }
@@ -179,12 +193,6 @@ void Game::update_loaded_chunks(void) {
         }
     }
 
-    /* Delete chunks @TODO : make proc that deletes chunk @TEMP */
-    for(Chunk *chunk : chunks_to_delete) {
-        vec2i chunk_coords = chunk->get_chunk_coords();
-        m_world.delete_chunk(chunk_coords);
-    }
-
     /* Sort chunks by distance from player's chunk @TODO : make it betta */
     std::sort(chunks_to_mesh.begin(), chunks_to_mesh.end(), [] (Chunk *a, Chunk *b) { 
         vec2 chunk = vec2::make(a->get_world()->get_player().get_position_chunk()); // @TODO
@@ -228,7 +236,14 @@ void Game::update_loaded_chunks(void) {
             }
         }
     }
+
+    /* Delete chunks @TODO : make proc that deletes chunk @TEMP, @NOTE there was a bug where the chunks were deleted before queueing mesh builds... */
+    for(Chunk *chunk : chunks_to_delete) {
+        vec2i chunk_coords = chunk->get_chunk_coords();
+        m_world.delete_chunk(chunk_coords);
+    }
 }
+
 
 int32_t Game::thread_gen_chunks_proc(void) {
     int32_t ret_val = 0;

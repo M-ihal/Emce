@@ -70,8 +70,8 @@ public:
     BlockType get_block(const vec3i &rel);
     
     /* Copying blocks */
-    void copy_blocks_into(BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]);
-    void copy_blocks_from(BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]);
+    void copy_blocks_into(BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]); // Into array param
+    void copy_blocks_from(BlockType blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z]); // From array param
 
     /* Get current chunk state */
     ChunkState get_chunk_state(void);

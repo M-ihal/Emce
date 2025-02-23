@@ -5,6 +5,8 @@
 #include "camera.h"
 #include "world_utils.h"
 
+#define BLOCK_ACTION_ANIM_TIME 0.7
+
 class Input;
 class Game;
 class Console;

@@ -34,6 +34,7 @@ void chunk_mesh_gen_data_init(ChunkMeshGenData *gen_data, World &world, vec2i ch
     Chunk *chunk_x_neg_z_neg = world.get_chunk(chunk_coords + vec2i{-1,-1 });
     Chunk *chunk_x_pos_z_neg = world.get_chunk(chunk_coords + vec2i{ 1,-1 });
 
+    // !!!! @TODO:
     ASSERT(chunk && chunk_x_pos && chunk_x_neg && chunk_z_pos && chunk_z_neg && chunk_x_pos_z_pos && chunk_x_neg_z_pos && chunk_x_neg_z_neg && chunk_x_pos_z_neg);
 
     gen_data->chunk_mesh_build_id = chunk->get_mesh_build_counter_next();

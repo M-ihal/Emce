@@ -5,17 +5,8 @@
 #include <algorithm>
 #include <glew.h>
 
-/*
- * TODO
- * 3 TYPES OF GENERATING MESH
- * INITIAL GENERATION
- * CHANGE GENERATION
- *
- * IF NOT INITIAL AND THEN CHANGE - SKIP INITIAL, DO CHANGE
- * IF INITIAL THEN CHANGE - DO CHANGE
- * 
- *
- * */
+// If inserting new chunk, how many buckets min. to rehash instead of let table allocate more space
+#define MIN_BUCKETS_REMOVED_TO_REHASH 64
 
 Game *World::get_game(void) {
     ASSERT(m_owner != NULL && "World without owner error!.");
@@ -30,7 +21,7 @@ World::World(Game *game) {
     m_owner = game;
     m_lock_chunk_gen = SDL_CreateMutex();
     m_lock_mesh_gen  = SDL_CreateMutex();
-    m_chunk_table.initialize_table(5000);
+    // m_chunk_table.initialize_table();
     m_gen_seed.seed = 0;
 }
 
@@ -43,6 +34,9 @@ World::~World(void) {
 void World::initialize_new_world(uint32_t seed) {
     this->delete_chunks();
     m_gen_seed.seed = seed;
+
+    m_chunk_table.delete_table();
+    m_chunk_table.initialize_table();
 
     /* Create spawn chunk before initializing player */
     const vec2i spawn_chunk = { 0, 0 };
@@ -57,12 +51,14 @@ void World::delete_chunks(void) {
     m_mesh_gen_queue.clear();
     m_mesh_gen_queue_high_prio.clear();
 
-    ChunkHashTable::Iterator iter;
-    while(m_chunk_table.iterate_all(iter)) {
-        Chunk *chunk = iter.value;
-        delete chunk;
+    if(m_chunk_table.is_initialized()) {
+        ChunkHashTable::Iterator iter;
+        while(m_chunk_table.iterate_all(iter)) {
+            Chunk *chunk = iter.value;
+            delete chunk;
+        }
+        m_chunk_table.clear_table();
     }
-    m_chunk_table.clear_table();
 }
 
 void World::delete_chunk(vec2i chunk_coords) {
@@ -106,6 +102,7 @@ Chunk *World::get_chunk_create(vec2i chunk_xz, BlockType blocks[CHUNK_SIZE_X * C
         }
     } else {
         to_generate = new Chunk(this, chunk_xz);
+        this->maybe_rehash_chunk_table();
         m_chunk_table.insert(chunk_xz, to_generate);
     }
 
@@ -153,6 +150,7 @@ void World::queue_create_chunk(vec2i chunk_xz) {
     }
 
     Chunk *chunk = new Chunk(this, chunk_xz);
+    this->maybe_rehash_chunk_table();
     m_chunk_table.insert(chunk_xz, chunk);
 
     chunk_gen_data_init(*gen_data, chunk_xz, m_gen_seed);
@@ -268,37 +266,49 @@ bool World::iterate_chunks(ChunkHashTable::Iterator &iter) {
     }
 }
 
+void World::maybe_rehash_chunk_table(void) {
+    if(m_chunk_table.should_expand_table()) {
+        if(m_chunk_table.get_count_removed() >= MIN_BUCKETS_REMOVED_TO_REHASH) {
+            m_chunk_table.rehash_table();
+        }
+    }
+}
+
 void World::insert_generated_chunks(void) {
     while(true) {
         ChunkGenData *gen_data;
 
-        SDL_LockMutex(m_lock_mesh_gen);
+        SDL_LockMutex(m_lock_chunk_gen);
         bool exists = m_chunk_gen_queue.finished.pop(&gen_data);
-        SDL_UnlockMutex(m_lock_mesh_gen);
+        SDL_UnlockMutex(m_lock_chunk_gen);
 
         /* No more generated chunks */
         if(!exists) {
             break;
         }
 
+        bool should_discard = false;
+
         Chunk **chunk_hash = m_chunk_table.find(gen_data->chunk_xz);
         if(!chunk_hash) {
-            m_chunk_gen_queue.release_element(gen_data);
-            continue;
+            should_discard = true;
         }
 
         Chunk *chunk = *chunk_hash;
         if(chunk->get_chunk_state() == ChunkState::GENERATED) {
-            m_chunk_gen_queue.release_element(gen_data);
             /* For some reason, queued chunk already has been generated... ignore it */
-            continue;
+            should_discard = true;
         }
 
-        chunk->copy_blocks_into(gen_data->blocks);
-        chunk->set_chunk_state(ChunkState::GENERATED);
-        chunk->set_mesh_state(ChunkMeshState::WAIT_FOR_MESHING);
+        if(!should_discard) {
+            chunk->copy_blocks_into(gen_data->blocks);
+            chunk->set_chunk_state(ChunkState::GENERATED);
+            chunk->set_mesh_state(ChunkMeshState::WAIT_FOR_MESHING);
+        }
 
+        //SDL_LockMutex(m_lock_chunk_gen);
         m_chunk_gen_queue.release_element(gen_data);
+        //SDL_UnlockMutex(m_lock_chunk_gen);
     }
 }
 
@@ -325,7 +335,9 @@ void World::insert_generated_meshes(void) {
             chunk->set_mesh_state(ChunkMeshState::COMPLETE);
         }
 
+        //SDL_LockMutex(m_lock_mesh_gen);
         queue.release_element(mesh_data);
+        //SDL_UnlockMutex(m_lock_mesh_gen);
     }
 }
 
@@ -368,7 +380,8 @@ bool World::generate_next_mesh(void) {
     }
 
     /* Do not generate if already too far TODO: */
-    mesh_data->has_been_dropped = !is_chunk_in_range(m_player.get_position_chunk(), mesh_data->chunk_coords, m_owner->get_frame_info().load_radius);
+    /* BUG ! BUG ! BUG ! */
+    // mesh_data->has_been_dropped = !is_chunk_in_range(m_player.get_position_chunk(), mesh_data->chunk_coords, m_owner->get_frame_info().load_radius);
 
     if(!mesh_data->has_been_dropped) {
         /* Do the mesh generation */

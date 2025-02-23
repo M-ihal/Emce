@@ -12,11 +12,19 @@
 #include "texture_array.h"
 #include "game_renderer.h"
 
-#define MAX_GEN_CHUNKS_THREADS 2
-#define MAX_GEN_MESHES_THREADS 8
-
 #define INIT_GEN_CHUNKS_THREADS 1
-#define INIT_GEN_MESHES_THREADS 4
+#define INIT_GEN_MESHES_THREADS 1
+#define INIT_LOAD_RADIUS 16
+
+#define MAX_GEN_CHUNKS_THREADS 2
+#define MAX_GEN_MESHES_THREADS 16
+
+/* Optional initial game config values */
+struct GameInitConfig {
+    int32_t load_radius = INIT_LOAD_RADIUS;
+    int32_t init_chunks_threads = INIT_GEN_CHUNKS_THREADS;
+    int32_t init_meshes_threads = INIT_GEN_MESHES_THREADS;
+};
 
 struct GameFrameInfo {
     double  delta_time;
@@ -32,7 +40,7 @@ public:
     CLASS_COPY_DISABLE(Game);
 
     /* Initializes and deletes game world and stuff */
-    Game(void);
+    Game(GameInitConfig init_flags);
     ~Game(void);
     
     /* Update the game state */

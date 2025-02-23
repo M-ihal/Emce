@@ -26,10 +26,80 @@
 
 #include <filesystem>
 
-namespace {
-}
+#define STRING_VIU_CPP_HELPERS
+#include <string_viu.h>
 
 int SDL_main(int argc, char *argv[]) {
+
+    GameInitConfig game_init_config;
+    for(int32_t arg_index = 0; arg_index < argc; ++arg_index) {
+        StringViu arg_view = s_viu(argv[arg_index]);
+        StringViu arg_rem;
+        if(s_viu_begins_with(arg_view, &arg_rem, "-th_chunks=")) {
+            if(arg_rem.length > 0) {
+                std::string value_str = s_viu_to_std_string(arg_rem);
+                try {
+                    int32_t value = std::stoi(value_str);
+                    game_init_config.init_chunks_threads = value;
+                } catch(...) {
+                    /* Failed to parse command line argument value... Do not set anything */
+                }
+            }
+        } else if(s_viu_begins_with(arg_view, &arg_rem, "-th_meshes=")) {
+            if(arg_rem.length > 0) {
+                std::string value_str = s_viu_to_std_string(arg_rem);
+                try {
+                    int32_t value = std::stoi(value_str);
+                    game_init_config.init_meshes_threads = value;
+                } catch(...) {
+                    /* Failed to parse command line argument value... Do not set anything */
+                }
+            }
+        } else if(s_viu_begins_with(arg_view, &arg_rem, "-load_radius=")) {
+            if(arg_rem.length > 0) {
+                std::string value_str = s_viu_to_std_string(arg_rem);
+                try {
+                    int32_t value = std::stoi(value_str);
+                    game_init_config.load_radius = value;
+                } catch(...) {
+                    /* Failed to parse command line argument value... Do not set anything */
+                }
+            }
+        }
+    }
+
+#if 0
+    int32_t arg_index = 1;
+    while(arg_index < argc) {
+        if(strcmp(argv[arg_index], "-t_chunks") == 0) {
+            if(arg_index + 1 < argc) {
+                arg_index++;
+                int32_t num = atoi(argv[arg_index]);
+                if(num >= 0 && num <= MAX_GEN_CHUNKS_THREADS) {
+                    game_init_config.init_chunks_threads = num;
+                }
+            }
+        } else if(strcmp(argv[arg_index], "-t_meshes") == 0) {
+            if(arg_index + 1 < argc) {
+                arg_index++;
+                int32_t num = atoi(argv[arg_index]);
+                if(num >= 0 && num <= MAX_GEN_MESHES_THREADS) {
+                    game_init_config.init_meshes_threads = num;
+                }
+            }
+        } else if(strcmp(argv[arg_index], "-load_radius") == 0) {
+            if(arg_index + 1 < argc) {
+                arg_index++;
+                int32_t num = atoi(argv[arg_index]);
+                if(num >= 0 && num <= 48) {
+                    game_init_config.load_radius = num;
+                }
+            }
+        }
+        arg_index++;
+    }
+#endif
+
     /* Set working directory to folder above .exe file @TODO */ {
         std::filesystem::path folder = std::filesystem::path(SDL_GetBasePath()).parent_path().parent_path();
         fprintf(stdout, "[info] Setting working directory to: \"%s\"\n", folder.string().c_str());
@@ -66,7 +136,7 @@ int SDL_main(int argc, char *argv[]) {
 
     Input input;
     GameRenderer renderer(window.get_width(), window.get_height());
-    std::unique_ptr<Game> game = std::unique_ptr<Game>(new Game());
+    std::unique_ptr<Game> game = std::unique_ptr<Game>(new Game(game_init_config));
 
     game->get_console().set_command("quit", { CONSOLE_COMMAND_LAMBDA {
             Window::get().set_should_close();

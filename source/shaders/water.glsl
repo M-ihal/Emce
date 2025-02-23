@@ -85,6 +85,10 @@ uniform samplerCube    u_skybox;
 
 uniform float u_time_elapsed;
 uniform int u_load_radius;
+uniform int u_fog_enable;
+
+uniform float u_plane_near;
+uniform float u_plane_far;
 
 in vec2 v_tex_coord;
 in vec3 v_normal;
@@ -120,30 +124,43 @@ void main() {
     color.a += wave_delta * wave_delta * 0.16;
     color.xyz += wave_delta * 0.07;
 
-    float load_radius = float(u_load_radius);
-        float FOG_MIN = (load_radius - 3.5) * 32.0;
-        float FOG_MAX = (load_radius - 1.0) * 32.0;
-    const vec4 FOG_COLOR = vec4(19.0 / 255.0, 68.0 / 255.0, 100.0 / 255.0, 1.0);
-    float distance_to_frag = length(v_position.xz);
+    float dist_to_frag = length(v_position.xz);
 
-    if(distance_to_frag > FOG_MIN) {
-        float perc = (FOG_MAX - distance_to_frag) / (FOG_MAX - FOG_MIN);
-        color = mix(texture(u_skybox, normalize(v_position)), color, clamp(perc, 0.0, 1.0));
+    if(u_fog_enable == 1) {
+        /* Fog */ {
+            float start = 10 * 32.0;
+            float power = 0.60;
+
+            float perc = clamp(dist_to_frag / start - 1.0, 0.0, 1.0) * power;
+
+            // perc = sqrt(perc);
+
+            if(dist_to_frag > start) {
+                color = mix(color, vec4(0.31, 0.45, 0.7, 1.0), perc);
+            }
+        }
+
+        /* Circle */ {
+            float end = float(u_load_radius) * 32.0 - 32.0 - 4.0;
+            float start = end - 32.0;
+            float perc = clamp((dist_to_frag - start) / (end - start), 0.0, 1.0);
+
+            // perc = 1.0 - sqrt(1.0 - pow(perc, 2));
+            perc = perc * perc * perc;
+
+            float diff = clamp(perc, 0.0, 1.0);
+
+            color = mix(color, texture(u_skybox, normalize(v_position)), perc);
+        }
     }
-
-
 
     out_color = color;
 
-    //out_color = vec4(wave_delta, wave_delta, wave_delta, 1.0);
-
     out_normal = vec4(v_normal, 1.0);
 
-    // final_color = vec4(0, 0, 0, 1);
-    
-    // @todo hardcoded
-    float z_near = 0.1;
-	float z_far  = 300.0;
+    // Output linearized depth
+    float z_near = u_plane_near;
+	float z_far  = u_plane_far;
 	float z = gl_FragCoord.z * 2.0 - 1.0;
 	float z_final = ((2.0 * z_near * z_far) / (z_far + z_near - z * (z_far - z_near))) / z_far;
 	out_depth = vec4(vec3(z_final), 1.0);

@@ -55,6 +55,8 @@ private:
     mat4   m_view_m;
     double m_frustum[6][4];
 
+    vec3 m_fog_color;
+
     /* Window state */
     int32_t m_width;
     int32_t m_height;

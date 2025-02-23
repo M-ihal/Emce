@@ -7,10 +7,10 @@
 #include "console.h"
 
 namespace {
-    constexpr double PLAYER_ACCELERATION           = 35.0;
+    constexpr double PLAYER_ACCELERATION           = 100; // 35.0;
     constexpr double PLAYER_DECELERATION           = 18.0;
     constexpr double PLAYER_MAX_SPEED              = 5.0;
-    constexpr double PLAYER_SPRINT_MAX_SPEED       = 212.0;
+    constexpr double PLAYER_SPRINT_MAX_SPEED       = 4000; // 212.0;
     constexpr double PLAYER_JUMP_FORCE             = 8.5;
     constexpr double PLAYER_GRAVITY                =-9.81 * 2.0;
     constexpr double PLAYER_GROUND_COLLIDER_HEIGHT = 0.2;
@@ -178,8 +178,10 @@ void Player::update(Game &game, const Input &input, double delta_time) {
         float vel_xz_len = vec2::length(vel_xz);
 
         if(vel_xz_len > epsilon) {
-            m_velocity.x -= deceleration * vel_xz_norm.x;
-            m_velocity.z -= deceleration * vel_xz_norm.y;
+            if(m_movement_mode != PlayerMovementMode::FLYING) {
+                m_velocity.x -= deceleration * vel_xz_norm.x;
+                m_velocity.z -= deceleration * vel_xz_norm.y;
+            }
         } else {
             m_velocity.x = 0.0f;
             m_velocity.z = 0.0f;
@@ -265,8 +267,8 @@ void Player::update(Game &game, const Input &input, double delta_time) {
         }
     }
 
-    if(block_place || block_destroy) {
-        m_block_action_t = 1.0;
+    if(m_targeted_block.found && (block_place || block_destroy)) {
+        m_block_action_t = BLOCK_ACTION_ANIM_TIME;
     }
 
     m_block_action_t -= delta_time;
@@ -278,16 +280,16 @@ void Player::update(Game &game, const Input &input, double delta_time) {
         world.set_chunk_should_rebuild_mesh(chunk_coords, true);
 
         /* Update neighbouring chunk/s if block was bordering them */
-        if(is_block_on_x_neg_edge(m_targeted_block.block_p.block_rel)) {
+        if(is_block_on_x_neg_edge(block_rel_changed)) {
             world.set_chunk_should_rebuild_mesh(chunk_coords + vec2i{ -1, 0 }, true);
         }
-        if(is_block_on_x_pos_edge(m_targeted_block.block_p.block_rel)) {
+        if(is_block_on_x_pos_edge(block_rel_changed)) {
             world.set_chunk_should_rebuild_mesh(chunk_coords + vec2i{ 1, 0 }, true);
         }
-        if(is_block_on_z_neg_edge(m_targeted_block.block_p.block_rel)) {
+        if(is_block_on_z_neg_edge(block_rel_changed)) {
             world.set_chunk_should_rebuild_mesh(chunk_coords + vec2i{ 0, -1 }, true);
         }
-        if(is_block_on_z_pos_edge(m_targeted_block.block_p.block_rel)) {
+        if(is_block_on_z_pos_edge(block_rel_changed)) {
             world.set_chunk_should_rebuild_mesh(chunk_coords + vec2i{ 0, +1 }, true);
         }
     }
@@ -409,7 +411,40 @@ void Player::move_in_y(World &world, double delta_time) {
     WorldPosition min, max;
     calc_range_to_check_move(m_position, PLAYER_COLLIDER_SIZE, move_delta, min, max);
 
-    if(this->check_if_collides_with_any_block(world, new_position, PLAYER_COLLIDER_SIZE)) {
+    bool collided = false;
+
+    /* Check for collision */ {
+        vec3d col_size = PLAYER_COLLIDER_SIZE;
+        WorldPosition col_min;
+        WorldPosition col_max;
+        calc_overlapping_blocks(new_position, col_size, col_min, col_max);
+
+        bool best_found = false;
+        WorldPosition best;
+
+        for(int32_t block_y = col_min.block.y; block_y <= col_max.block.y; ++block_y) {
+            for(int32_t block_x = col_min.block.x; block_x <= col_max.block.x; ++block_x) {
+                for(int32_t block_z = col_min.block.z; block_z <= col_max.block.z; ++block_z) {
+                    WorldPosition block_p = WorldPosition::from_block({ block_x, block_y, block_z });
+
+                    BlockType block = world.get_block(block_p.block);
+                    if(block == BlockType::_INVALID) {
+                        /* Block is from chunk that doesn't exist */
+                        continue;
+                    }
+
+                    if(check_aabb_3d(new_position, col_size, block_p.real, { 1.0f, 1.0f, 1.0f }) && get_block_type_flags(block) & IS_SOLID) {
+                        collided = true;
+                        best_found = true;
+                        best = block_p;
+                        // goto _move_in_y__break_loops;
+                    }
+                }
+            }
+        }
+    }
+
+    if(collided) {
         m_velocity.y = 0.0f;
     } else {
         m_position = new_position;

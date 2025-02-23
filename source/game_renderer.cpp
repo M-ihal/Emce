@@ -65,8 +65,21 @@ GameRenderer::GameRenderer(int32_t width, int32_t height) {
     }
 
     /* init skybox */ {
+#define SKYBOX_CHOICE 2
+
+#if SKYBOX_CHOICE == 0
         const std::string folder = "skybox_blue";
         const std::string extension = ".jpg";
+        m_fog_color = { 0.3f, 0.5f, 0.8f };
+#elif SKYBOX_CHOICE == 1
+        const std::string folder = "skybox_weird";
+        const std::string extension = ".png";
+        m_fog_color = { 0.7f, 0.6f, 0.3f };
+#elif SKYBOX_CHOICE == 2
+        const std::string folder = "skybox_simple2";
+        const std::string extension = ".png";
+        m_fog_color = { 0.7f, 0.6f, 0.3f };
+#endif
 
         const std::string filepaths[6] = {
             "data//" + folder + "//right" + extension,
@@ -360,9 +373,9 @@ void GameRenderer::render_frame(Game &game) {
     // Render world to multisampled framebuffer
     this->render_world(game);
 
-    this->render_held_block(game);
-
     this->render_target_block(game);
+
+    this->render_held_block(game);
 
     /* Resolve multisampled framebuffer to normal framebuffer */
     m_fbo.clear_all({ 0.1f, 0.1f, 0.1f, 1.0f });
@@ -454,6 +467,10 @@ void GameRenderer::render_world(Game &game) {
     m_chunk_shader.upload_int("u_texture_array", 0);
     m_chunk_shader.upload_int("u_skybox", 1);
     m_chunk_shader.upload_int("u_fog_enable", game.fog_enable == true ? 1 : 0);
+    m_chunk_shader.upload_vec3("u_fog_color", m_fog_color.e);
+    m_chunk_shader.upload_float("u_plane_near", m_camera.get_plane_near());
+    m_chunk_shader.upload_float("u_plane_far", m_camera.get_plane_far());
+
     m_chunk_tex_array.bind_texture_unit(0);
     m_skybox_cubemap.bind_cubemap_unit(1);
 
@@ -552,8 +569,12 @@ void GameRenderer::render_world(Game &game) {
     m_water_shader.upload_mat4("u_view", m_view_m);
     m_water_shader.upload_float("u_time_elapsed", info.elapsed_time);
     m_water_shader.upload_int("u_load_radius", info.load_radius);
+    m_water_shader.upload_int("u_fog_enable", game.fog_enable == true ? 1 : 0);
+    m_water_shader.upload_vec3("u_fog_color", m_fog_color.e);
     m_water_shader.upload_int("u_water_texture_array", 0);
     m_water_shader.upload_int("u_skybox", 1);
+    m_water_shader.upload_float("u_plane_near", m_camera.get_plane_near());
+    m_water_shader.upload_float("u_plane_far", m_camera.get_plane_far());
     m_water_tex_array.bind_texture_unit(0);
     m_skybox_cubemap.bind_cubemap_unit(1);
 
@@ -673,8 +694,17 @@ void GameRenderer::render_held_block(Game &game) {
         return 1 - pow(1.0 - x, 5);
     };
 
-    const double anim_perc = ease_out_quint(1.0 - player.get_hand_anim_time());
+    double perc = player.get_hand_anim_time() / BLOCK_ACTION_ANIM_TIME;
+
+#if 0
+    perc = 1.0 - perc;
+    perc *= 0.8;
+    const double anim_perc = ((cos(perc * M_PI * 1.0) - 1.0) * (sin(perc * M_PI * 2.5))) * 0.3; //M_PI * 0.5 * ease_out_quint(1.0 - perc);
+    rotate_z -= anim_perc;
+#else
+    const double anim_perc = M_PI * 0.5 * ease_out_quint(1.0 - perc);
     rotate_z -= sin(anim_perc * M_PI) * 0.12;
+#endif
 
     const vec3d scale = { 0.16f, 0.16f, 0.16f };
     const vec3d position = vec_fw * 0.4 + vec_rt * 0.155 * m_aspect - vec_up * (0.28 + exp_pos);
@@ -684,6 +714,7 @@ void GameRenderer::render_held_block(Game &game) {
     transform *= mat4::rotate_z(-rotate_z);
     transform *= mat4::rotate_y(rotate_y);
     transform *= mat4::translate(position);
+
 
     set_render_state({
         .blend = BlendFunc::STANDARD,
@@ -707,9 +738,12 @@ void GameRenderer::render_held_block(Game &game) {
     m_chunk_shader.upload_mat4("u_view", m_view_m);
     m_chunk_shader.upload_mat4("u_model", transform);
     m_chunk_shader.upload_int("u_load_radius", -1);
-    m_chunk_shader.upload_int("u_enable_fog", 0);
+    m_chunk_shader.upload_int("u_fog_enable", 0);
+    m_chunk_shader.upload_vec3("u_fog_color", m_fog_color.e);
     m_chunk_shader.upload_int("u_texture_array", 0);
     m_chunk_shader.upload_int("u_skybox", 1);
+    m_chunk_shader.upload_float("u_plane_near", m_camera.get_plane_near());
+    m_chunk_shader.upload_float("u_plane_far", m_camera.get_plane_far());
     m_chunk_tex_array.bind_texture_unit(0);
     m_skybox_cubemap.bind_cubemap_unit(1);
 
@@ -855,7 +889,7 @@ void GameRenderer::render_debug_ui(Game &game) {
         debug_line("gen meshes threads: %d", info.meshes_threads_active);
         debug_line("chunks to generate: %d", world_info.chunks_queued);
         debug_line("meshes to build:    %d", world_info.meshes_queued);
-        debug_line("meshes high prio:   %d", world_info.meshes_queued_high_prio);
+        debug_line(" \\--> high prio:    %d", world_info.meshes_queued_high_prio);
     } debug_line(NULL);
 
     debug_line("--- Target Block ---"); {
