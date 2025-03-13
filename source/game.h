@@ -12,9 +12,9 @@
 #include "texture_array.h"
 #include "game_renderer.h"
 
-#define INIT_GEN_CHUNKS_THREADS 1
-#define INIT_GEN_MESHES_THREADS 1
-#define INIT_LOAD_RADIUS 16
+#define INIT_GEN_CHUNKS_THREADS 0
+#define INIT_GEN_MESHES_THREADS 0
+#define INIT_LOAD_RADIUS 24
 
 #define MAX_GEN_CHUNKS_THREADS 2
 #define MAX_GEN_MESHES_THREADS 16
@@ -80,6 +80,9 @@ public:
 
     /* What mode to render game */
     GameRenderMode render_mode;
+
+    /* Which skybox */
+    GameSkyboxChoice skybox_choice;
 
     bool fog_enable = true;
 

@@ -68,38 +68,6 @@ int SDL_main(int argc, char *argv[]) {
         }
     }
 
-#if 0
-    int32_t arg_index = 1;
-    while(arg_index < argc) {
-        if(strcmp(argv[arg_index], "-t_chunks") == 0) {
-            if(arg_index + 1 < argc) {
-                arg_index++;
-                int32_t num = atoi(argv[arg_index]);
-                if(num >= 0 && num <= MAX_GEN_CHUNKS_THREADS) {
-                    game_init_config.init_chunks_threads = num;
-                }
-            }
-        } else if(strcmp(argv[arg_index], "-t_meshes") == 0) {
-            if(arg_index + 1 < argc) {
-                arg_index++;
-                int32_t num = atoi(argv[arg_index]);
-                if(num >= 0 && num <= MAX_GEN_MESHES_THREADS) {
-                    game_init_config.init_meshes_threads = num;
-                }
-            }
-        } else if(strcmp(argv[arg_index], "-load_radius") == 0) {
-            if(arg_index + 1 < argc) {
-                arg_index++;
-                int32_t num = atoi(argv[arg_index]);
-                if(num >= 0 && num <= 48) {
-                    game_init_config.load_radius = num;
-                }
-            }
-        }
-        arg_index++;
-    }
-#endif
-
     /* Set working directory to folder above .exe file @TODO */ {
         std::filesystem::path folder = std::filesystem::path(SDL_GetBasePath()).parent_path().parent_path();
         fprintf(stdout, "[info] Setting working directory to: \"%s\"\n", folder.string().c_str());

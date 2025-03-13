@@ -19,6 +19,12 @@ enum class GameRenderMode {
     DEBUG_AO      = 3
 };
 
+enum class GameSkyboxChoice { 
+    CLEAN,
+    CLOUDY,
+    WEIRD
+};
+
 class GameRenderer {
 public:
     CLASS_COPY_DISABLE(GameRenderer);
@@ -48,6 +54,8 @@ private:
     void render_cube_outline(const vec3d &position, const vec3d &size, float width, const vec3 &color, float border_perc = 0.0f, const vec3 &border_color = { });
     void render_cube_line_outline(const vec3d &position, const vec3d &size, const vec3 &color);
     void render_line(const vec3d &point_a, const vec3d &point_b, float width, const vec3 &color);
+
+    Cubemap &get_skybox_cubemap(GameSkyboxChoice choice);
 
     /* Render frame state */
     Camera m_camera;
@@ -85,7 +93,9 @@ private:
     /* Skybox */
     VertexArray m_skybox_vao;
     ShaderFile  m_skybox_shader;
-    Cubemap     m_skybox_cubemap;
+    Cubemap     m_skybox_clean;
+    Cubemap     m_skybox_cloudy;
+    Cubemap     m_skybox_weird;
 
     /* Resolving framebuffer */
     ShaderFile  m_post_process_shader;

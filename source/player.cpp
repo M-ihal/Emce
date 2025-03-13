@@ -24,6 +24,9 @@ void Player::setup_player(World &world, vec2i spawn_chunk) {
     m_is_sprinting = false;
     m_held_block   = BlockType::TREE_OAK_LOG;
     m_head_camera.initialize();
+    m_head_camera.set_fov(DEG_TO_RAD(DEFAULT_FOV));
+    m_head_camera_fov_default = DEG_TO_RAD(DEFAULT_FOV);
+    m_head_camera_fov_target = m_head_camera_fov_default;
     m_movement_mode = PlayerMovementMode::NORMAL;
     m_moved_chunk_last_frame = true;
 
@@ -105,6 +108,19 @@ void Player::update(Game &game, const Input &input, double delta_time) {
 
     bool block_destroy = false;
     bool block_place   = false;
+
+    if(input.key_is_down(Key::TAB)) {
+        m_head_camera_fov_target = DEG_TO_RAD(DEFAULT_FOV_ZOOM);
+    } else {
+        m_head_camera_fov_target = m_head_camera_fov_default;
+    }
+
+    const double fov_now = m_head_camera.get_fov();
+    if(ABS(fov_now - m_head_camera_fov_target) < 0.001) {
+        m_head_camera.set_fov(m_head_camera_fov_target);
+    } else {
+        m_head_camera.set_fov(lerp(fov_now, m_head_camera_fov_target, delta_time * 10.0));
+    }
 
     if(can_get_input) {
         rotate_v = -input.mouse_rel_y();
@@ -491,7 +507,8 @@ vec2i Player::get_position_chunk(void) {
 }
 
 void Player::set_head_camera_fov(float fov) {
-    m_head_camera.set_fov(fov);
+    m_head_camera_fov_default = fov;
+    // m_head_camera.set_fov(fov);
 }
 
 Camera Player::get_head_camera(void) {

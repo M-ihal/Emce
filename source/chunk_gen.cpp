@@ -20,7 +20,7 @@ void chunk_gen_data_init(ChunkGenData &gen, vec2i chunk_xz, WorldGenSeed seed) {
 static inline bool should_plant_flower(ChunkGenData &gen, int32_t rel_x, int32_t rel_z, BlockType &to_plant) {
     const uint32_t seed = gen.chunk_xz.x * 32 + gen.chunk_xz.y * 17 + rel_x * 7 + rel_z * 13 + gen.seed.seed;
     srand(seed);
-    if((rand() % 35) == 0) {
+    if((rand() % 15) == 0) {
         int32_t plant_choice = rand() % 100;
         if(plant_choice <= 60) {
             to_plant = BlockType::GRASS;
@@ -45,7 +45,7 @@ static inline bool should_plant_tree(ChunkGenData &gen, int32_t rel_x, int32_t r
         } break;
 
         case BIOME_PLAINS: {
-            tree_chance = 700;
+            tree_chance = 550;
         } break;
     }
 
@@ -93,6 +93,25 @@ static void try_insert_blocks(ChunkGenData &gen, const vec3i block_origin, Block
     }
 }
 
+static bool should_place_stone_if_mountain(ChunkGenData &gen, int32_t rel_x, int32_t rel_y, int32_t rel_z) {
+    if(rel_y < 140) {
+        return false;
+    }
+
+    const uint32_t seed = gen.chunk_xz.x * 113 + gen.chunk_xz.y * 77 + rel_x * 9 + rel_z * 3 + gen.seed.seed;
+    srand(seed);
+
+    if(rel_y < (170 + rand() % 4)) {
+        return (rand() % 44) == 0;
+    } else if(rel_y < (200 + rand() % 3)) {
+        return (rand() % 3) == 0;
+    } else if(rel_y < (210 + rand() % 3)) {
+        return (rand() % 5) != 0;
+    } else {
+        return true;
+    }
+}
+
 /* @TODO : Change rand() ... */
 void chunk_gen(ChunkGenData &gen) {
     /* Clear chunk to 0 (AIR) */
@@ -123,7 +142,11 @@ void chunk_gen(ChunkGenData &gen) {
                         case BIOME_PLAINS:
                         case BIOME_FOREST: {
                             if(y == height_map[x][z] - 1) {
-                                set_block(gen, vec3i{ x, y, z }, BlockType::DIRT_WITH_GRASS);
+                                if(should_place_stone_if_mountain(gen, x, y, z)) {
+                                    set_block(gen, vec3i{ x, y, z }, BlockType::STONE);
+                                } else {
+                                    set_block(gen, vec3i{ x, y, z }, BlockType::DIRT_WITH_GRASS);
+                                }
                             } else {
                                 set_block(gen, vec3i{ x, y, z }, BlockType::DIRT);
                             }
@@ -202,7 +225,7 @@ void chunk_gen(ChunkGenData &gen) {
 void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]) {
     siv::PerlinNoise perlin(gen.seed.seed);
 
-    const int32_t octaves = 6;
+    const int32_t octaves = 7;
     const double freq_x = 0.00315;
     const double freq_z = 0.00315;
 
@@ -218,13 +241,24 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
                 int32_t height_left; 
                 int32_t height_right; 
             } segments[] = {
+#if 1
                 { 0.00, 0.35, 40, 58 },
                 { 0.35, 0.40, 58, 67 },
                 { 0.40, 0.55, 67, 90 },
-                { 0.55, 0.75, 90, 120 },
-                { 0.75, 0.85, 120, 142 },
-                { 0.85, 0.90, 142, 160 },
-                { 0.90, 1.00, 160, 220 },
+                { 0.55, 0.70, 90, 120 },
+                { 0.70, 0.82, 120, 142 },
+                { 0.82, 0.88, 142, 170 },
+                { 0.88, 1.00, 170, 220 },
+#else
+                { 0.00, 0.35, 40, 58 },
+                { 0.35, 0.40, 58, 67 },
+                { 0.40, 0.63, 67, 84 },
+                { 0.63, 0.75, 84, 110 },
+                { 0.75, 0.83, 110, 142 },
+                { 0.83, 0.88, 142, 160 },
+                { 0.88, 0.95, 160, 200 },
+                { 0.95, 1.00, 200, 210 },
+#endif
             };
 
             int32_t height = 0;
@@ -244,7 +278,7 @@ void chunk_gen_height_map(ChunkGenData &gen, int32_t height_map[CHUNK_SIZE_X][CH
 void chunk_gen_biome_map(ChunkGenData &gen, int32_t biome_map[CHUNK_SIZE_X][CHUNK_SIZE_Z]) {
     siv::PerlinNoise perlin(gen.seed.seed + 2);
 
-    const int32_t octaves = 7;
+    const int32_t octaves = 6;
     const double freq_x = 0.00315;
     const double freq_z = 0.00315;
 

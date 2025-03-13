@@ -287,6 +287,10 @@ vec3 operator * (const float l, const vec3 &r) {
     return r * l;
 }
 
+vec3 operator / (const vec3 &l, const vec3 r) {
+    return vec3{ l.x / r.x, l.y / r.y, l.z / r.z };
+}
+
 vec3 operator / (const vec3 &l, const float r) {
     return vec3{ l.x / r, l.y / r, l.z / r };
 }

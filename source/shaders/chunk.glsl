@@ -94,7 +94,7 @@ void main() {
     const vec3 sun_dir = normalize(vec3(+0.5, -0.75, -0.12));
     vec3 normal = normalize(v_normal);
     vec3 dir_to_sun = -sun_dir; 
-    float diff = max(dot(normal, dir_to_sun), 0.5);
+    float diff = max(dot(normal, dir_to_sun), 0.56);
     vec3 diffuse = sun_diffuse * diff * ambient_occlusion;
 
     // vertex sh
@@ -111,11 +111,13 @@ void main() {
     if(u_fog_enable == 1) {
         /* Fog */ {
             float start = 10 * 32.0;
-            float power = 0.60;
+            float power = 0.75;
 
             float perc = clamp(dist_to_frag / start - 1.0, 0.0, 1.0) * power;
 
-            // perc = sqrt(perc);
+            perc = perc * perc;
+
+            perc = clamp(perc, 0.0, 1.0);
 
             if(dist_to_frag > start) {
                 color.xyz = mix(color.xyz, u_fog_color, perc);

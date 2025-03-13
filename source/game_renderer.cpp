@@ -24,9 +24,11 @@ GameRenderer::GameRenderer(int32_t width, int32_t height) {
     m_height = height;
     m_aspect = (double)width / (double)height;
 
+    m_fog_color = vec3{ 0.4f, 0.5f, 0.8f };
+
     /* Initialize framebuffers */ {
         FboConfig fbo_ms_config;
-        fbo_ms_config.ms_samples = 16; // Window::get().get_samples();
+        fbo_ms_config.ms_samples = 16;
         fbo_config_push_color(fbo_ms_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_push_color(fbo_ms_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
         fbo_config_push_color(fbo_ms_config, { .target = FboAttachmentTarget::TEXTURE_MULTISAMPLE, .format = TextureDataFormat::RGBA });
@@ -65,34 +67,38 @@ GameRenderer::GameRenderer(int32_t width, int32_t height) {
     }
 
     /* init skybox */ {
-#define SKYBOX_CHOICE 2
+        m_skybox_clean.load_from_file({
+            "data//skybox_clean//right.png",
+            "data//skybox_clean//left.png",
+            "data//skybox_clean//up.png",
+            "data//skybox_clean//down.png",
+            "data//skybox_clean//front.png",
+            "data//skybox_clean//back.png",
+        });
+        m_skybox_clean.set_filter_min(TextureFilter::LINEAR);
+        m_skybox_clean.set_filter_mag(TextureFilter::LINEAR);
 
-#if SKYBOX_CHOICE == 0
-        const std::string folder = "skybox_blue";
-        const std::string extension = ".jpg";
-        m_fog_color = { 0.3f, 0.5f, 0.8f };
-#elif SKYBOX_CHOICE == 1
-        const std::string folder = "skybox_weird";
-        const std::string extension = ".png";
-        m_fog_color = { 0.7f, 0.6f, 0.3f };
-#elif SKYBOX_CHOICE == 2
-        const std::string folder = "skybox_simple2";
-        const std::string extension = ".png";
-        m_fog_color = { 0.7f, 0.6f, 0.3f };
-#endif
+        m_skybox_cloudy.load_from_file({
+            "data//skybox_cloudy//right.bmp",
+            "data//skybox_cloudy//left.bmp",
+            "data//skybox_cloudy//up.bmp",
+            "data//skybox_cloudy//down.bmp",
+            "data//skybox_cloudy//front.bmp",
+            "data//skybox_cloudy//back.bmp",
+        });
+        m_skybox_cloudy.set_filter_min(TextureFilter::LINEAR);
+        m_skybox_cloudy.set_filter_mag(TextureFilter::LINEAR);
 
-        const std::string filepaths[6] = {
-            "data//" + folder + "//right" + extension,
-            "data//" + folder + "//left" + extension,
-            "data//" + folder + "//up" + extension,
-            "data//" + folder + "//down" + extension,
-            "data//" + folder + "//front" + extension,
-            "data//" + folder + "//back" + extension,
-        };
-
-        m_skybox_cubemap.load_from_file(filepaths);
-        m_skybox_cubemap.set_filter_min(TextureFilter::LINEAR);
-        m_skybox_cubemap.set_filter_mag(TextureFilter::LINEAR);
+        m_skybox_weird.load_from_file({
+            "data//skybox_weird//right.jpg",
+            "data//skybox_weird//left.jpg",
+            "data//skybox_weird//up.jpg",
+            "data//skybox_weird//down.jpg",
+            "data//skybox_weird//front.jpg",
+            "data//skybox_weird//back.jpg",
+        });
+        m_skybox_weird.set_filter_min(TextureFilter::LINEAR);
+        m_skybox_weird.set_filter_mag(TextureFilter::LINEAR);
 
         m_skybox_shader.set_filepath_and_load("source//shaders//skybox.glsl");
 
@@ -329,7 +335,9 @@ GameRenderer::~GameRenderer(void) {
 
     m_skybox_vao.delete_vao();
     m_skybox_shader.delete_shader_file();
-    m_skybox_cubemap.delete_cubemap();
+    m_skybox_clean.delete_cubemap();
+    m_skybox_cloudy.delete_cubemap();
+    m_skybox_weird.delete_cubemap();
 
     m_post_process_shader.delete_shader_file();
     m_post_process_vao.delete_vao();
@@ -419,7 +427,6 @@ void GameRenderer::render_frame(Game &game) {
             bind_no_fbo();
             m_post_process_vao.bind_vao();
             draw_elements_triangles(m_post_process_vao.get_ibo_count());
-
         } break;
 
         case GameRenderMode::DEBUG_NORMALS: {
@@ -472,7 +479,7 @@ void GameRenderer::render_world(Game &game) {
     m_chunk_shader.upload_float("u_plane_far", m_camera.get_plane_far());
 
     m_chunk_tex_array.bind_texture_unit(0);
-    m_skybox_cubemap.bind_cubemap_unit(1);
+    this->get_skybox_cubemap(game.skybox_choice).bind_cubemap_unit(1);
 
     set_render_state({
         .blend = BlendFunc::DISABLE,
@@ -576,7 +583,7 @@ void GameRenderer::render_world(Game &game) {
     m_water_shader.upload_float("u_plane_near", m_camera.get_plane_near());
     m_water_shader.upload_float("u_plane_far", m_camera.get_plane_far());
     m_water_tex_array.bind_texture_unit(0);
-    m_skybox_cubemap.bind_cubemap_unit(1);
+    this->get_skybox_cubemap(game.skybox_choice).bind_cubemap_unit(1);
 
     /* Render water */
     for(auto &chunk : water_chunks) {
@@ -669,7 +676,7 @@ void GameRenderer::render_skybox(Game &game) {
     m_skybox_shader.upload_mat4("u_proj", m_proj_m);
     m_skybox_shader.upload_mat4("u_view", m_view_m);
     m_skybox_vao.bind_vao();
-    m_skybox_cubemap.bind_cubemap();
+    this->get_skybox_cubemap(game.skybox_choice).bind_cubemap();
     draw_elements_triangles(m_skybox_vao.get_ibo_count());
 }
 
@@ -745,7 +752,7 @@ void GameRenderer::render_held_block(Game &game) {
     m_chunk_shader.upload_float("u_plane_near", m_camera.get_plane_near());
     m_chunk_shader.upload_float("u_plane_far", m_camera.get_plane_far());
     m_chunk_tex_array.bind_texture_unit(0);
-    m_skybox_cubemap.bind_cubemap_unit(1);
+    this->get_skybox_cubemap(game.skybox_choice).bind_cubemap_unit(1);
 
     m_block_vao.bind_vao();
     draw_elements_triangles(m_block_vao.get_ibo_count());
@@ -967,6 +974,15 @@ void GameRenderer::render_line(const vec3d &point_a, const vec3d &point_b, float
     set_line_width(width);
 
     draw_elements_lines(m_line_vao.get_ibo_count());
+}
+
+Cubemap &GameRenderer::get_skybox_cubemap(GameSkyboxChoice choice) {
+    switch(choice) {
+        default: INVALID_CODE_PATH; return m_skybox_clean;
+        case GameSkyboxChoice::CLEAN: return m_skybox_clean;
+        case GameSkyboxChoice::CLOUDY: return m_skybox_cloudy;
+        case GameSkyboxChoice::WEIRD: return m_skybox_weird;
+    }
 }
 
 static int32_t calc_fps(double delta_time) {

@@ -44,6 +44,7 @@ Game::Game(GameInitConfig init_config) : m_world(this) {
     m_3rd_person_mode     = false;
     m_3rd_person_distance = 10.0f;
     render_mode = GameRenderMode::NORMAL;
+    skybox_choice = GameSkyboxChoice::CLEAN;
 
     /* Initialize threading resources */
     m_gen_chunks_condition = SDL_CreateCondition();
@@ -51,7 +52,6 @@ Game::Game(GameInitConfig init_config) : m_world(this) {
     this->start_threads(init_config.init_chunks_threads, init_config.init_meshes_threads);
 
     /* Initialize world state */
-    m_world.initialize_new_world(5554);
     m_world.initialize_new_world(777665);
 
     add_console_commands(m_console);
@@ -211,7 +211,7 @@ void Game::update_loaded_chunks(void) {
         m_world.queue_build_mesh(chunk_to_mesh->get_chunk_coords());       
     }
 
-    /* Push for meshing chunks outside frustum if slots available */
+    /* Push for meshing chunks outside frustum if slots available, @TODO: shouldn't iterate hash table... */
     ChunkHashTable::Iterator other_iter;
     while(m_world.can_queue_mesh() && m_world.iterate_chunks(other_iter)) {
         Chunk *chunk = other_iter.value;
@@ -221,6 +221,7 @@ void Game::update_loaded_chunks(void) {
         }
     }
 
+    // Generate stuff on main thread if no other threads created
     if(gen_on_main_thread) {
         if(m_gen_chunks_thread_num == 0 || !m_threads_started) {
             const int32_t CHUNKS_PER_FRAME = 4;
@@ -237,7 +238,6 @@ void Game::update_loaded_chunks(void) {
         }
     }
 
-    /* Delete chunks @TODO : make proc that deletes chunk @TEMP, @NOTE there was a bug where the chunks were deleted before queueing mesh builds... */
     for(Chunk *chunk : chunks_to_delete) {
         vec2i chunk_coords = chunk->get_chunk_coords();
         m_world.delete_chunk(chunk_coords);
@@ -591,6 +591,21 @@ CONSOLE_COMMAND_PROC(command_isolate) {
     game.start_threads();
 }
 
+CONSOLE_COMMAND_PROC(command_set_skybox) {
+    if(args.size() < 1) {
+        console.add_to_history("Skybox not specified (clean, cloudy, weird)");
+        return;
+    }
+
+    if(s_viu_compare(args[0], "clean")) {
+        game.skybox_choice = GameSkyboxChoice::CLEAN;
+    } else if(s_viu_compare(args[0], "cloudy")) {
+        game.skybox_choice = GameSkyboxChoice::CLOUDY;
+    } else if(s_viu_compare(args[0], "weird")) {
+        game.skybox_choice = GameSkyboxChoice::WEIRD;
+    }
+}
+
 static void add_console_commands(Console &console) {
     console.set_command("threads",         command_threads);
     console.set_command("generate",        command_generate);
@@ -603,5 +618,6 @@ static void add_console_commands(Console &console) {
     console.set_command("fly",             command_fly);
     console.set_command("one_chunk",       command_one_chunk);
     console.set_command("isolate",         command_isolate);
+    console.set_command("skybox",          command_set_skybox);
 }
 

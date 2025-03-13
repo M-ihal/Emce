@@ -9,3 +9,8 @@ external/SDL2
 external/stb
 external/SDL
 external/PerlinNoise
+build_debug/
+build_reelase/
+external/SDL
+external/meh_hash
+external/

@@ -86,6 +86,7 @@ uniform samplerCube    u_skybox;
 uniform float u_time_elapsed;
 uniform int u_load_radius;
 uniform int u_fog_enable;
+uniform vec3 u_fog_color;
 
 uniform float u_plane_near;
 uniform float u_plane_far;
@@ -129,14 +130,16 @@ void main() {
     if(u_fog_enable == 1) {
         /* Fog */ {
             float start = 10 * 32.0;
-            float power = 0.60;
+            float power = 0.75;
 
             float perc = clamp(dist_to_frag / start - 1.0, 0.0, 1.0) * power;
 
-            // perc = sqrt(perc);
+            perc = perc * perc;
+
+            perc = clamp(perc, 0.0, 1.0);
 
             if(dist_to_frag > start) {
-                color = mix(color, vec4(0.31, 0.45, 0.7, 1.0), perc);
+                color.xyz = mix(color.xyz, u_fog_color, perc);
             }
         }
 

@@ -15,7 +15,7 @@
 std::unique_ptr<Window> Window::_window = NULL;
 
 Window::Window(void) {
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4); // 3
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5); // 3

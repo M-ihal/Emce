@@ -31,8 +31,9 @@ enum InputFlags : uint32_t {
     DEFINE_KEY(LEFT_CTRL, SDLK_LCTRL)\
     DEFINE_KEY(PAGE_UP, SDLK_PAGEUP)\
     DEFINE_KEY(PAGE_DOWN, SDLK_PAGEDOWN)\
+    DEFINE_KEY(TAB, SDLK_TAB)\
     DEFINE_KEY(F03, SDLK_F3)\
-    DEFINE_KEY(F05, SDLK_F5)
+    DEFINE_KEY(F05, SDLK_F5)\
 
 /* Enum class of the defined keys */
 #define DEFINE_KEY(name, sdlk) name,

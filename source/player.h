@@ -6,6 +6,8 @@
 #include "world_utils.h"
 
 #define BLOCK_ACTION_ANIM_TIME 0.7
+#define DEFAULT_FOV      75.0
+#define DEFAULT_FOV_ZOOM 15.0
 
 class Input;
 class Game;
@@ -100,7 +102,10 @@ private:
     vec3d  m_velocity;
     vec3d  m_position;
     bool   m_is_sprinting;
+
     Camera m_head_camera;
+    double m_head_camera_fov_default;
+    double m_head_camera_fov_target;
 
     BlockType m_held_block;
     double m_block_action_t;
